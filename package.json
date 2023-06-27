@@ -1,0 +1,25 @@
+{
+  "name": "vamvam_panel",
+  "version": "1.0.0",
+  "description": "vamvam api server",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "test": "node ./node_modules/mocha/bin/mocha"
+  },
+  "keywords": [
+    "api",
+    "server",
+    "tdd"
+  ],
+  "author": "ndimah & tchuigansoft",
+  "license": "ISC",
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0",
+    "supertest": "^6.3.3"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
