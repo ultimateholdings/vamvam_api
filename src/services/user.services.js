@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { User } = require("../models/index");
 
-async function deleteAvatarPath(modelName, id, ) {
+async function deleteAvatarPath(modelName, id) {
   const user = await modelName.findByPk(id);
   if (!user) {
     return false;
@@ -11,7 +11,6 @@ async function deleteAvatarPath(modelName, id, ) {
   fs.unlinkSync(avatarPath);
   return true;
 }
-
 createUser = async (body) => {
   try {
     const user = await User.create({
@@ -23,7 +22,6 @@ createUser = async (body) => {
     return error;
   }
 };
-
 findUserByPk = async (userId) => {
   try {
     const user = await User.findByPk(userId);
@@ -33,7 +31,6 @@ findUserByPk = async (userId) => {
     return error;
   }
 };
-
 updateUserProfile = async (userId, body) => {
   try {
     const result = await User.update(
@@ -65,7 +62,6 @@ updateUserProfile = async (userId, body) => {
     return error;
   }
 };
-
 updateAvatar = async (userId, avatar) => {
   try {
     const result = await User.update(
@@ -114,7 +110,6 @@ updatePhoneNumber = async (userId, phone) => {
     return error;
   }
 };
-
 deleteAvatar = async (userId) => {
   try {
     deleteAvatarPath(User, userId);
@@ -140,7 +135,6 @@ deleteAvatar = async (userId) => {
     return error;
   }
 };
-
 deleteUser = async (userId) => {
   try {
     deleteAvatarPath(User, userId);
