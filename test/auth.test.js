@@ -4,28 +4,34 @@ node
 require("dotenv").config();
 const {afterEach, beforeEach, describe, it} = require("mocha");
 const supertest = require("supertest");
+const {assert} = require("chai");
 const {User, connection} = require("../src/models");
 const {buildServer} = require("../src");
 const authModule = require("../src/modules/auth");
+const userModule = require("../src/modules/user")
 const buildAuthRoutes = require("../src/routes/auth.route");
+const buildUserRoutes = require("../src/routes/user.route")
 const buildRouter = require("../src/routes");
-const {assert} = require("chai");
+const {comparePassword} = require("../src/utils/helpers")
+const phone = "+0038399873882423";
+const defaultAvatar = "/path/to/avatar.jpg";
+
 
 describe("authentication tests", function () {
-    const phone = "+0038399873882423";
     let otpHandler;
     let server;
     let app;
 
     beforeEach(async function () {
-        const authRoutes = buildAuthRoutes(authModule({otpHandler}));
-        server = buildServer(buildRouter({authRoutes}));
-        app = supertest.agent(server);
+        let authRoutes;
         otpHandler = {
             sendCode: () => Promise.resolve(true),
             verifyCode: () => Promise.resolve(true)
         };
-        await connection.sync({drop: true});
+        authRoutes = buildAuthRoutes(authModule({otpHandler}));
+        server = buildServer(buildRouter({authRoutes}));
+        app = supertest.agent(server);
+        await connection.sync({force: true});
     });
 
     afterEach(async function () {
@@ -64,7 +70,7 @@ describe("authentication tests", function () {
     it(
         "send Token when authentication with password is correct",
         async function () {
-            const password = "23209jfklsd";
+            const password = "23209J@fklsd";
             let response;
             response = await app.post("/auth/login").send({
                 password,
@@ -86,4 +92,51 @@ describe("authentication tests", function () {
         }
     );
 
+});
+
+describe("user interactions tests", function () {
+    let server;
+    let app;
+    let otpHandler;
+    beforeEach(async function () {
+        const userRoutes = buildUserRoutes(userModule({}));
+        let authRoutes;
+        otpHandler = {
+            sendCode: () => Promise.resolve(true),
+            verifyCode: () => Promise.resolve(true)
+        };
+        authRoutes = buildAuthRoutes(authModule({otpHandler}))
+        server = buildServer(buildRouter({userRoutes, authRoutes}));
+        app = supertest.agent(server);
+        await connection.sync({force: true});
+    });
+
+    afterEach(async function () {
+        await connection.drop();
+        server.close();
+    });
+
+    it("should delete a user avatar", async function () {
+        let response;
+        let token;
+        await User.create({
+            phone,
+            avatar: defaultAvatar
+        });
+        response = await User.findOne({where: {phone}});
+        assert.equal(response.avatar, defaultAvatar);
+        response = await app.post("/auth/verify-otp").send({
+            code: "1234",
+            phoneNumber: phone
+        });
+        token = response.body.token;
+        response = await app.post("/user/delete-avatar");
+        assert.equal(response.status, 401);
+        response = await app.post("/user/delete-avatar").set(
+            "authorization", "Bearer " + token
+        );
+        assert.equal(response.status, 200);
+        response = await User.findOne({where: {phone}});
+        assert.isNull(response.avatar);
+    });
 });
