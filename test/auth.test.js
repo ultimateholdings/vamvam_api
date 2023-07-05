@@ -118,15 +118,25 @@ describe("user interactions tests", function () {
 
     it("should delete a user avatar", async function () {
         let response;
-        let {token} = await app.post("/auth/verify-code").send({
+        let token;
+        await User.create({
+            phone,
+            avatar: defaultAvatar
+        });
+        response = await User.findOne({where: {phone}});
+        assert.equal(response.avatar, defaultAvatar);
+        response = await app.post("/auth/verify-otp").send({
             code: "1234",
             phoneNumber: phone
         });
+        token = response.body.token;
         response = await app.post("/user/delete-avatar");
-        assert.equal(response.status, 400);
+        assert.equal(response.status, 401);
         response = await app.post("/user/delete-avatar").set(
             "authorization", "Bearer " + token
         );
         assert.equal(response.status, 200);
+        response = await User.findOne({where: {phone}});
+        assert.isNull(response.avatar);
     });
 });

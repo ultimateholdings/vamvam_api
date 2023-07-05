@@ -7,7 +7,7 @@ function getUserModule ({
     const userModel = model || User;
 
     async function deleteAvatar (req, res) {
-        let {user: {id, phone}} = req.body;
+        let {token: {id, phone}} = req.user;
         const [updated] = await userModel.update({avatar: null}, {
             where: {
                 phone,

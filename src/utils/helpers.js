@@ -1,7 +1,6 @@
 /*jslint
 node
 */
-
 "use strict";
 
 const bcrypt = require("bcrypt");
@@ -53,7 +52,7 @@ function propertiesPicker(object) {
                 let [key, value] = entry;
                 if (
                     props.includes(key) &&
-                    (value !== null || value !== undefined)
+                    (value !== null && value !== undefined)
                 ) {
                     acc[key] = value;
                 }
@@ -78,7 +77,7 @@ function getOTPService() {
 
 function otpManager(otpService = getOTPService()) {
     return {
-        sendCode: async function (phoneNumber) {
+        sendCode: function (phoneNumber) {
             return otpService.sendOTP(phoneNumber);
         },
         verifyCode: async function (phoneNumber, code) {
@@ -92,7 +91,7 @@ module.exports = Object.freeze({
     comparePassword(givenPassword, hash) {
         return new Promise(function executor(resolve, reject) {
             bcrypt.compare(givenPassword, hash, function (err, result) {
-                if (err !== null || err !== undefined) {
+                if (err !== null && err !== undefined) {
                     reject(err);
                 }
                 resolve(result === true);
@@ -102,7 +101,7 @@ module.exports = Object.freeze({
     hashPassword(password) {
         return new Promise(function executor(resolve, reject) {
             bcrypt.hash(password, 10, function (err, result) {
-                if (err !== null || err !== undefined) {
+                if (err !== null && err !== undefined) {
                     reject(err);
                 }
                 resolve(result);

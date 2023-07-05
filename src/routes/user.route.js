@@ -15,12 +15,13 @@
 */
 const express = require("express");
 const getUserModule = require("../modules/user");
+const {protectRoute} = require("../utils/middlewares");
 
 function getUserRouter(userModule) {
     const routerModule = userModule || getUserModule({});
     const router = express.Router();
 
-    router.post("/delete-avatar", routerModule.deleteAvatar);
+    router.post("/delete-avatar", protectRoute, routerModule.deleteAvatar);
     return router;
 }
 

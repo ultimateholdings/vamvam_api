@@ -16,8 +16,8 @@ function getAuthModule({
     tokenService
 }) {
     const authModel = model || User;
-    const authOtpHandler = otpHandler || otpManager;
-    const authTokenService = tokenService || jwtWrapper;
+    const authOtpHandler = otpHandler || otpManager();
+    const authTokenService = tokenService || jwtWrapper();
 
     function sendSuccessResponse(res, user, userExists) {
         const token = authTokenService.sign({
@@ -67,7 +67,7 @@ function getAuthModule({
                     where: {phone}
                 });
                 if (currentUser === null) {
-                    currentUser = authModel.create({phone});
+                    currentUser = await authModel.create({phone});
                     userExists = false;
                 }
                 sendSuccessResponse(res, currentUser, userExists);
