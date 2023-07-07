@@ -12,15 +12,16 @@ async function protectRoute(req, res, next) {
 
     if (token == null) {
         sendAuthFaillure(res);
+    } else {
+        try {
+            payload = await jwtHandler.verify(token);
+            req.user = payload;
+            next();
+        } catch (error) {
+            sendAuthFaillure(res);
+        }
     }
     
-    try {
-        payload = await jwtHandler.verify(token);
-        req.user = payload;
-        next();
-    } catch (error) {
-        sendAuthFaillure(res);
-    }
 }
 
 module.exports = Object.freeze({

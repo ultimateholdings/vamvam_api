@@ -7,6 +7,10 @@ const {hashPassword} = require("../utils/helpers");
 
 function defineUserModel(connection) {
     const user = connection.define("user", {
+        age: {
+          type: DataTypes.ENUM,
+          values: ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"]
+        },
         avatar: DataTypes.STRING,
         carInfos: DataTypes.STRING,
         deviceToken: DataTypes.STRING,
@@ -45,6 +49,11 @@ function defineUserModel(connection) {
             defaultValue: "client",
             type: DataTypes.ENUM,
             values: ["client", "driver", "admin"]
+        },
+        genre: {
+            defaultValue: "M",
+            type: DataTypes.ENUM,
+            values: ["F", "M"]
         },
         userId: {
             defaultValue: DataTypes.UUIDV4,

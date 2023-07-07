@@ -39,6 +39,13 @@ function getUserRouter(userModule) {
     const routerModule = userModule || getUserModule({});
     const router = new express.Router();
 
+    router.get(
+        "/infos",
+        protectRoute,
+        errorHandler(routerModule.getInformations)
+    );
+
+
     router.post(
         "/delete-avatar",
         protectRoute,

@@ -9,12 +9,14 @@ function getUserModule({
     model
 }) {
     const userModel = model || User;
-    const getGenericProps = [
+    const genericProps = [
+        "age",
         "avatar",
         "carInfos",
         "deviceToken",
         "firstName",
         "lastName",
+        "genre",
         "email",
         "password"
     ];
@@ -31,12 +33,25 @@ function getUserModule({
         res.status(200).json({updated});
     }
 
+    async function getInformations(req, res) {
+        const {id, phone} = req.user.token;
+        let response;
+        let result = await User.findOne({where: {phone, userId: id}});
+        response = genericProps.reduce(function (accumulator, prop) {
+            accumulator[prop] = result[prop];
+            return accumulator;
+        }, Object.create(null));
+        response.role = result.role;
+        response.phoneNumber = phone;
+        res.status(200).json(response);
+    }
+
     async function updateProfile(req, res) {
-        let {id, phone} = req.user.token;
+        let {token: {id, phone}} = req.user;
         let {
             avatar = [],
             carInfos = []
-        } = req.files;
+        } = req.files || {};
         let updated;
         let propertiesUpdated;
         const pickedProperties = propertiesPicker(req.body);
@@ -47,7 +62,7 @@ function getUserModule({
         if (carInfos.length > 0) {
             req.body.carInfos = carInfos[0].path;
         }
-        propertiesUpdated = pickedProperties(getGenericProps);
+        propertiesUpdated = pickedProperties(genericProps);
 
         if (propertiesUpdated !== undefined) {
             [updated] = await userModel.update(
@@ -70,6 +85,7 @@ function getUserModule({
 
     return Object.freeze({
         deleteAvatar,
+        getInformations,
         updateProfile
     });
 }

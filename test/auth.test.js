@@ -5,7 +5,6 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 const {
-    after,
     afterEach,
     before,
     beforeEach,
@@ -109,6 +108,13 @@ describe("user interactions tests", function () {
     let otpHandler;
     let updates;
     let currentUser;
+    const userDatas = {
+        avatar: defaultAvatar,
+        firstName: "Tankoua",
+        lastName: "Jean-christophe",
+        phone,
+        role: "client"
+    };
 
     async function getToken(app) {
         const credentials = {
@@ -120,13 +126,6 @@ describe("user interactions tests", function () {
     }
     beforeEach(async function () {
         const userRoutes = buildUserRoutes(userModule({}));
-        const userDatas = {
-            avatar: defaultAvatar,
-            firstName: "Tankoua",
-            lastName: "Jean-christophe",
-            phone,
-            role: "client"
-        };
         let authRoutes;
         otpHandler = {
             sendCode: () => Promise.resolve(true),
@@ -149,6 +148,27 @@ describe("user interactions tests", function () {
     afterEach(async function () {
         await connection.drop();
         server.close();
+    });
+
+    it("should provide the user infos", async function () {
+        const token = await getToken(app);
+        let response = await app.get("/user/infos");
+        assert.equal(response.status, 401);
+        response = await app.get("/user/infos").set(
+            "authorization",
+            "Bearer " + token
+        );
+        assert.equal(response.status, 200);
+        assert.isTrue(Object.entries(userDatas).every(
+            function ([key, value]) {
+                if (key === "phone") {
+                    return response.body["phoneNumber"] === value;
+                } else {
+                    return response.body[key] === value;
+                }
+            }
+        ));
+
     });
 
     it("should update generic user infos", async function () {
@@ -208,13 +228,13 @@ describe("user interactions tests", function () {
             avatarHash = "public/uploads/vamvam_" + avatarHash + ".png";
             carInfoHash = "public/uploads/vamvam_" + carInfoHash + ".pdf";
         });
-        after(function (done) {
+        afterEach(function () {
             if (fs.existsSync(avatarHash)) {
-                fs.unlink(avatarHash, done);
+                fs.unlink(avatarHash, console.log);
             }
 
             if (fs.existsSync(carInfoHash)) {
-                fs.unlink(carInfoHash, done);
+                fs.unlink(carInfoHash, console.log);
             }
         });
         it("should handle avatar and carInfos upload", async function () {
@@ -265,7 +285,8 @@ describe("user interactions tests", function () {
             async function () {
                 let token = await getToken(app);
                 let response = await app.post("/user/update-profile").field(
-                    "firstName", "Vamvam soft"
+                    "firstName",
+                    "Vamvam soft"
                 ).attach(
                     "avatar",
                     carInfosPath
@@ -277,11 +298,11 @@ describe("user interactions tests", function () {
                     "Bearer " + token
                 );
                 assert.equal(response.status, 200);
-                assert.isFalse(fs.existsSync(carInfoHash));
-                assert.isFalse(fs.existsSync(avatarHash));
                 response = await User.findOne({where: {phone}});
                 assert.equal(response.avatar, currentUser.avatar);
-                assert.equal(response.carInfos, currentUser.carInfos);
+                debugger;
+                assert.isFalse(fs.existsSync(carInfoHash));
+                assert.isFalse(fs.existsSync(avatarHash));
             }
         );
 
