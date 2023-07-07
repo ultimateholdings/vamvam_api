@@ -5,6 +5,8 @@ node
 
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const fs = require("fs");
 const {
     TOKEN_EXP: expiration = 3600,
     JWT_SECRET: secret = "test1234butdefault"
@@ -39,16 +41,50 @@ function jwtWrapper() {
 
 function methodAdder(object) {
     return function addMethod(name, func) {
-        if (typeof object === "object" && !object.hasOwnProperty(name)) {
+        if (!object.hasOwnProperty(name)) {
             object.prototype[name] = func;
         }
     };
 }
 
+function getFileHash (path) {
+    return new Promise(function executor(res, rej) {
+        const stream = fs.createReadStream(path);
+        const hash = crypto.createHash("sha256");
+        stream.on("readable", function () {
+            const data = stream.read();
+            if (data !== null) {
+                hash.update(data);
+            } else {
+                res(hash.digest("hex"));
+                stream.close();
+            }
+        });
+        stream.on("error", function (err) {
+            rej(err);
+        });
+    });
+}
+
+function errorHandler (func) {
+    return async function (req, res, next) {
+        try {
+            await func(req, res, next);
+        } catch (error) {
+            res.status(500).json({
+                code: (error.original || {}).errno,
+                content: error.original
+            });
+            res.end();
+        }
+    }
+}
+
 function propertiesPicker(object) {
-    return function (...props) {
+    return function (props) {
+        let result;
         if (typeof object === "object") {
-            return Object.entries(object).reduce(function (acc, entry) {
+            result = Object.entries(object).reduce(function (acc, entry) {
                 let [key, value] = entry;
                 if (
                     props.includes(key) &&
@@ -57,9 +93,11 @@ function propertiesPicker(object) {
                     acc[key] = value;
                 }
                 return acc;
-            }, {});
+            }, Object.create(null));
         }
-        return {};
+        if (Object.keys(result || {}).length > 0) {
+            return result;
+        }
     };
 }
 
@@ -98,6 +136,8 @@ module.exports = Object.freeze({
             });
         });
     },
+    errorHandler,
+    getFileHash,
     hashPassword(password) {
         return new Promise(function executor(resolve, reject) {
             bcrypt.hash(password, 10, function (err, result) {

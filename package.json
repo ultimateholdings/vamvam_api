@@ -4,10 +4,8 @@
   "description": "vamvam api server",
   "main": "app.js",
   "scripts": {
-    "test": "NODE_ENV=test node ./node_modules/mocha/bin/mocha",
-    "test-window": "set NODE_ENV=test&&node ./node_modules/mocha/bin/mocha",
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "test": "node ./node_modules/mocha/bin/mocha",
+    "start": "node app.js"
   },
   "keywords": [
     "api",

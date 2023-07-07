@@ -1,13 +1,14 @@
 const express = require("express");
-const getAuthModule = require("../modules/auth");
+const getAuthModule = require("../modules/auth.module");
+const { errorHandler } = require("../utils/helpers");
 
 
 function buildAuthRoutes (authModule) {
     const routeModule = authModule || getAuthModule({});
     const router = express.Router();
-    router.post("/send-otp", routeModule.sendOTP);
-    router.post("/verify-otp", routeModule.verifyOTP);
-    router.post("/login", routeModule.loginUser);
+    router.post("/send-otp", errorHandler(routeModule.sendOTP));
+    router.post("/verify-otp", errorHandler(routeModule.verifyOTP));
+    router.post("/login", errorHandler(routeModule.loginUser));
     return router;
 }
 

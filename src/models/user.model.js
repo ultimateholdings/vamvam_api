@@ -1,40 +1,40 @@
 /*jslint
-node
+node, nomen
 */
+const fs = require("fs");
 const {DataTypes} = require("sequelize");
-const {hashPassword} = require("../utils/helpers")
+const {hashPassword} = require("../utils/helpers");
 
-function defineUserModel (connection) {
-    return connection.define("user", {
-      avatar: DataTypes.STRING,
-      email: {
-        type: DataTypes.STRING,
-        unique: true,
-        validate: {
-          isValidateEmail: function (value) {
-            const emailRegex = /^[\w-\.+]+@([\w-]+\.)+[\w-]{2,4}$/g;
-            if (!emailRegex.test(value)) {
-              throw new Error("Please enter a valid email!");
+function defineUserModel(connection) {
+    const user = connection.define("user", {
+        avatar: DataTypes.STRING,
+        carInfos: DataTypes.STRING,
+        deviceToken: DataTypes.STRING,
+        email: {
+            type: DataTypes.STRING,
+            unique: true,
+            validate: {
+                isValidateEmail: function (value) {
+                    const emailRegex = /^[\w-.+]+@([\w\-]+\.)+[\w\-]{2,4}$/g;
+                    if (!emailRegex.test(value)) {
+                        throw new Error("Please enter a valid email!");
+                    }
+                }
             }
-          },
-        },
         },
         firstName: DataTypes.STRING,
         lastName: DataTypes.STRING,
         password: {
-          type: DataTypes.STRING,
-          validate: {
-            isValidatePassword: function (value) {
-              const passwordRegex =
-                /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-              if (!passwordRegex.test(value)) {
-                throw new Error(
-                  "The password must contain 8 characters," + 
-                  " 1 uppercase, 1 lowercase, one number and one special character!"
-                );
-              }
-            },
-          },
+            type: DataTypes.STRING,
+            validate: {
+                isValidatePassword: function (value) {
+                    if (value.toString().length < 8) {
+                        throw new Error(
+                            "The password must contain at least 8 characters,"
+                        );
+                    }
+                }
+            }
         },
         phone: {
             allowNull: false,
@@ -53,24 +53,41 @@ function defineUserModel (connection) {
         }
     }, {
         hooks: {
-            async beforeCreate(record) {
+            beforeCreate: async function (record) {
                 let {password} = record.dataValues;
                 let hash;
-                if (password != null) {
+                if (password !== undefined && password !== null) {
                     hash = await hashPassword(password);
                     record.dataValues.password = hash;
                 }
             },
-            async beforeUpdate(record) {
-              let {password} = record;
-              let hash;
-              if (password != null) {
-                hash = await hashPassword(password);
-                record.password = hash;
-              }
+            beforeUpdate: async function (record) {
+                let {password} = record.dataValues;
+                const {
+                    dataValues: current,
+                    _previousDataValues: previous = {},
+                    _changed: updates = new Set()
+                } = record;
+                let hash;
+                if (updates.has("password")) {
+                    hash = await hashPassword(password);
+                    current.password = hash;
+                }
+
+                if (updates.has("avatar") && fs.existsSync(previous.avatar)) {
+                    fs.unlink(previous.avatar, console.log);
+                }
+
+                if (
+                    updates.has("carInfos") &&
+                    fs.existsSync(previous.carInfos)
+                ) {
+                    fs.unlink(previous.carInfos, console.log);
+                }
             }
         }
     });
+    return user;
 }
 
 module.exports = defineUserModel;

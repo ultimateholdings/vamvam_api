@@ -1,3 +1,4 @@
+const process = require("node:process");
 const dotenv = require("dotenv");
 const express = require("express");
 let port;

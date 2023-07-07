@@ -41,15 +41,8 @@ function getAuthModule({
 
     async function sendOTP(req, res) {
         const {phoneNumber} = req.body;
-        try {
-            await authOtpHandler.sendCode(phoneNumber);
-            res.status(200).json({sent: true});
-        } catch (error) {
-            res.status(500).json({
-                errorCode: error.code,
-                message: "something went wrong while sending OTP"
-            });
-        }
+        await authOtpHandler.sendCode(phoneNumber);
+        res.status(200).json({sent: true});
     }
 
     async function verifyOTP(req, res) {
@@ -60,25 +53,18 @@ function getAuthModule({
         let currentUser;
         let isVerified;
         let userExists = true;
-        try {
-            isVerified = await authOtpHandler.verifyCode(phone, code);
-            if (isVerified) {
-                currentUser = await authModel.findOne({
-                    where: {phone}
-                });
-                if (currentUser === null) {
-                    currentUser = await authModel.create({phone});
-                    userExists = false;
-                }
-                sendSuccessResponse(res, currentUser, userExists);
-            } else {
-                res.status(400).json({valid: false});
-            }
-        } catch (error) {
-            res.status(500).json({
-                errorCode: error.code,
-                message: "Something went wrong while verifying the OTP"
+        isVerified = await authOtpHandler.verifyCode(phone, code);
+        if (isVerified) {
+            currentUser = await authModel.findOne({
+                where: {phone}
             });
+            if (currentUser === null) {
+                currentUser = await authModel.create({phone});
+                userExists = false;
+            }
+            sendSuccessResponse(res, currentUser, userExists);
+        } else {
+            res.status(400).json({valid: false});
         }
     }
 
