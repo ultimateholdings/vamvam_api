@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
+const {getOTPConfig} = require("../utils/config")
 const {
     TOKEN_EXP: expiration = 3600,
     JWT_SECRET: secret = "test1234butdefault"
@@ -101,26 +102,80 @@ function propertiesPicker(object) {
     };
 }
 
-function getOTPService() {
-    function sendOTP() {
-        return Promise.resolve(true);
+function getOTPService(model) {
+    const config = getOTPConfig();
+    async function sendOTP(phone, signature) {
+        const {default: fetch} = await import("node-fetch");
+        let response;
+        try {
+            response = await fetch(config.sent_url, {
+                body: JSON.stringify(config.getSendingBody(phone, signature)),
+                method: "POST"
+            });
+        } catch (error) {
+            return false;
+        }
+        if (response.ok) {
+            response = await response.json();
+            await model.upsert({pinId: response.pinId, phone}, {where: phone});
+            return true;
+        } else {
+            return false
+        }
+
     }
 
-    function verifyOTP() {
-        return Promise.resolve(true);
+    async function verifyOTP(phone, code) {
+        const {default: fetch} = await import("node-fetch");
+        let response = await model.findOne({where: {phone}});
+        if (response === null) {
+            return {
+                errorCode: 445,
+                message: "user has not request for OTP",
+                verified: false
+            };
+        }
+        try {
+            response = await fetch(config.verify_url, {
+                body: JSON.stringify(config.getVerificationBody(response.pinId, code)),
+                method: "POST"
+            });
+            if (response.ok) {
+                response = await response.json();
+                if (response.verified === "True" && response.msisdn === phone) {
+                    return {verified: true};
+                }
+                return {
+                    errorCode: 448,
+                    message: "invalid OTP, you may request for a new one"
+                };
+            } else {
+                return {
+                    errorCode: 446,
+                    message: "the OTP is invalid, you may check again your pin",
+                    verified: false
+                };
+            }
+        } catch (error) {
+            return {
+                errorCode: 447,
+                message: "something went wrong while verifying OTP",
+                verified: false,
+                sysCode: error.code
+            };
+        }
     }
 
     return Object.freeze({sendOTP, verifyOTP});
 }
 
-function otpManager(otpService = getOTPService()) {
+function otpManager(otpService) {
     return {
-        sendCode: function (phoneNumber) {
-            return otpService.sendOTP(phoneNumber);
+        sendCode: function (phoneNumber, signature) {
+            return otpService.sendOTP(phoneNumber, signature);
         },
-        verifyCode: async function (phoneNumber, code) {
-            let isVerified = await otpService.verifyOTP(phoneNumber, code);
-            return isVerified;
+        verifyCode: function (phoneNumber, code) {
+            return otpService.verifyOTP(phoneNumber, code);
         }
     };
 }
@@ -138,6 +193,7 @@ module.exports = Object.freeze({
     },
     errorHandler,
     getFileHash,
+    getOTPService,
     hashPassword(password) {
         return new Promise(function executor(resolve, reject) {
             bcrypt.hash(password, 10, function (err, result) {

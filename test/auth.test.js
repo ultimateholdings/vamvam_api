@@ -12,8 +12,9 @@ const {
     it
 } = require("mocha");
 const supertest = require("supertest");
+const nock = require("nock");
 const {assert} = require("chai");
-const {User, connection} = require("../src/models");
+const {otpRequest, User, connection} = require("../src/models");
 const {buildServer} = require("../src");
 const authModule = require("../src/modules/auth.module");
 const userModule = require("../src/modules/user.module");
@@ -23,56 +24,130 @@ const buildRouter = require("../src/routes");
 const {comparePassword, getFileHash} = require("../src/utils/helpers");
 const phone = "+0038399873882423";
 const defaultAvatar = "/path/to/avatar.jpg";
-
+const otpBaseUrl = "https://api.ng.termii.com";
 
 describe("authentication tests", function () {
-    let otpHandler;
     let server;
     let app;
+    const signature = "1234567890";
+    const pinIds = ["aewrjafk;9539", "121-dhjds-2330"];
+    const otherPhones = {
+        bad: "+23337843-23289230-49893",
+        good: "+23337843984039840943"
+    };
 
-    beforeEach(async function () {
+    before(async function () {
         let authRoutes;
-        otpHandler = {
-            sendCode: () => Promise.resolve(true),
-            verifyCode: () => Promise.resolve(true)
-        };
-        authRoutes = buildAuthRoutes(authModule({otpHandler}));
+        authRoutes = buildAuthRoutes(authModule({}));
         server = buildServer(buildRouter({authRoutes}));
         app = supertest.agent(server);
+        nock(otpBaseUrl).post(
+            /otp\/send/,
+            (body) => body.to === otherPhones.bad
+        ).replyWithError("the network provider is not supported");
+        nock(otpBaseUrl).post(
+            /otp\/send/,
+            (body) => body.to === otherPhones.good || body.to === phone
+        ).reply(200, function (uri, requestBody) {
+            const body = JSON.parse(requestBody);
+            if (body.to === otherPhones.good) {
+                return {pinId: pinIds[0], phone: otherPhones.good, uri};
+            } else {
+                return {pinId: pinIds[1], phone};
+            }
+        }).persist();
+        nock(otpBaseUrl).post(
+            /otp\/verify/,
+            (body) => pinIds.includes(body.pin_id)
+        ).reply(200, function (uri, requestBody) {
+            const body = JSON.parse(requestBody);
+            if (body.pin_id === pinIds[0]) {
+                return {
+                    pinId: pinIds[0],
+                    verified: "True",
+                    msisdn: otherPhones.bad,
+                    uri
+                };
+            } else {
+                return {
+                    pinId: pinIds[1],
+                    verified: "True",
+                    msisdn: otherPhones.good
+                };
+            }
+        }).persist();
+    });
+    
+    beforeEach(async function () {
         await connection.sync({force: true});
     });
 
     afterEach(async function () {
         await connection.drop();
+    });
+
+    after(function () {
         server.close();
     });
 
+    it(
+        "should respond 501 status if the OTP provider throws",
+        async function () {
+            let response;
+            response = await app.post("/auth/send-otp").send({
+                phoneNumber: otherPhones.bad,
+                signature
+            });
+            assert.equal(response.status, 501);
+        }
+    );
     it("should send the OTP verification", async function () {
-        const response = await app.post("/auth/send-otp").send({
-            "phoneNumber": phone
+        let response = await app.post("/auth/send-otp").send({
+            phoneNumber: otherPhones.good,
+            signature
         });
         assert.equal(response.status, 200);
-        assert.deepEqual(response.body, {sent: true});
+        response = await app.post("/auth/send-otp").send({
+            phoneNumber: phone,
+            signature
+        });
+        assert.equal(response.status, 200);
+        response = await otpRequest.findAll();
+        assert.deepEqual(response.map((res) => res.pinId), pinIds);
     });
 
-
-    it("should create a new user on verified OTP", async function () {
+    it("should not verify a code if it the OTP wasn't sent", async function () {
         let response = await app.post("/auth/verify-otp").send({
-            code: "1234",
-            phoneNumber: phone
+            code: "123456",
+            phoneNumber: otherPhones.bad
         });
-        assert.isNotNull(response.body.token);
-        assert.equal(response.status, 200);
-        assert.isFalse(response.body.userExists);
+        assert.equal(response.status, 445);
+    });
+    it("should create a new user on verified OTP", async function () {
+        let response;
+        await otpRequest.bulkCreate([
+            {phone, pinId: pinIds[0]},
+            {phone: otherPhones.good, pinId: pinIds[1]}
+        ]);
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
             phoneNumber: phone
         });
+        assert.equal(response.status, 448);
+        response = await app.post("/auth/verify-otp").send({
+            code: "1234",
+            phoneNumber: otherPhones.good
+        });
+        assert.equal(response.status, 200);
+        assert.isFalse(response.body.userExists);
+        response = await app.post("/auth/verify-otp").send({
+            code: "1234",
+            phoneNumber: otherPhones.good
+        });
         assert.equal(response.status, 200);
         assert.isTrue(response.body.userExists);
-        response = await User.findAll({where: {phone}});
+        response = await User.findAll({where: {phone: otherPhones.good}});
         assert.equal(response.length, 1);
-
     });
 
     it(
@@ -105,7 +180,6 @@ describe("authentication tests", function () {
 describe("user interactions tests", function () {
     let server;
     let app;
-    let otpHandler;
     let updates;
     let currentUser;
     const userDatas = {
@@ -124,13 +198,14 @@ describe("user interactions tests", function () {
         const response = await app.post("/auth/verify-otp").send(credentials);
         return response.body.token;
     }
-    beforeEach(async function () {
+
+    before(function () {
         const userRoutes = buildUserRoutes(userModule({}));
-        let authRoutes;
-        otpHandler = {
-            sendCode: () => Promise.resolve(true),
-            verifyCode: () => Promise.resolve(true)
+        const otpHandler = {
+            sendCode: () => Promise.resolve({verified: true}),
+            verifyCode: () => Promise.resolve({verified: true})
         };
+        let authRoutes;
         updates = {
             deviceToken: "sldjfal;kjalsdkjf aslkf;ja",
             email: "totoNg@notexisting.edu",
@@ -141,12 +216,17 @@ describe("user interactions tests", function () {
         authRoutes = buildAuthRoutes(authModule({otpHandler}));
         server = buildServer(buildRouter({authRoutes, userRoutes}));
         app = supertest.agent(server);
+
+    });
+    beforeEach(async function () {
         await connection.sync({alter: true});
         currentUser = await User.create(userDatas);
     });
 
     afterEach(async function () {
         await connection.drop();
+    });
+    after(function () {
         server.close();
     });
 
@@ -300,7 +380,6 @@ describe("user interactions tests", function () {
                 assert.equal(response.status, 200);
                 response = await User.findOne({where: {phone}});
                 assert.equal(response.avatar, currentUser.avatar);
-                debugger;
                 assert.isFalse(fs.existsSync(carInfoHash));
                 assert.isFalse(fs.existsSync(avatarHash));
             }

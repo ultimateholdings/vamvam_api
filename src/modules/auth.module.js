@@ -2,9 +2,10 @@
 node
 */
 "use strict";
-const {User} = require("../models");
+const {User, otpRequest} = require("../models");
 const {
     comparePassword,
+    getOTPService,
     jwtWrapper,
     otpManager
 } = require("../utils/helpers");
@@ -16,7 +17,7 @@ function getAuthModule({
     tokenService
 }) {
     const authModel = model || User;
-    const authOtpHandler = otpHandler || otpManager();
+    const authOtpHandler = otpHandler || otpManager(getOTPService(otpRequest));
     const authTokenService = tokenService || jwtWrapper();
 
     function sendSuccessResponse(res, user, userExists) {
@@ -40,9 +41,13 @@ function getAuthModule({
     }
 
     async function sendOTP(req, res) {
-        const {phoneNumber} = req.body;
-        await authOtpHandler.sendCode(phoneNumber);
-        res.status(200).json({sent: true});
+        const {phoneNumber, signature} = req.body;
+        const response = await authOtpHandler.sendCode(phoneNumber, signature);
+        if (response === true) {
+            res.status(200).json({sent: true});
+        } else {
+            res.status(501).json({message: "Message has not been sent"});
+        }
     }
 
     async function verifyOTP(req, res) {
@@ -51,10 +56,13 @@ function getAuthModule({
             phoneNumber: phone
         } = req.body;
         let currentUser;
-        let isVerified;
         let userExists = true;
-        isVerified = await authOtpHandler.verifyCode(phone, code);
-        if (isVerified) {
+        let {
+            errorCode = 400,
+            message,
+            verified
+        } = await authOtpHandler.verifyCode(phone, code);
+        if (verified === true) {
             currentUser = await authModel.findOne({
                 where: {phone}
             });
@@ -64,7 +72,7 @@ function getAuthModule({
             }
             sendSuccessResponse(res, currentUser, userExists);
         } else {
-            res.status(400).json({valid: false});
+            res.status(errorCode).json({valid: false, message});
         }
     }
 
