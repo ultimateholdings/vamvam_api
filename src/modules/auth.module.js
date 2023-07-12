@@ -42,11 +42,15 @@ function getAuthModule({
 
     async function sendOTP(req, res) {
         const {phoneNumber, signature} = req.body;
-        const response = await authOtpHandler.sendCode(phoneNumber, signature);
-        if (response === true) {
-            res.status(200).json({sent: true});
+        const {
+            code,
+            message,
+            sent
+        } = await authOtpHandler.sendCode(phoneNumber, signature);
+        if (sent === true) {
+            res.status(200).json({sent});
         } else {
-            res.status(501).json({message: "Message has not been sent"});
+            res.status(code).json({message});
         }
     }
 

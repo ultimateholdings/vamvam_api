@@ -22,6 +22,7 @@ const config = Object.freeze({
                     pin_length: 6,
                     pin_placeholder: "@vamvam@",
                     pin_time_to_live: 3,
+                    text_type: "ALPHANUMERIC",
                     to: receiver
                 };
             },

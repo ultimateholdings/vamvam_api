@@ -113,14 +113,23 @@ function getOTPService(model) {
                 method: "POST"
             });
         } catch (error) {
-            return false;
+            return {
+                code: 501,
+                message: "Something went wrong while sending OTP",
+                sent: false
+            };
         }
         if (response.ok) {
             response = await response.json();
             await model.upsert({pinId: response.pinId, phone}, {where: phone});
-            return true;
+            return {sent: true};
         } else {
-            return false
+            response = await response.json();
+            return {
+                code: 401,
+                message: "The message could not be proceeded",
+                sent: false
+            };
         }
 
     }
