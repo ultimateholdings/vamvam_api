@@ -190,6 +190,11 @@ function otpManager(otpService) {
     };
 }
 
+async function generateCode (byteSize = 5) {
+    const {default: encoder} = await import("base32-encode");
+    return encoder(crypto.randomBytes(byteSize), "Crockford");
+}
+
 module.exports = Object.freeze({
     comparePassword(givenPassword, hash) {
         return new Promise(function executor(resolve, reject) {
@@ -202,6 +207,7 @@ module.exports = Object.freeze({
         });
     },
     errorHandler,
+    generateCode,
     getFileHash,
     getOTPService,
     hashPassword(password) {

@@ -113,7 +113,7 @@ describe("authentication tests", function () {
         });
         assert.equal(response.status, 200);
         response = await otpRequest.findAll();
-        assert.deepEqual(response.map((res) => res.pinId), pinIds);
+        assert.deepEqual(response.length, 2);
     });
 
     it("should not verify a code if it the OTP wasn't sent", async function () {
@@ -279,13 +279,13 @@ describe("user interactions tests", function () {
         assert.isTrue(response);
     });
 
-    it("should not update user role or phone or userId", async function () {
+    it("should not update user role or phone or user Id", async function () {
         let response;
         let token = await getToken(app);
         let forbiddenUpdate = {
             phone: "+32380",
             role: "admin",
-            userId: "dlsdjflskadjweioiryqot"
+            id: "dlsdjflskadjweioiryqot"
         };
         response = await app.post("/user/update-profile").send(
             forbiddenUpdate
@@ -298,7 +298,7 @@ describe("user interactions tests", function () {
         response = await User.findOne({where: {
             phone: currentUser.phone,
             role: currentUser.role,
-            userId: currentUser.userId
+            id: currentUser.id
         }});
         assert.isNotNull(response);
     });

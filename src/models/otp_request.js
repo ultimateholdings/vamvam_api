@@ -5,7 +5,7 @@ function define_OTP_request (connection) {
         pinId: DataTypes.STRING,
         phone: {
             allowNull: false,
-            primary: true,
+            primaryKey: true,
             type: DataTypes.STRING,
             unique: true
         }

@@ -22,7 +22,7 @@ function getAuthModule({
 
     function sendSuccessResponse(res, user, userExists) {
         const token = authTokenService.sign({
-            id: user.userId,
+            id: user.id,
             phone: user.phone
         });
         let result = {token, valid: true};
