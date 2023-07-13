@@ -152,6 +152,7 @@ function getOTPService(model) {
             if (response.ok) {
                 response = await response.json();
                 if (response.verified === "True" && response.msisdn === phone) {
+                    await model.destroy({where: {phone}});
                     return {verified: true};
                 }
                 return {

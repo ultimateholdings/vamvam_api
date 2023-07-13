@@ -43,6 +43,7 @@ function getUserModule({
         }, Object.create(null));
         response.role = result.role;
         response.phoneNumber = phone;
+        response.id = id;
         res.status(200).json(response);
     }
 

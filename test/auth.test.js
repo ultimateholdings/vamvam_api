@@ -65,7 +65,7 @@ describe("authentication tests", function () {
                 return {
                     pinId: pinIds[0],
                     verified: "True",
-                    msisdn: otherPhones.bad,
+                    msisdn: otherPhones.good,
                     uri
                 };
             } else {
@@ -140,6 +140,10 @@ describe("authentication tests", function () {
         });
         assert.equal(response.status, 200);
         assert.isFalse(response.body.userExists);
+        await app.post("/auth/send-otp").send({
+            phoneNumber: otherPhones.good,
+            signature
+        });
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
             phoneNumber: otherPhones.good
@@ -148,6 +152,8 @@ describe("authentication tests", function () {
         assert.isTrue(response.body.userExists);
         response = await User.findAll({where: {phone: otherPhones.good}});
         assert.equal(response.length, 1);
+        response = await otpRequest.findOne({where: {phone: otherPhones.good}});
+        assert.isNull(response);
     });
 
     it(

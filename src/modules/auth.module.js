@@ -48,7 +48,7 @@ function getAuthModule({
             sent
         } = await authOtpHandler.sendCode(phoneNumber, signature);
         if (sent === true) {
-            res.status(200).json({sent});
+            res.status(200).json({sent, ttl: 3});
         } else {
             res.status(code).json({message});
         }
@@ -57,7 +57,8 @@ function getAuthModule({
     async function verifyOTP(req, res) {
         const {
             code,
-            phoneNumber: phone
+            phoneNumber: phone,
+            role
         } = req.body;
         let currentUser;
         let userExists = true;
@@ -71,7 +72,7 @@ function getAuthModule({
                 where: {phone}
             });
             if (currentUser === null) {
-                currentUser = await authModel.create({phone});
+                currentUser = await authModel.create({phone, role});
                 userExists = false;
             }
             sendSuccessResponse(res, currentUser, userExists);
