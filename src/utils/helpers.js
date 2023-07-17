@@ -72,6 +72,7 @@ function errorHandler (func) {
         try {
             await func(req, res, next);
         } catch (error) {
+            debugger;
             res.status(500).json({
                 code: (error.original || {}).errno,
                 content: error.original
@@ -126,7 +127,7 @@ function getOTPService(model) {
         } else {
             response = await response.json();
             return {
-                code: 401,
+                code: 440,
                 message: "The message could not be proceeded",
                 sent: false
             };
@@ -190,11 +191,6 @@ function otpManager(otpService) {
     };
 }
 
-async function generateCode (byteSize = 5) {
-    const {default: encoder} = await import("base32-encode");
-    return encoder(crypto.randomBytes(byteSize), "Crockford");
-}
-
 module.exports = Object.freeze({
     comparePassword(givenPassword, hash) {
         return new Promise(function executor(resolve, reject) {
@@ -207,7 +203,6 @@ module.exports = Object.freeze({
         });
     },
     errorHandler,
-    generateCode,
     getFileHash,
     getOTPService,
     hashPassword(password) {

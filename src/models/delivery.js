@@ -7,6 +7,7 @@ function defineDeliveryModel(connection) {
     const delivery = connection.define("delivery", {
         begin: DataTypes.DATE,
         code: DataTypes.STRING,
+        deliveryMeta: DataTypes.JSON,
         departure: {
             allowNull: false,
             type: new DataTypes.GEOMETRY("POINT")
@@ -22,6 +23,10 @@ function defineDeliveryModel(connection) {
             type: DataTypes.UUID
         },
         price: DataTypes.DOUBLE,
+        recipientInfos: {
+            allowNull: false,
+            type: DataTypes.JSON
+        },
         status: {
             defaultValue: "pending",
             type: DataTypes.ENUM,

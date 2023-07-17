@@ -11,20 +11,22 @@ const otpRequest = otpModel(connection);
 const Delivery = defineDeliveryModel(connection);
 
 Delivery.belongsTo(User, {
+    as: "Driver",
+    constraints: false,
     foreignKey: {
         name: "driverId"
-    },
-    as: "Driver"
+    }
 });
 Delivery.belongsTo(User, {
+    as: "Client",
+    constraints: false,
     foreignKey: {
         name: "clientId"
-    },
-    as: "Client"
+    }
 });
 module.exports = Object.freeze({
-    connection,
     Delivery,
-    otpRequest,
-    User
+    User,
+    connection,
+    otpRequest
 });
