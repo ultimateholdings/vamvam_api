@@ -24,6 +24,30 @@ async function protectRoute(req, res, next) {
     
 }
 
+function verifyValidId(req, res, next) {
+    const {id} = req.body;
+    if (id === null || id === undefined) {
+        res.status(440).json({
+            message: "invalid identifier"
+        });
+    } else {
+        next();
+    }
+}
+
+function allowRoles(roles = []) {
+    return function (req, res, next) {
+        const role = req?.user?.token?.role;
+        if (Array.isArray(roles) && roles.includes(role)) {
+            next();
+        } else {
+            sendAuthFaillure(res);
+        }
+    };
+} 
+
 module.exports = Object.freeze({
-    protectRoute
+    allowRoles,
+    protectRoute,
+    verifyValidId
 });

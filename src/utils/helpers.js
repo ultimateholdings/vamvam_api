@@ -7,7 +7,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
-const {getOTPConfig} = require("../utils/config")
+const {getOTPConfig} = require("../utils/config");
+const {ValidationError} = require("sequelize");
 const {
     TOKEN_EXP: expiration = 3600,
     JWT_SECRET: secret = "test1234butdefault"
@@ -69,14 +70,22 @@ function getFileHash (path) {
 
 function errorHandler (func) {
     return async function (req, res, next) {
+        let message;
         try {
             await func(req, res, next);
         } catch (error) {
-            debugger;
-            res.status(500).json({
-                code: (error.original || {}).errno,
-                content: error.original
-            });
+            if (error instanceof ValidationError) {
+                message =  error.errors.map(function ({message}) {
+                    return message.replace(/^\w*\./, "");
+                }, {}).join(" and ");
+                res.status(440).json({message});
+
+            } else {
+                res.status(500).json({
+                    code: (error.original || {}).errno,
+                    content: error.original
+                });
+            }
             res.end();
         }
     }

@@ -52,6 +52,25 @@ const deliveries = [
     },
 ];
 
+const badDelevery = {
+    departure: {
+        address: "Carrefour Logbessou",
+        latitude: {a: 3},
+        longitude: 9.7806557
+    },
+    destination: {
+        address: "Tribunal de premiere instance de bonaberi",
+        latitude: "testerw",
+        longitude: 9.683527
+    },
+    recipientInfos: {
+        name: "Mbouta Mbezoa",
+        phone: "+273873489283203",
+        otherPhones: ["+7838349834940380", "+08308934900054905"]
+    }
+};
+
 module.exports = Object.freeze({
+    badDelevery,
     deliveries
 });

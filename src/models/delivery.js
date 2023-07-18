@@ -2,9 +2,10 @@
 node
 */
 const {DataTypes} = require("sequelize");
+const {propertiesPicker} = require("../utils/helpers");
 
 function defineDeliveryModel(connection) {
-    const delivery = connection.define("delivery", {
+    const schema = {
         begin: DataTypes.DATE,
         code: DataTypes.STRING,
         deliveryMeta: DataTypes.JSON,
@@ -32,7 +33,25 @@ function defineDeliveryModel(connection) {
             type: DataTypes.ENUM,
             values: ["pending", "cancelled", "started", "terminated"]
         }
-    });
+    };
+    const delivery = connection.define("delivery", schema);
+    delivery.prototype.toResponse = function () {
+        const allowedProps = Object.keys(schema).filter((key) => key !== "deliveryMeta");
+        let result = this.dataValues;
+        if (typeof result.deliveryMeta === "object") {
+            result.destination = {
+                address: result.deliveryMeta["destinationAddress"],
+                latitude: result.destination.coordinates[0],
+                longitude: result.destination.coordinates[1]
+            };
+            result.departure = {
+                address: result.deliveryMeta["departureAddress"],
+                latitude: result.departure.coordinates[0],
+                longitude: result.departure.coordinates[1]
+            };
+        }
+        return propertiesPicker(result)(allowedProps);
+    }
     return delivery;
 }
 

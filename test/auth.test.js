@@ -24,7 +24,7 @@ const {comparePassword, getFileHash} = require("../src/utils/helpers");
 const {
     pinIds,
     setupInterceptor,
-    users: {badUser, goodUser, secondUser}
+    users: {badUser, goodUser, firstDriver: secondUser}
 } = require("./fixtures/users.data");
 
 describe("authentication tests", function () {
