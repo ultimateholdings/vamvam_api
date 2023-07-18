@@ -143,11 +143,11 @@ describe("delivery CRUD test", function () {
             let response = await app.get("/delivery/infos").send({
                 id: secondUserRequest.id
             }).set("authorization", "Bearer " + goodUserRequest.token);
-            assert.equal(response.status, 454);
+            assert.equal(response.status, 401);
             response = await app.get("/delivery/infos").send({
                 id: goodUserRequest.id
             }).set("authorization", "Bearer " + secondUserRequest.token);
-            assert.equal(response.status, 454);
+            assert.equal(response.status, 401);
         }
     );
 

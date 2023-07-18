@@ -7,7 +7,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
-const {getOTPConfig} = require("../utils/config");
+const {getOTPConfig, errors} = require("../utils/config");
 const {ValidationError} = require("sequelize");
 const {
     TOKEN_EXP: expiration = 3600,
@@ -70,20 +70,27 @@ function getFileHash (path) {
 
 function errorHandler (func) {
     return async function (req, res, next) {
-        let message;
+        let err;
+        let content;
         try {
             await func(req, res, next);
         } catch (error) {
             if (error instanceof ValidationError) {
-                message =  error.errors.map(function ({message}) {
+                err = errors.invalidValues
+                content =  error.errors.map(function ({message}) {
                     return message.replace(/^\w*\./, "");
                 }, {}).join(" and ");
-                res.status(440).json({message});
+                res.status(err.status).json({
+                    content,
+                    message: err.message
+                });
 
             } else {
-                res.status(500).json({
+                err = errors.internalError;
+                res.status(err.status).json({
                     code: (error.original || {}).errno,
-                    content: error.original
+                    content: error.original,
+                    message: err.message
                 });
             }
             res.end();
@@ -123,9 +130,10 @@ function getOTPService(model) {
                 method: "POST"
             });
         } catch (error) {
+            response = errors.internalError;
             return {
-                code: 501,
-                message: "Something went wrong while sending OTP",
+                code: response.status,
+                message: response.message,
                 sent: false
             };
         }
@@ -136,8 +144,9 @@ function getOTPService(model) {
         } else {
             response = await response.json();
             return {
-                code: 440,
-                message: "The message could not be proceeded",
+                code: errors.otpSendingFail.status,
+                content: response.message,
+                message: errors.otpSendingFail.message,
                 sent: false
             };
         }
@@ -149,8 +158,8 @@ function getOTPService(model) {
         let response = await model.findOne({where: {phone}});
         if (response === null) {
             return {
-                errorCode: 445,
-                message: "user has not request for OTP",
+                errorCode: errors.requestOTP.status,
+                message: errors.requestOTP.message,
                 verified: false
             };
         }
@@ -166,20 +175,20 @@ function getOTPService(model) {
                     return {verified: true};
                 }
                 return {
-                    errorCode: 448,
-                    message: "invalid OTP, you may request for a new one"
+                    errorCode: errors.notAuthorized.status,
+                    message: errors.notAuthorized.message
                 };
             } else {
                 return {
-                    errorCode: 446,
-                    message: "the OTP is invalid, you may check again your pin",
+                    errorCode: errors.invalidCredentials.status,
+                    message: errors.invalidCredentials.message,
                     verified: false
                 };
             }
         } catch (error) {
             return {
-                errorCode: 447,
-                message: "something went wrong while verifying OTP",
+                errorCode: errors.internalError.status,
+                message: errors.internalError.message,
                 verified: false,
                 sysCode: error.code
             };

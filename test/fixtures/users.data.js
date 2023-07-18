@@ -43,7 +43,7 @@ function setupInterceptor() {
     ).replyWithError("the network provider is not supported");
     nock(otpBaseUrl).post(
         /otp\/send/,
-        (body) => Object.values(users).slice(0, 2).map(
+        (body) => Object.values(users).slice(1).map(
             function ({phone}) {
                 return phone;
             }

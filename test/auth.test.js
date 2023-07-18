@@ -82,7 +82,7 @@ describe("authentication tests", function () {
             code: "123456",
             phoneNumber: badUser.phone
         });
-        assert.equal(response.status, 445);
+        assert.equal(response.status, 448);
     });
     it("should create a new user on verified OTP", async function () {
         let response;
@@ -94,7 +94,7 @@ describe("authentication tests", function () {
             code: "1234",
             phoneNumber: secondUser.phone
         });
-        assert.equal(response.status, 448);
+        assert.equal(response.status, 401);
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
             phoneNumber: goodUser.phone

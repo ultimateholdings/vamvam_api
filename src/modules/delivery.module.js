@@ -3,6 +3,7 @@ node
 */
 const crypto = require("crypto");
 const {Delivery, User} = require("../models");
+const {errors} = require("../utils/config")
 
 
 function getDeliveryModule({associatedModels, model}) {
@@ -20,8 +21,10 @@ function getDeliveryModule({associatedModels, model}) {
         return 1000;
     }
 
-    function send404(res, message = "Delivery not Found") {
-        res.status(404).send({message});
+    function send404(res) {
+        res.status(errors.notFound.status).send({
+            message: errors.notFound.message
+        });
     }
 
     async function handleClosing({code, delivery, userId}) {
@@ -36,8 +39,8 @@ function getDeliveryModule({associatedModels, model}) {
         }
         if (delivery.status !== "started") {
             return {
-                body: {message: "Bad state"},
-                status: 454
+                body: {message: errors.cannotPerformAction.message},
+                status: errors.cannotPerformAction.status
             }
         }
         if (canTerminate) {
@@ -53,9 +56,9 @@ function getDeliveryModule({associatedModels, model}) {
         } else {
             return {
                 body: {
-                    message: "You are not authorized to perform this action"
+                    message: errors.notAuthorized.message
                 },
-                status: 401
+                status: errors.notAuthorized.status
             };
         }
     }
@@ -100,7 +103,10 @@ function getDeliveryModule({associatedModels, model}) {
         try {
             body = formatBody(req.body);
         } catch (error) {
-            res.status(440).send({message: error.message});
+            res.status(errors.invalidLocation.status).send({
+                content: error.message,
+                message: errors.invalidLocation.message
+            });
         }
         user = await associations.User.findOne({where: {id, phone}});
         tmp = await generateCode();
@@ -129,8 +135,8 @@ function getDeliveryModule({associatedModels, model}) {
         client = await delivery.getClient();
         driver = await delivery.getDriver();
         if (client?.id !== userId && driver?.id !== userId) {
-            res.status(454).send({
-                message: "You are not authorized to fetch this delivery"
+            res.status(errors.notAuthorized.status).send({
+                message: errors.notAuthorized.message
             });
         } else {
             delivery = delivery.toResponse();
