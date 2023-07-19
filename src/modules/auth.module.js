@@ -3,6 +3,7 @@ node
 */
 "use strict";
 const {User, otpRequest} = require("../models");
+const {errors} = require("../utils/config");
 const {
     comparePassword,
     getOTPService,
@@ -19,6 +20,7 @@ function getAuthModule({
     const authModel = model || User;
     const authOtpHandler = otpHandler || otpManager(getOTPService(otpRequest));
     const authTokenService = tokenService || jwtWrapper();
+    const otpAllowedRoles = ["client", "driver"];
 
     function sendSuccessResponse(res, user, userExists) {
         const token = authTokenService.sign({
@@ -34,11 +36,8 @@ function getAuthModule({
     }
 
     function sendFaillureResponse(res) {
-        res.status(400).json({
-            message: {
-                en: "phone number or password is incorrect"
-            }
-        });
+        const {message, status} = errors.invalidCredentials;
+        res.status(status).json({message});
     }
 
     async function sendOTP(req, res) {
@@ -63,12 +62,15 @@ function getAuthModule({
         } = req.body;
         let currentUser;
         let userExists = true;
-        let {
-            errorCode = 400,
-            message,
-            verified
-        } = await authOtpHandler.verifyCode(phone, code);
-        if (verified === true) {
+        let otpResponse;
+        if (role !== undefined && !otpAllowedRoles.includes(role)) {
+            res.status(errors.notAuthorized.status).json({
+                message: errors.notAuthorized.message
+            });
+            return;
+        }
+        otpResponse = await authOtpHandler.verifyCode(phone, code);
+        if (otpResponse.verified === true) {
             currentUser = await authModel.findOne({
                 where: {phone}
             });
@@ -78,7 +80,10 @@ function getAuthModule({
             }
             sendSuccessResponse(res, currentUser, userExists);
         } else {
-            res.status(errorCode).json({valid: false, message});
+            res.status(otpResponse.errorCode).json({
+                message: otpResponse.message,
+                valid: false
+            });
         }
     }
 

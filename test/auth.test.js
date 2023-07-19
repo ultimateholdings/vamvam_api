@@ -21,19 +21,27 @@ const buildAuthRoutes = require("../src/routes/auth.route");
 const buildUserRoutes = require("../src/routes/user.route");
 const buildRouter = require("../src/routes");
 const {comparePassword, getFileHash} = require("../src/utils/helpers");
+const {errors} = require("../src/utils/config");
+const getSocketManager = require("../src/utils/socket-manager");
 const {
+    clientSocketCreator,
     pinIds,
+    getToken,
     setupInterceptor,
     users: {badUser, goodUser, firstDriver: secondUser}
 } = require("./fixtures/users.data");
+
+const otpHandlerFake = {
+    sendCode: () => Promise.resolve({verified: true}),
+    verifyCode: () => Promise.resolve({verified: true})
+};
 
 describe("authentication tests", function () {
     let server;
     let app;
     const signature = "1234567890";
-    before(async function () {
-        let authRoutes;
-        authRoutes = buildAuthRoutes(authModule({}));
+    before(function () {
+        let authRoutes = buildAuthRoutes(authModule({}));
         server = buildServer(buildRouter({authRoutes}));
         app = supertest.agent(server);
         setupInterceptor();
@@ -59,7 +67,7 @@ describe("authentication tests", function () {
                 phoneNumber: badUser.phone,
                 signature
             });
-            assert.equal(response.status, 501);
+            assert.equal(response.status, errors.internalError.status);
         }
     );
     it("should send the OTP verification", async function () {
@@ -82,7 +90,7 @@ describe("authentication tests", function () {
             code: "123456",
             phoneNumber: badUser.phone
         });
-        assert.equal(response.status, 448);
+        assert.equal(response.status, errors.requestOTP.status);
     });
     it("should create a new user on verified OTP", async function () {
         let response;
@@ -92,12 +100,19 @@ describe("authentication tests", function () {
         ]);
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
-            phoneNumber: secondUser.phone
+            phoneNumber: secondUser.phone,
         });
-        assert.equal(response.status, 401);
+        assert.equal(response.status, errors.notAuthorized.status);
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
-            phoneNumber: goodUser.phone
+            phoneNumber: goodUser.phone,
+            role: "admin"
+        });
+        assert.equal(response.status, errors.notAuthorized.status);
+        response = await app.post("/auth/verify-otp").send({
+            code: "1234",
+            phoneNumber: goodUser.phone,
+            role: "driver"
         });
         assert.equal(response.status, 200);
         assert.isFalse(response.body.userExists);
@@ -126,10 +141,10 @@ describe("authentication tests", function () {
                 password,
                 phoneNumber: secondUser.phone
             });
-            assert.equal(response.status, 400);
-            assert.equal(
-                response.body.message.en,
-                "phone number or password is incorrect"
+            assert.equal(response.status, errors.invalidValues.status);
+            assert.deepEqual(
+                response.body.message,
+                errors.invalidCredentials.message
             );
             await User.create({password, phone: secondUser.phone});
             response = await app.post("/auth/login").send({
@@ -150,21 +165,9 @@ describe("user interactions tests", function () {
     let updates;
     let currentUser;
 
-    async function getToken(app) {
-        const credentials = {
-            code: "1234",
-            phoneNumber: goodUser.phone
-        };
-        const response = await app.post("/auth/verify-otp").send(credentials);
-        return response.body.token;
-    }
 
     before(function () {
         const userRoutes = buildUserRoutes(userModule({}));
-        const otpHandler = {
-            sendCode: () => Promise.resolve({verified: true}),
-            verifyCode: () => Promise.resolve({verified: true})
-        };
         let authRoutes;
         updates = {
             deviceToken: "sldjfal;kjalsdkjf aslkf;ja",
@@ -173,7 +176,7 @@ describe("user interactions tests", function () {
             lastName: "Founkreo",
             password: "@sdjUlT2340!**&&&&&&&&"
         };
-        authRoutes = buildAuthRoutes(authModule({otpHandler}));
+        authRoutes = buildAuthRoutes(authModule({otpHandler: otpHandlerFake}));
         server = buildServer(buildRouter({authRoutes, userRoutes}));
         app = supertest.agent(server);
 
@@ -191,9 +194,9 @@ describe("user interactions tests", function () {
     });
 
     it("should provide the user infos", async function () {
-        const token = await getToken(app);
+        const token = await getToken(app, goodUser.phone);
         let response = await app.get("/user/infos");
-        assert.equal(response.status, 401);
+        assert.equal(response.status, errors.notAuthorized.status);
         response = await app.get("/user/infos").set(
             "authorization",
             "Bearer " + token
@@ -215,8 +218,8 @@ describe("user interactions tests", function () {
         let response;
         let token;
         response = await app.post("/user/update-profile").send(updates);
-        assert.equal(response.status, 401);
-        token = await getToken(app);
+        assert.equal(response.status, errors.notAuthorized.status);
+        token = await getToken(app, goodUser.phone);
         assert.isNotNull(token);
         response = await app.post("/user/update-profile").send(updates).set(
             "authorization",
@@ -236,7 +239,7 @@ describe("user interactions tests", function () {
 
     it("should not update user role or phone or user Id", async function () {
         let response;
-        let token = await getToken(app);
+        let token = await getToken(app, goodUser.phone);
         let forbiddenUpdate = {
             phone: "+32380",
             role: "admin",
@@ -245,7 +248,7 @@ describe("user interactions tests", function () {
         response = await app.post("/user/update-profile").send(
             forbiddenUpdate
         ).set("authorization", "Bearer " + token);
-        assert.equal(response.status, 400);
+        assert.equal(response.status, errors.invalidValues.status);
         assert.equal(
             response.body.message,
             "cannot update with invalid values"
@@ -279,7 +282,7 @@ describe("user interactions tests", function () {
             }
         });
         it("should handle avatar and carInfos upload", async function () {
-            const token = await getToken(app);
+            const token = await getToken(app, goodUser.phone);
             let response = await app.post("/user/update-profile").field(
                 "firstName",
                 updates.firstName
@@ -301,9 +304,9 @@ describe("user interactions tests", function () {
         it("should verify user avatar deletion", async function () {
             let response;
             let token;
-            token = await getToken(app);
+            token = await getToken(app, goodUser.phone);
             response = await app.post("/user/delete-avatar");
-            assert.equal(response.status, 401);
+            assert.equal(response.status, errors.notAuthorized.status);
             response = await app.post("/user/update-profile").attach(
                 "avatar",
                 avatarPath
@@ -324,7 +327,7 @@ describe("user interactions tests", function () {
         it(
             "should not allow to upload a file if the format is invalid",
             async function () {
-                let token = await getToken(app);
+                let token = await getToken(app, goodUser.phone);
                 let response = await app.post("/user/update-profile").field(
                     "firstName",
                     "Vamvam soft"
@@ -346,5 +349,44 @@ describe("user interactions tests", function () {
             }
         );
 
+    });
+});
+describe("socket authentication", function () {
+    let server;
+    let socketServer;
+    let app;
+    let socketGenerator = clientSocketCreator("delivery");
+    before(function () {
+        let authRoutes = buildAuthRoutes(authModule({
+            otpHandler: otpHandlerFake
+        }));
+        server = buildServer(buildRouter({authRoutes}));
+        app = supertest.agent(server);
+        socketServer = getSocketManager(server);
+    });
+    beforeEach(async function () {
+        await connection.sync({alter: true});
+    });
+    afterEach(async function () {
+        await connection.drop();
+    });
+    after(function () {
+        socketServer.io.close();
+        server.close();
+    })
+    it("should reject if a user is not authenticated", function (done) {
+        let client = socketGenerator();
+        client.on("connect_error", function (err) {
+            assert.deepEqual(err.data, errors.notAuthorized.message);
+            done();
+        });
+    });
+    it("should allow the user when having token", function (done){
+        getToken(app, goodUser.phone).then(function (token) {
+            let client = socketGenerator(token);
+            client.on("connect", function () {
+                done();
+            });
+        });
     });
 });

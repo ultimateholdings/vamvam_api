@@ -1,16 +1,17 @@
+/*jslint node */
 const {jwtWrapper} = require("../utils/helpers");
+const {errors} = require("../utils/config");
 
 function sendAuthFaillure(res) {
-    res.status(401).json({
-        message: "you are not authorized to access this content"
-    });
+    const {message, status} = errors.notAuthorized;
+    res.status(status).json({message});
 }
+/*jslint-disable*/
 async function protectRoute(req, res, next) {
     const [, token] = (req.headers.authorization || "").split(" ");
     const jwtHandler = jwtWrapper();
     let payload;
-
-    if (token == null) {
+    if (token === null || token === undefined) {
         sendAuthFaillure(res);
     } else {
         try {
@@ -18,18 +19,45 @@ async function protectRoute(req, res, next) {
             req.user = payload;
             next();
         } catch (error) {
-            sendAuthFaillure(res);
+            sendAuthFaillure(res, error);
         }
     }
-    
+}
+/*jslint-enable*/
+function socketAuthenticator(allowedRoles = ["driver", "client"]) {
+    return async function authenticateSocket(socket, next) {
+        const {token} = socket.handshake.auth || {};
+        const jwtHandler = jwtWrapper();
+        const err = new Error("Forbidden Access");
+        err.data = errors.notAuthorized.message;
+        let payload;
+        if (token === undefined || token === null) {
+            next(err);
+        } else {
+            try {
+                payload = await jwtHandler.verify(token);
+                if (Array.isArray(allowedRoles) && allowedRoles.includes(
+                    payload.token.role
+                )) {
+                    socket.user = payload.token;
+                    next();
+                } else {
+                    next(err);
+                }
+            } catch (error) {
+                error.data = errors.invalidCredentials.message;
+                next(error);
+            }
+        }
+
+    };
 }
 
 function verifyValidId(req, res, next) {
     const {id} = req.body;
+    const {message, status} = errors.invalidValues;
     if (id === null || id === undefined) {
-        res.status(440).json({
-            message: "invalid identifier"
-        });
+        res.status(status).json({message});
     } else {
         next();
     }
@@ -44,10 +72,13 @@ function allowRoles(roles = []) {
             sendAuthFaillure(res);
         }
     };
-} 
+}
 
 module.exports = Object.freeze({
     allowRoles,
+/*jslint-disable*/
     protectRoute,
+/*jslint-enable*/
+    socketAuthenticator,
     verifyValidId
 });

@@ -18,39 +18,31 @@ const {buildServer} = require("../src");
 const deliveryModule = require("../src/modules/delivery.module");
 const buildDeliveryRoutes = require("../src/routes/delivery.route");
 const buildRouter = require("../src/routes");
-const {users} = require("./fixtures/users.data");
+const {getToken, users} = require("./fixtures/users.data");
 const {badDelevery, deliveries} = require("./fixtures/deliveries.data");
 const buildAuthRoutes = require("../src/routes/auth.route");
 const getAuthModule = require("../src/modules/auth.module");
+const {errors} = require("../src/utils/config");
 
+async function requestDelivery(app, phone, data) {
+    let token = await getToken(app, phone);
+    let response = await app.post("/delivery/request").send(
+        data
+    ).set("authorization", "Bearer " + token);
+    if (response.body.id !== undefined) {
+        await Delivery.update({status: "started"}, {
+            where: {id: response.body.id}
+        });
+    }
+    response.body.token = token;
+    response.body.status = response.status;
+    return response.body;
+}
 
 describe("delivery CRUD test", function () {
     let server;
     let app;
     let dbUsers;
-
-    async function getToken(app, phoneNumber) {
-        const response = await app.post("/auth/verify-otp").send({
-            code: "1234",
-            phoneNumber
-        });
-        return response.body.token;
-    }
-
-    async function requestDelivery(app, phone, data) {
-        let token = await getToken(app, phone);
-        let response = await app.post("/delivery/request").send(
-            data
-        ).set("authorization", "Bearer " + token);
-        if (response.body.id !== undefined) {
-            await Delivery.update({status: "started"}, {
-                where: {id: response.body.id}
-            });
-        }
-        response.body.token = token;
-        response.body.status = response.status;
-        return response.body;
-    }
 
     before(function () {
         let deliveryRoutes;
@@ -107,7 +99,7 @@ describe("delivery CRUD test", function () {
             dbUsers.goodUser.phone,
             badDelevery
         );
-        assert.equal(response.status, 440);
+        assert.equal(response.status, errors.invalidLocation.status);
     });
 
     it("should provide the infos of a delivery", async function () {
@@ -119,7 +111,7 @@ describe("delivery CRUD test", function () {
         let response = await app.get("/delivery/infos").send({
             id: null
         }).set("authorization", "Bearer " + goodUserRequest.token);
-        assert.equal(response.status, 440);
+        assert.equal(response.status, errors.invalidValues.status);
         response = await app.get("/delivery/infos").send({
             id: goodUserRequest.id
         }).set("authorization", "Bearer " + goodUserRequest.token);
@@ -143,11 +135,11 @@ describe("delivery CRUD test", function () {
             let response = await app.get("/delivery/infos").send({
                 id: secondUserRequest.id
             }).set("authorization", "Bearer " + goodUserRequest.token);
-            assert.equal(response.status, 401);
+            assert.equal(response.status, errors.notAuthorized.status);
             response = await app.get("/delivery/infos").send({
                 id: goodUserRequest.id
             }).set("authorization", "Bearer " + secondUserRequest.token);
-            assert.equal(response.status, 401);
+            assert.equal(response.status, errors.notAuthorized.status);
         }
     );
 
@@ -168,7 +160,7 @@ describe("delivery CRUD test", function () {
                 code: "1234590900",
                 id: goodUserRequest.id
             }).set("authorization", "Bearer " + token);
-            assert.equal(response.status, 400);
+            assert.equal(response.status, errors.invalidValues.status);
             response = await app.post("/delivery/verify-code").send({
                 code: goodUserRequest.code,
                 id: goodUserRequest.id
@@ -203,11 +195,11 @@ describe("delivery CRUD test", function () {
                 code: goodUserRequest.code,
                 id: goodUserRequest.id
             }).set("Authorization", "Bearer " + goodUserRequest.token);
-            assert.equal(response.status, 401);
+            assert.equal(response.status, errors.notAuthorized.status);
             response = await app.post("/delivery/verify-code").send(
                 goodUserRequest
             ).set("Authorization", "Bearer " + secondDriverToken);
-            assert.equal(response.status, 401);
+            assert.equal(response.status, errors.notAuthorized.status);
         }
     );
 
@@ -231,7 +223,7 @@ describe("delivery CRUD test", function () {
             response = await app.post("/delivery/verify-code").send(
                 goodUserRequest
             ).set("Authorization", "Bearer " + firstDriverToken);
-            assert.equal(response.status, 454);
+            assert.equal(response.status, errors.cannotPerformAction.status);
         }
     );
 });

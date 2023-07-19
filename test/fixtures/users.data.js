@@ -3,6 +3,7 @@ node
 */
 
 const nock = require("nock");
+const {io: Client} = require("socket.io-client");
 const users = {
     badUser: {
         firstName: "NKANG NGWET",
@@ -85,7 +86,31 @@ function setupInterceptor() {
     }).persist();
 }
 
+function clientSocketCreator(room) {
+    return function (token) {
+        let client;
+        let options = {};
+        if (token !== null && token !== undefined ) {
+            options.auth = {token};
+        }
+        client = new Client("http://localhost:3000/" + room, options);
+        return client;
+    };
+}
+
+async function getToken(app, phone, role) {
+    const credentials = {
+        code: "1234",
+        phoneNumber: phone,
+        role
+    };
+    const response = await app.post("/auth/verify-otp").send(credentials);
+    return response.body.token;
+}
+
 module.exports = Object.freeze({
+    clientSocketCreator,
+    getToken,
     pinIds,
     setupInterceptor,
     users
