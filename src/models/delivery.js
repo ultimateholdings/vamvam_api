@@ -2,9 +2,10 @@
 node
 */
 const {DataTypes} = require("sequelize");
-const {propertiesPicker} = require("../utils/helpers");
+const {CustomEmitter, propertiesPicker} = require("../utils/helpers");
 
 function defineDeliveryModel(connection) {
+    const emitter = new CustomEmitter();
     const schema = {
         begin: DataTypes.DATE,
         code: DataTypes.STRING,
@@ -51,6 +52,13 @@ function defineDeliveryModel(connection) {
             };
         }
         return propertiesPicker(result)(allowedProps);
+    }
+    delivery.addEventListener = function (eventName, func) {
+        emitter.on(eventName, func);
+    }
+    delivery.emitEvent = function (eventName, data) {
+        debugger;
+        emitter.emit(eventName, data);
     }
     return delivery;
 }

@@ -18,10 +18,16 @@ const {buildServer} = require("../src");
 const deliveryModule = require("../src/modules/delivery.module");
 const buildDeliveryRoutes = require("../src/routes/delivery.route");
 const buildRouter = require("../src/routes");
-const {getToken, users} = require("./fixtures/users.data");
+const {
+    clientSocketCreator,
+    getToken,
+    otpHandler,
+    users
+} = require("./fixtures/users.data");
 const {badDelevery, deliveries} = require("./fixtures/deliveries.data");
 const buildAuthRoutes = require("../src/routes/auth.route");
 const getAuthModule = require("../src/modules/auth.module");
+const getSocketManager = require("../src/utils/socket-manager");
 const {errors} = require("../src/utils/config");
 
 async function requestDelivery(app, phone, data) {
@@ -43,17 +49,19 @@ describe("delivery CRUD test", function () {
     let server;
     let app;
     let dbUsers;
+    let socketServer;
+    let socketGenerator = clientSocketCreator("delivery");
 
     before(function () {
         let deliveryRoutes;
-        const otpHandler = {
-            sendCode: () => Promise.resolve({verified: true}),
-            verifyCode: () => Promise.resolve({verified: true})
-        };
         const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));
         deliveryRoutes = buildDeliveryRoutes(deliveryModule({}));
         server = buildServer(buildRouter({authRoutes, deliveryRoutes}));
         app = supertest.agent(server);
+        socketServer = getSocketManager({
+            deliveryModel: Delivery,
+            httpServer: server,
+        });
     });
 
     beforeEach(async function () {
@@ -78,7 +86,26 @@ describe("delivery CRUD test", function () {
 
     after(function () {
         server.close();
+        socketServer.io.close();
     });
+
+    async function setupDeliveryClosing({
+        app,
+        clientPhone,
+        delivery,
+        driverData
+    }) {
+        const request = await requestDelivery(
+            app,
+            clientPhone,
+            delivery
+        );
+        let token = await getToken(app, driverData.phone);
+        await Delivery.update({driverId: driverData.id}, {
+            where: {id: request.id}
+        });
+        return {driverToken: token, request};
+    }
 
     it("should create a new delivery", async function () {
         let response = await requestDelivery(
@@ -146,28 +173,24 @@ describe("delivery CRUD test", function () {
     it(
         "should terminate a delivery when a verification code is correct",
         async function () {
-            const goodUserRequest = await requestDelivery(
+            const {request, driverToken} = await setupDeliveryClosing({
                 app,
-                dbUsers.goodUser.phone,
-                deliveries[0]
-            );
-            let response;
-            let token = await getToken(app, dbUsers.firstDriver.phone);
-            await Delivery.update({driverId: dbUsers.firstDriver.id}, {
-                where: {id: goodUserRequest.id}
+                clientPhone: dbUsers.goodUser.phone,
+                delivery: deliveries[0],
+                driverData: dbUsers.firstDriver
             });
             response = await app.post("/delivery/verify-code").send({
                 code: "1234590900",
-                id: goodUserRequest.id
-            }).set("authorization", "Bearer " + token);
+                id: request.id
+            }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, errors.invalidValues.status);
             response = await app.post("/delivery/verify-code").send({
-                code: goodUserRequest.code,
-                id: goodUserRequest.id
-            }).set("authorization", "Bearer " + token);
+                code: request.code,
+                id: request.id
+            }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, 200);
             response = await Delivery.findOne({
-                where: {id: goodUserRequest.id}
+                where: {id: request.id}
             });
             assert.equal(response.status, "terminated");
         }
@@ -178,26 +201,23 @@ describe("delivery CRUD test", function () {
         async function () {
             //Note: goodUser is a client so he cannot verify the code
             let response;
-            const goodUserRequest = await requestDelivery(
+            const {request} = await setupDeliveryClosing({
                 app,
-                dbUsers.goodUser.phone,
-                deliveries[0]
-            );
+                clientPhone: dbUsers.goodUser.phone,
+                delivery: deliveries[0],
+                driverData: dbUsers.firstDriver
+            });
             const secondDriverToken = await getToken(
                 app,
                 dbUsers.secondDriver.phone
             );
-            await Delivery.update(
-                {driverId: dbUsers.firstDriver.id},
-                {where: {id: goodUserRequest.id}}
-            );
             response = await app.post("/delivery/verify-code").send({
-                code: goodUserRequest.code,
-                id: goodUserRequest.id
-            }).set("Authorization", "Bearer " + goodUserRequest.token);
+                code: request.code,
+                id: request.id
+            }).set("Authorization", "Bearer " + request.token);
             assert.equal(response.status, errors.notAuthorized.status);
             response = await app.post("/delivery/verify-code").send(
-                goodUserRequest
+                request
             ).set("Authorization", "Bearer " + secondDriverToken);
             assert.equal(response.status, errors.notAuthorized.status);
         }
@@ -207,23 +227,44 @@ describe("delivery CRUD test", function () {
         "should not verify a delivery which isn't in started status",
         async function () {
             let response;
-            const goodUserRequest = await requestDelivery(
+            const {request, driverToken} = await setupDeliveryClosing({
                 app,
-                dbUsers.goodUser.phone,
-                deliveries[0]
-            );
-            const firstDriverToken = await getToken(
-                app,
-                dbUsers.firstDriver.phone
-            );
+                clientPhone: dbUsers.goodUser.phone,
+                delivery: deliveries[0],
+                driverData: dbUsers.firstDriver
+            });
             await Delivery.update({
                 status: "terminated",
                 driverId: dbUsers.firstDriver.id
-            }, {where: {id: goodUserRequest.id}});
+            }, {where: {id: request.id}});
             response = await app.post("/delivery/verify-code").send(
-                goodUserRequest
-            ).set("Authorization", "Bearer " + firstDriverToken);
+                request
+            ).set("Authorization", "Bearer " + driverToken);
             assert.equal(response.status, errors.cannotPerformAction.status);
         }
     );
+
+    it("should notify the client on delivery's ending", function (done) {
+        setupDeliveryClosing({
+            app,
+            clientPhone: dbUsers.goodUser.phone,
+            delivery: deliveries[0],
+            driverData: dbUsers.firstDriver
+        }).then(function ({driverToken, request}) {
+            return socketGenerator(request.token).then(function (client) {
+                    return {client, driverToken, request};
+            });
+        }).then(function ({client, driverToken, request}) {
+            app.post("/delivery/verify-code").send(
+                request
+                ).set("authorization", "Bearer " + driverToken).then(
+                    function () {
+                        client.on("delivery-end", function (data) {
+                            assert.equal(data.deliveryId, request.id);
+                            done();
+                            client.close();
+                        });
+                    });
+            }).catch(console.error);
+    });
 });

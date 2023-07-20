@@ -3,10 +3,16 @@ const {Server} = require("socket.io");
 const {socketAuthenticator} = require("../utils/middlewares");
 
 
-function getSocketManager (httpServer) {
+function getSocketManager ({deliveryModel, httpServer, userModel}) {
     const io = new Server(httpServer);
     const deliveries = io.of("/delivery");
     const connectedUsers = Object.create(null);
+    deliveryModel?.addEventListener("delivery-end", function (data) {
+        debugger;
+        const {clientId, deliveryId} = data;
+        
+        connectedUsers[clientId]?.emit("delivery-end", {deliveryId});
+    })
     deliveries.use(socketAuthenticator());
     io.use(socketAuthenticator(["admin"]));
 
@@ -17,12 +23,12 @@ function getSocketManager (httpServer) {
         });
     });
 
+
+
     return Object.freeze({
         io,
         forwardMessage(id, eventName, data) {
-            if (connectedUsers[id] !== undefined) {
-                connectedUsers[id].emit(eventName, data);
-            }
+            connectedUsers[id]?.emit(eventName, data);
         }
     });
 }

@@ -49,6 +49,10 @@ function getDeliveryModule({associatedModels, model}) {
                     id: delivery.id
                 }
             });
+            deliveryModel?.emitEvent(
+                "delivery-end",
+                {clientId: delivery.clientId, deliveryId: delivery.id}
+            );
             return {
                 body: {terminated: true},
                 status: 200
@@ -152,8 +156,7 @@ function getDeliveryModule({associatedModels, model}) {
         } = req.user.token;
         const {code, id} = req.body;
         let closing;
-        let delivery = await deliveryModel.findOne({where: {id}});
-
+        let delivery = await deliveryModel.findOne({where: {id}})
         if (delivery === null) {
             send404(res);
         } else {

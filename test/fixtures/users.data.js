@@ -33,6 +33,10 @@ const users = {
     }
 };
 const pinIds = ["aewrjafk;9539", "121-dhjds-2330"];
+const otpHandler = {
+    sendCode: () => Promise.resolve({verified: true}),
+    verifyCode: () => Promise.resolve({verified: true})
+};
 
 
 function setupInterceptor() {
@@ -50,8 +54,7 @@ function setupInterceptor() {
             }
         ).includes(body.to)
     ).reply(200, function (uri, requestBody) {
-        const body = JSON.parse(requestBody);
-        if (body.to === goodUser.phone) {
+        if (requestBody.to === goodUser.phone) {
             return {
                 phone: goodUser.phone,
                 pinId: pinIds[0],
@@ -68,8 +71,7 @@ function setupInterceptor() {
         /otp\/verify/,
         (body) => pinIds.includes(body.pin_id)
     ).reply(200, function (uri, requestBody) {
-        const body = JSON.parse(requestBody);
-        if (body.pin_id === pinIds[0]) {
+        if (requestBody.pin_id === pinIds[0]) {
             return {
                 msisdn: goodUser.phone,
                 pinId: pinIds[0],
@@ -88,13 +90,20 @@ function setupInterceptor() {
 
 function clientSocketCreator(room) {
     return function (token) {
-        let client;
-        let options = {};
-        if (token !== null && token !== undefined ) {
-            options.auth = {token};
-        }
-        client = new Client("http://localhost:3000/" + room, options);
-        return client;
+        return new Promise(function(res, rej) {
+            let client;
+            let options = {};
+            if (token !== null && token !== undefined) {
+                options.auth = {token};
+            }
+            client = new Client("http://localhost:3000/" + room, options);
+            client.on("connect", function () {
+                res(client);
+            });
+            client.on("connect_error", function (err) {
+                rej(err);
+            })
+        });
     };
 }
 
@@ -111,6 +120,7 @@ async function getToken(app, phone, role) {
 module.exports = Object.freeze({
     clientSocketCreator,
     getToken,
+    otpHandler,
     pinIds,
     setupInterceptor,
     users

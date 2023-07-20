@@ -2,7 +2,7 @@
 node
 */
 "use strict";
-
+const {EventEmitter} = require("node:events");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -17,6 +17,9 @@ const {
 const defaultHeader = {
     "content-type": "application/json",
 };
+
+const CustomEmitter = new Function();
+CustomEmitter.prototype = EventEmitter.prototype;
 
 function jwtWrapper() {
     return {
@@ -222,6 +225,7 @@ function otpManager(otpService) {
 }
 
 module.exports = Object.freeze({
+    CustomEmitter,
     comparePassword(givenPassword, hash) {
         return new Promise(function executor(resolve, reject) {
             bcrypt.compare(givenPassword, hash, function (err, result) {

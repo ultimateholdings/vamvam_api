@@ -355,17 +355,22 @@ describe("socket authentication", function () {
     let server;
     let socketServer;
     let app;
+    let currentUser;
     let socketGenerator = clientSocketCreator("delivery");
-    before(function () {
+    before(async function () {
         let authRoutes = buildAuthRoutes(authModule({
             otpHandler: otpHandlerFake
         }));
         server = buildServer(buildRouter({authRoutes}));
         app = supertest.agent(server);
-        socketServer = getSocketManager(server);
+        socketServer = getSocketManager({httpServer: server});
     });
     beforeEach(async function () {
+        let userToken
         await connection.sync({alter: true});
+        currentUser = await User.create(goodUser);
+        userToken = await getToken(app, goodUser.phone);
+        currentUser.token = userToken;
     });
     afterEach(async function () {
         await connection.drop();
@@ -373,20 +378,28 @@ describe("socket authentication", function () {
     after(function () {
         socketServer.io.close();
         server.close();
-    })
-    it("should reject if a user is not authenticated", function (done) {
-        let client = socketGenerator();
-        client.on("connect_error", function (err) {
-            assert.deepEqual(err.data, errors.notAuthorized.message);
-            done();
-        });
+    });
+    it("should reject if a user is not authenticated", async function () {
+        let client;
+        try {
+            client = await socketGenerator();
+        } catch (error) {
+            assert.deepEqual(error.data, errors.notAuthorized.message);
+        }
     });
     it("should allow the user when having token", function (done){
-        getToken(app, goodUser.phone).then(function (token) {
-            let client = socketGenerator(token);
-            client.on("connect", function () {
+        socketGenerator(currentUser.token).then(function (client) {
+            client.on("new-delivery", function (data) {
+                assert.deepEqual(data, {price: 1000});
                 done();
+                client.close();
             });
+            socketServer.forwardMessage(
+                currentUser.id,
+                "new-delivery",
+                {price: 1000}
+            );
+
         });
     });
 });
