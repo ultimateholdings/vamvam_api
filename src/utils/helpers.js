@@ -7,11 +7,16 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
-const {getOTPConfig} = require("../utils/config")
+const {getOTPConfig, errors} = require("../utils/config");
+const {ValidationError} = require("sequelize");
 const {
     TOKEN_EXP: expiration = 3600,
     JWT_SECRET: secret = "test1234butdefault"
 } = process.env;
+
+const defaultHeader = {
+    "content-type": "application/json",
+};
 
 function jwtWrapper() {
     return {
@@ -67,15 +72,41 @@ function getFileHash (path) {
     });
 }
 
+async function fetchUrl(url, body={}, headers = defaultHeader) {
+    const {default: fetch} = await import("node-fetch");
+    return  fetch(url, {
+        body: JSON.stringify(body),
+        headers,
+        method: "POST"
+    });
+    
+}
+
 function errorHandler (func) {
     return async function (req, res, next) {
+        let err;
+        let content;
         try {
             await func(req, res, next);
         } catch (error) {
-            res.status(500).json({
-                code: (error.original || {}).errno,
-                content: error.original
-            });
+            if (error instanceof ValidationError) {
+                err = errors.invalidValues
+                content =  error.errors.map(function ({message}) {
+                    return message.replace(/^\w*\./, "");
+                }, {}).join(" and ");
+                res.status(err.status).json({
+                    content,
+                    message: err.message
+                });
+
+            } else {
+                err = errors.internalError;
+                res.status(err.status).json({
+                    code: (error.original || {}).errno,
+                    content: error.original,
+                    message: err.message
+                });
+            }
             res.end();
         }
     }
@@ -105,17 +136,17 @@ function propertiesPicker(object) {
 function getOTPService(model) {
     const config = getOTPConfig();
     async function sendOTP(phone, signature) {
-        const {default: fetch} = await import("node-fetch");
         let response;
         try {
-            response = await fetch(config.sent_url, {
-                body: JSON.stringify(config.getSendingBody(phone, signature)),
-                method: "POST"
-            });
+            response = await fetchUrl(
+                config.sent_url,
+                config.getSendingBody(phone, signature)
+            );
         } catch (error) {
+            response = errors.internalError;
             return {
-                code: 501,
-                message: "Something went wrong while sending OTP",
+                code: response.status,
+                message: response.message,
                 sent: false
             };
         }
@@ -126,8 +157,9 @@ function getOTPService(model) {
         } else {
             response = await response.json();
             return {
-                code: 401,
-                message: "The message could not be proceeded",
+                code: errors.otpSendingFail.status,
+                content: response.message,
+                message: errors.otpSendingFail.message,
                 sent: false
             };
         }
@@ -135,20 +167,19 @@ function getOTPService(model) {
     }
 
     async function verifyOTP(phone, code) {
-        const {default: fetch} = await import("node-fetch");
         let response = await model.findOne({where: {phone}});
         if (response === null) {
             return {
-                errorCode: 445,
-                message: "user has not request for OTP",
+                errorCode: errors.requestOTP.status,
+                message: errors.requestOTP.message,
                 verified: false
             };
         }
         try {
-            response = await fetch(config.verify_url, {
-                body: JSON.stringify(config.getVerificationBody(response.pinId, code)),
-                method: "POST"
-            });
+            response = await fetchUrl(
+                config.verify_url,
+                config.getVerificationBody(response.pinId, code)
+            );
             if (response.ok) {
                 response = await response.json();
                 if (response.verified === "True" && response.msisdn === phone) {
@@ -156,20 +187,20 @@ function getOTPService(model) {
                     return {verified: true};
                 }
                 return {
-                    errorCode: 448,
-                    message: "invalid OTP, you may request for a new one"
+                    errorCode: errors.notAuthorized.status,
+                    message: errors.notAuthorized.message
                 };
             } else {
                 return {
-                    errorCode: 446,
-                    message: "the OTP is invalid, you may check again your pin",
+                    errorCode: errors.invalidCredentials.status,
+                    message: errors.invalidCredentials.message,
                     verified: false
                 };
             }
         } catch (error) {
             return {
-                errorCode: 447,
-                message: "something went wrong while verifying OTP",
+                errorCode: errors.internalError.status,
+                message: errors.internalError.message,
                 verified: false,
                 sysCode: error.code
             };

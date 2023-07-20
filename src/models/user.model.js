@@ -45,19 +45,20 @@ function defineUserModel(connection) {
             type: DataTypes.STRING,
             unique: true
         },
+        position: new DataTypes.GEOMETRY("POINT"),
         role: {
             defaultValue: "client",
             type: DataTypes.ENUM,
             values: ["client", "driver", "admin"]
         },
-        genre: {
+        gender: {
             defaultValue: "M",
             type: DataTypes.ENUM,
             values: ["F", "M"]
         },
-        userId: {
+        id: {
             defaultValue: DataTypes.UUIDV4,
-            primary: true,
+            primaryKey: true,
             type: DataTypes.UUID
         }
     }, {

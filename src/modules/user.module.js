@@ -16,19 +16,16 @@ function getUserModule({
         "deviceToken",
         "firstName",
         "lastName",
-        "genre",
-        "email",
-        "password"
+        "password",
+        "gender",
+        "email"
     ];
 
     async function deleteAvatar(req, res) {
         let {id, phone} = req.user.token;
         const [updated] = await userModel.update({avatar: null}, {
             individualHooks: true,
-            where: {
-                phone,
-                userId: id
-            }
+            where: {id, phone}
         });
         res.status(200).json({updated});
     }
@@ -36,7 +33,7 @@ function getUserModule({
     async function getInformations(req, res) {
         const {id, phone} = req.user.token;
         let response;
-        let result = await User.findOne({where: {phone, userId: id}});
+        let result = await User.findOne({where: {id, phone}});
         response = genericProps.reduce(function (accumulator, prop) {
             accumulator[prop] = result[prop];
             return accumulator;
@@ -70,10 +67,7 @@ function getUserModule({
                 propertiesUpdated,
                 {
                     individualHooks: true,
-                    where: {
-                        phone,
-                        userId: id
-                    }
+                    where: {id, phone}
                 }
             );
             res.status(200).json({updated});
