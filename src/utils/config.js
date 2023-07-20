@@ -92,11 +92,11 @@ const config = Object.freeze({
                     from: "VAMVAM",
                     message_text: "<#> Your verification code is" +
                     " @vamvam@ \n\n" + signature,
+                    message_type: "ALPHANUMERIC",
                     pin_attempts: 3,
                     pin_length: 6,
                     pin_placeholder: "@vamvam@",
                     pin_time_to_live: 3,
-                    text_type: "ALPHANUMERIC",
                     to: receiver
                 };
             },

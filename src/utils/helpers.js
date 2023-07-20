@@ -14,6 +14,10 @@ const {
     JWT_SECRET: secret = "test1234butdefault"
 } = process.env;
 
+const defaultHeader = {
+    "content-type": "application/json",
+};
+
 function jwtWrapper() {
     return {
         sign(payload) {
@@ -66,6 +70,16 @@ function getFileHash (path) {
             rej(err);
         });
     });
+}
+
+async function fetchUrl(url, body={}, headers = defaultHeader) {
+    const {default: fetch} = await import("node-fetch");
+    return  fetch(url, {
+        body: JSON.stringify(body),
+        headers,
+        method: "POST"
+    });
+    
 }
 
 function errorHandler (func) {
@@ -122,13 +136,12 @@ function propertiesPicker(object) {
 function getOTPService(model) {
     const config = getOTPConfig();
     async function sendOTP(phone, signature) {
-        const {default: fetch} = await import("node-fetch");
         let response;
         try {
-            response = await fetch(config.sent_url, {
-                body: JSON.stringify(config.getSendingBody(phone, signature)),
-                method: "POST"
-            });
+            response = await fetchUrl(
+                config.sent_url,
+                config.getSendingBody(phone, signature)
+            );
         } catch (error) {
             response = errors.internalError;
             return {
@@ -154,7 +167,6 @@ function getOTPService(model) {
     }
 
     async function verifyOTP(phone, code) {
-        const {default: fetch} = await import("node-fetch");
         let response = await model.findOne({where: {phone}});
         if (response === null) {
             return {
@@ -164,10 +176,10 @@ function getOTPService(model) {
             };
         }
         try {
-            response = await fetch(config.verify_url, {
-                body: JSON.stringify(config.getVerificationBody(response.pinId, code)),
-                method: "POST"
-            });
+            response = await fetchUrl(
+                config.verify_url,
+                config.getVerificationBody(response.pinId, code)
+            );
             if (response.ok) {
                 response = await response.json();
                 if (response.verified === "True" && response.msisdn === phone) {

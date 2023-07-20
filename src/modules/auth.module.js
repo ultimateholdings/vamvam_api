@@ -48,9 +48,9 @@ function getAuthModule({
             sent
         } = await authOtpHandler.sendCode(phoneNumber, signature);
         if (sent === true) {
-            res.status(200).json({sent, ttl: 3});
+            res.status(200).send({sent, ttl: 3});
         } else {
-            res.status(code).json({message});
+            res.status(code).send({message});
         }
     }
 
@@ -64,7 +64,7 @@ function getAuthModule({
         let userExists = true;
         let otpResponse;
         if (role !== undefined && !otpAllowedRoles.includes(role)) {
-            res.status(errors.notAuthorized.status).json({
+            res.status(errors.notAuthorized.status).send({
                 message: errors.notAuthorized.message
             });
             return;
@@ -80,7 +80,7 @@ function getAuthModule({
             }
             sendSuccessResponse(res, currentUser, userExists);
         } else {
-            res.status(otpResponse.errorCode).json({
+            res.status(otpResponse.errorCode).send({
                 message: otpResponse.message,
                 valid: false
             });
