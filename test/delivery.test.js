@@ -2,7 +2,6 @@
 node, nomen
 */
 
-require("dotenv").config();
 const {
     after,
     afterEach,
@@ -17,6 +16,7 @@ const {
     clientSocketCreator,
     getToken,
     otpHandler,
+    syncUsers,
     users
 } = require("./fixtures/users.data");
 const {
@@ -25,7 +25,6 @@ const {
     deliveryResquestor,
     setupDeliveryServer
 } = require("./fixtures/deliveries.data");
-const getSocketManager = require("../src/utils/socket-manager");
 const {errors} = require("../src/utils/config");
 
 const {
@@ -36,34 +35,16 @@ describe("delivery CRUD test", function () {
     let server;
     let app;
     let dbUsers;
-    let socketServer;
-    let socketGenerator = clientSocketCreator("delivery");
 
     before(function () {
         const tmp = setupDeliveryServer(otpHandler);
         server = tmp.server;
         app = tmp.app;
-
-        socketServer = getSocketManager({
-            deliveryModel: Delivery,
-            httpServer: server,
-        });
     });
 
     beforeEach(async function () {
-        const phoneMap = Object.entries(users).reduce(
-            function (acc, [key, val]) {
-                acc[val.phone] = key;
-                return acc;
-            },
-            {}
-        );
         await connection.sync({force: true});
-        dbUsers = await User.bulkCreate(Object.values(users));
-        dbUsers = dbUsers.reduce(function (acc, user) {
-            acc[phoneMap[user.phone]] = user;
-            return acc;
-        }, {});
+        dbUsers = await syncUsers(users, User);
     });
 
     afterEach(async function () {
@@ -72,7 +53,6 @@ describe("delivery CRUD test", function () {
 
     after(function () {
         server.close();
-        socketServer.io.close();
     });
 
     it("should create a new delivery", async function () {
@@ -211,28 +191,4 @@ describe("delivery CRUD test", function () {
             assert.equal(response.status, errors.cannotPerformAction.status);
         }
     );
-
-    it("should notify the client on delivery's ending", function (done) {
-        setupDeliveryClosing({
-            app,
-            clientPhone: dbUsers.goodUser.phone,
-            delivery: deliveries[0],
-            driverData: dbUsers.firstDriver
-        }).then(function ({driverToken, request}) {
-            return socketGenerator(request.token).then(function (client) {
-                    return {client, driverToken, request};
-            });
-        }).then(function ({client, driverToken, request}) {
-            app.post("/delivery/verify-code").send(
-                request
-                ).set("authorization", "Bearer " + driverToken).then(
-                    function () {
-                        client.on("delivery-end", function (data) {
-                            assert.equal(data.deliveryId, request.id);
-                            done();
-                            client.close();
-                        });
-                    });
-            }).catch(console.error);
-    });
 });

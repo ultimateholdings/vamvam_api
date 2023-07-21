@@ -125,6 +125,23 @@ async function getToken(app, phone, role) {
     return response.body.token;
 }
 
+async function syncUsers(users, model) {
+    let dbUsers;
+    const phoneMap = Object.entries(users).reduce(
+        function (acc, [key, val]) {
+            acc[val.phone] = key;
+            return acc;
+        },
+        {}
+    );
+    dbUsers = await model.bulkCreate(Object.values(users));
+    dbUsers = dbUsers.reduce(function (acc, user) {
+        acc[phoneMap[user.phone]] = user;
+        return acc;
+    }, {});
+    return dbUsers;
+}
+
 function setupAuthServer(otpHandler) {
     const authRoutes = buildAuthRoutes(authModule({otpHandler}));
     const userRoutes = buildUserRoutes(userModule({}))
@@ -140,5 +157,6 @@ module.exports = Object.freeze({
     pinIds,
     setupAuthServer,
     setupInterceptor,
+    syncUsers,
     users
 });

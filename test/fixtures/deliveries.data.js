@@ -79,6 +79,13 @@ const badDelevery = {
     }
 };
 
+const missoke = {latitude: 4.056436, longitude: 9.738848};
+const positions = [
+    {latitude: 4.063221, longitude: 9.733699},
+    {latitude: 4.063414, longitude: 9.733162},
+    {latitude: 4.063050, longitude: 9.732776}
+];
+
 function deliveryResquestor(tokenGetter, model) {
     async function requestDelivery(app, phone, data) {
         let token = await tokenGetter(app, phone);
@@ -130,5 +137,7 @@ module.exports = Object.freeze({
     badDelevery,
     deliveries,
     deliveryResquestor,
+    missoke,
+    positions,
     setupDeliveryServer
 });

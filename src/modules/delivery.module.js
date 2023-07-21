@@ -3,7 +3,8 @@ node
 */
 const crypto = require("crypto");
 const {Delivery, User} = require("../models");
-const {errors} = require("../utils/config")
+const {errors} = require("../utils/config");
+const {isValidLocation} = require("../utils/helpers");
 
 
 function getDeliveryModule({associatedModels, model}) {
@@ -79,10 +80,7 @@ function getDeliveryModule({associatedModels, model}) {
                         coordinates: [value?.latitude, value?.longitude],
                         type: "Point"
                     };
-                    if (
-                        !Number.isFinite(value.latitude) ||
-                        !Number.isFinite(value.longitude)
-                    ) {
+                    if (!isValidLocation(value)) {
                         throw new Error(
                             key +
                             " latitude and longitude should be a valid number"

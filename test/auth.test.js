@@ -161,12 +161,10 @@ describe("user interactions tests", function () {
         password: "@sdjUlT2340!**&&&&&&&&"
     };
 
-
     before(function () {
         let tmp = setupAuthServer(otpHandler);
         server = tmp.server;
         app = tmp.app;
-
     });
     beforeEach(async function () {
         await connection.sync({alter: true});

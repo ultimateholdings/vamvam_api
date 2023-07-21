@@ -56,6 +56,24 @@ function methodAdder(object) {
     };
 }
 
+function isValidLocation(location) {
+    let result;
+    function isValidPoint({latitude, longitude}) {
+        return Number.isFinite(latitude) && Number.isFinite(longitude);
+    }
+    if (Array.isArray(location)) {
+        result = location.every(function (point) {
+            if (point !== null && point !== undefined) {
+                return isValidPoint(point);
+            }
+            return false;
+        });
+    } else  if (location !== null && location !== undefined){
+        return isValidPoint(location)
+    }
+    return false;
+}
+
 function getFileHash (path) {
     return new Promise(function executor(res, rej) {
         const stream = fs.createReadStream(path);
@@ -249,6 +267,7 @@ module.exports = Object.freeze({
             });
         });
     },
+    isValidLocation,
     jwtWrapper,
     methodAdder,
     otpManager,
