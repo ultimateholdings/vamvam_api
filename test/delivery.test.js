@@ -11,40 +11,27 @@ const {
     describe,
     it
 } = require("mocha");
-const supertest = require("supertest");
 const {assert} = require("chai");
 const {Delivery, User, connection} = require("../src/models");
-const {buildServer} = require("../src");
-const deliveryModule = require("../src/modules/delivery.module");
-const buildDeliveryRoutes = require("../src/routes/delivery.route");
-const buildRouter = require("../src/routes");
 const {
     clientSocketCreator,
     getToken,
     otpHandler,
     users
 } = require("./fixtures/users.data");
-const {badDelevery, deliveries} = require("./fixtures/deliveries.data");
-const buildAuthRoutes = require("../src/routes/auth.route");
-const getAuthModule = require("../src/modules/auth.module");
+const {
+    badDelevery,
+    deliveries,
+    deliveryResquestor,
+    setupDeliveryServer
+} = require("./fixtures/deliveries.data");
 const getSocketManager = require("../src/utils/socket-manager");
 const {errors} = require("../src/utils/config");
 
-async function requestDelivery(app, phone, data) {
-    let token = await getToken(app, phone);
-    let response = await app.post("/delivery/request").send(
-        data
-    ).set("authorization", "Bearer " + token);
-    if (response.body.id !== undefined) {
-        await Delivery.update({status: "started"}, {
-            where: {id: response.body.id}
-        });
-    }
-    response.body.token = token;
-    response.body.status = response.status;
-    return response.body;
-}
-
+const {
+    requestDelivery,
+    setupDeliveryClosing
+} = deliveryResquestor(getToken, Delivery);
 describe("delivery CRUD test", function () {
     let server;
     let app;
@@ -53,11 +40,10 @@ describe("delivery CRUD test", function () {
     let socketGenerator = clientSocketCreator("delivery");
 
     before(function () {
-        let deliveryRoutes;
-        const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));
-        deliveryRoutes = buildDeliveryRoutes(deliveryModule({}));
-        server = buildServer(buildRouter({authRoutes, deliveryRoutes}));
-        app = supertest.agent(server);
+        const tmp = setupDeliveryServer(otpHandler);
+        server = tmp.server;
+        app = tmp.app;
+
         socketServer = getSocketManager({
             deliveryModel: Delivery,
             httpServer: server,
@@ -88,24 +74,6 @@ describe("delivery CRUD test", function () {
         server.close();
         socketServer.io.close();
     });
-
-    async function setupDeliveryClosing({
-        app,
-        clientPhone,
-        delivery,
-        driverData
-    }) {
-        const request = await requestDelivery(
-            app,
-            clientPhone,
-            delivery
-        );
-        let token = await getToken(app, driverData.phone);
-        await Delivery.update({driverId: driverData.id}, {
-            where: {id: request.id}
-        });
-        return {driverToken: token, request};
-    }
 
     it("should create a new delivery", async function () {
         let response = await requestDelivery(

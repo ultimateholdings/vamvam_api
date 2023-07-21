@@ -2,8 +2,16 @@
 node
 */
 
+require("dotenv").config();
 const nock = require("nock");
 const {io: Client} = require("socket.io-client");
+const supertest = require("supertest");
+const {buildServer} = require("../../src");
+const authModule = require("../../src/modules/auth.module");
+const userModule = require("../../src/modules/user.module");
+const buildAuthRoutes = require("../../src/routes/auth.route");
+const buildUserRoutes = require("../../src/routes/user.route");
+const buildRouter = require("../../src/routes");
 const users = {
     badUser: {
         firstName: "NKANG NGWET",
@@ -117,11 +125,20 @@ async function getToken(app, phone, role) {
     return response.body.token;
 }
 
+function setupAuthServer(otpHandler) {
+    const authRoutes = buildAuthRoutes(authModule({otpHandler}));
+    const userRoutes = buildUserRoutes(userModule({}))
+    const server = buildServer(buildRouter({authRoutes, userRoutes}));
+    const app = supertest.agent(server);
+    return Object.freeze({app, server});
+}
+
 module.exports = Object.freeze({
     clientSocketCreator,
     getToken,
     otpHandler,
     pinIds,
+    setupAuthServer,
     setupInterceptor,
     users
 });

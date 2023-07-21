@@ -1,3 +1,12 @@
+require("dotenv").config();
+const supertest = require("supertest");
+const {buildServer} = require("../../src");
+const deliveryModule = require("../../src/modules/delivery.module");
+const buildDeliveryRoutes = require("../../src/routes/delivery.route");
+const buildRouter = require("../../src/routes");
+const buildAuthRoutes = require("../../src/routes/auth.route");
+const getAuthModule = require("../../src/modules/auth.module");
+
 const deliveries = [
     {
         departure: {
@@ -70,7 +79,56 @@ const badDelevery = {
     }
 };
 
+function deliveryResquestor(tokenGetter, model) {
+    async function requestDelivery(app, phone, data) {
+        let token = await tokenGetter(app, phone);
+        let response = await app.post("/delivery/request").send(
+            data
+        ).set("authorization", "Bearer " + token);
+        if (response.body.id !== undefined) {
+            await model.update({status: "started"}, {
+                where: {id: response.body.id}
+            });
+        }
+        response.body.token = token;
+        response.body.status = response.status;
+        return response.body;
+    }
+
+    async function setupDeliveryClosing({
+        app,
+        clientPhone,
+        delivery,
+        driverData
+    }) {
+        const request = await requestDelivery(
+            app,
+            clientPhone,
+            delivery
+        );
+        let token = await tokenGetter(app, driverData.phone);
+        await model.update({driverId: driverData.id}, {
+            where: {id: request.id}
+        });
+        return {driverToken: token, request};
+    }
+
+    return Object.freeze({requestDelivery, setupDeliveryClosing});
+}
+
+function setupDeliveryServer(otpHandler) {
+    let deliveryRoutes;
+    let app;
+    let server;
+    const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));
+    deliveryRoutes = buildDeliveryRoutes(deliveryModule({}));
+    server = buildServer(buildRouter({authRoutes, deliveryRoutes}));
+    app = supertest.agent(server);
+    return Object.freeze({app, server});
+}
 module.exports = Object.freeze({
     badDelevery,
-    deliveries
+    deliveries,
+    deliveryResquestor,
+    setupDeliveryServer
 });
