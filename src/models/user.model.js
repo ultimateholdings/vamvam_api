@@ -20,7 +20,7 @@ function defineUserModel(connection) {
             validate: {
                 isValidateEmail: function (value) {
                     const emailRegex = /^[\w-.+]+@([\w\-]+\.)+[\w\-]{2,4}$/g;
-                    if (!emailRegex.test(value)) {
+                    if (emailRegex.test(value) === false) {
                         throw new Error("Please enter a valid email!");
                     }
                 }

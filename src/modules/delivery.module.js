@@ -115,14 +115,9 @@ function getDeliveryModule({associatedModels, model}) {
     }
 
     async function acceptDelivery(req, res) {
-        let delivery;
         let driver;
         const {id: userId, phone} = req.user.token;
-        const {id} = req.body;
-        delivery = await deliveryModel?.findOne({where: {id}});
-        if (delivery === null) {
-            return send404(res);
-        }
+        const {delivery} = req;
         if (delivery.driverId !== null) {
             return res.status(errors.alreadyAssigned.status).send({
                 message: errors.alreadyAssigned.message
@@ -136,21 +131,34 @@ function getDeliveryModule({associatedModels, model}) {
         driver = await associations.User.findOne({
             where: {phone, id: userId}
         });
-        delivery.setDriver(driver);
+        delivery.status = deliveryModel.statuses.pendingReception;
+        await delivery.save();
+        await delivery.setDriver(driver);
         return res.status(200).send({
-            status: deliveryModel.statuses.pendingReception
+            accepted: true
+        });
+    }
+
+    async function ensureDeliveryExists(req, res, next) {
+        const {id} = req.body;
+        const delivery = await deliveryModel?.findOne({where: {id}});
+        
+        if (delivery === null) {
+            return send404(res);
+        }
+        req.delivery = delivery;
+        next();
+    }
+
+    function getPrice(req, res) {
+        res.status(200).send({
+            price: calculatePrice()
         });
     }
 
     async function cancelDelivery(req, res) {
-        let delivery;
         const {id: userId} = req.user.token;
-        const {id} = req.body;
-        
-        delivery = await deliveryModel?.findOne({where: {id}});
-        if (delivery === null) {
-            return send404(res);
-        }
+        const {delivery} = req;
         if (delivery.clientId !== userId) {
             return sendNotAuthorized(res, {cancelled: false});
         }
@@ -195,13 +203,9 @@ function getDeliveryModule({associatedModels, model}) {
             role,
             id: userId
         } = req.user.token;
-        const {id} = req.body;
+        const {delivery} = req;
         let client;
         let driver;
-        let delivery = await deliveryModel.findOne({where: {id}});
-        if (delivery === null) {
-            send404(res);
-        }
         client = await delivery.getClient();
         driver = await delivery.getDriver();
         if (!canAccessDelivery({delivery, role, userId})) {
@@ -213,13 +217,29 @@ function getDeliveryModule({associatedModels, model}) {
         res.status(200).json(delivery);
     }
 
+    async function signalReception(req, res) {
+        const {id} = req.user.token;
+        const {delivery} = req;
+        if (delivery.driverId !== id) {
+            return sendNotAuthorized(res);
+        }
+        if (delivery.status !== deliveryModel.statuses.pendingReception) {
+            return res.status(errors.cannotPerformAction.status).send({
+                message: errors.cannotPerformAction.message
+            });
+        }
+        delivery.status = deliveryModel.statuses.toBeConfirm;
+        await delivery.save();
+        res.status(200).send({driverRecieved: true});
+    }
+
     async function terminateDelivery(req, res) {
         const {
             id: userId
         } = req.user.token;
-        const {code, id} = req.body;
+        const {code} = req.body;
+        const {delivery} = req;
         let closing;
-        let delivery = await deliveryModel.findOne({where: {id}});
         if (delivery === null) {
             send404(res);
         } else {
@@ -231,8 +251,11 @@ function getDeliveryModule({associatedModels, model}) {
     return Object.freeze({
         acceptDelivery,
         cancelDelivery,
+        ensureDeliveryExists,
         getInfos,
+        getPrice,
         requestDelivery,
+        signalReception,
         terminateDelivery
     });
 }

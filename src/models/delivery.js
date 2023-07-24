@@ -10,7 +10,7 @@ function defineDeliveryModel(connection) {
         cancelled: "cancelled",
         initial: "pending-driver-approval",
         pendingReception: "pending-driver-reception",
-        toBeConfirmation: "pending-client-approval",
+        toBeConfirm: "pending-client-approval",
         started: "started",
         terminated: "terminated",
     };

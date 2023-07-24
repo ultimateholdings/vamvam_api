@@ -32,6 +32,7 @@ function jwtWrapper() {
                 verifiedToken = await new Promise(
                     function tokenExecutor(res, rej) {
                         jwt.verify(token, secret, function (err, decoded) {
+                            debugger;
                             if (decoded === undefined) {
                                 rej(err);
                             } else {

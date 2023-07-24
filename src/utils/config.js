@@ -92,6 +92,13 @@ const errors = {
             fr: "OTP non valide, vous devriez envisager d'en demander un autre."
         },
         status: 448
+    },
+    tokenExpired: {
+        message: {
+            en: "Your access Token has expired, please login again",
+            fr: "Votre accès a expiré, veuillez vous connecter à nouveau."
+        },
+        status: 402
     }
 };
 

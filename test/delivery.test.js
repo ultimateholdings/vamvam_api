@@ -192,46 +192,66 @@ describe("delivery CRUD test", function () {
         }
     );
 
-    it("should enable a driver to aprove a delivery request", async function () {
-        const goodUserRequest = await requestDelivery({
-            app,
-            data: deliveries[0],
-            phone: dbUsers.goodUser.phone
-        });
-        const [token1, token2] = await Promise.all([
-            getToken(app, dbUsers.firstDriver.phone),
-            getToken(app, dbUsers.secondDriver.phone),
-        ]);
-        let response = await app.post("/delivery/accept").send({
-            id: goodUserRequest.id
-        }).set("Authorization", "Bearer " + token1);
-        assert.equal(response.status, 200);
-        response = await app.post("/delivery/accept").send({
-            id: goodUserRequest.id
-        }).set("Authorization", "Bearer " + token2);
-        assert.equal(response.status, errors.alreadyAssigned.status);
-    });
-
-    it(
-        "should not approve a delivery if it's been cancelled",
-        async function () {
-            const request = await requestDelivery({
+    describe("delivery state mutation tests", function () {
+        let request;
+        let driverToken;
+        beforeEach(async function() {
+            request = await requestDelivery({
                 app,
                 data: deliveries[0],
                 phone: dbUsers.goodUser.phone
             });
-            const driverToken = await getToken(
+            driverToken = await getToken(
                 app,
                 dbUsers.firstDriver.phone
             );
-            let response = await app.post("/delivery/cancel").send({
+        })
+        it("should aprove a delivery request", async function () {
+            const token2 = await getToken(app, dbUsers.secondDriver.phone);
+            let response = await app.post("/delivery/accept").send({
                 id: request.id
-            }).set("Authorization", "Bearer " + request.token);
+            }).set("Authorization", "Bearer " + driverToken);
             assert.equal(response.status, 200);
             response = await app.post("/delivery/accept").send({
                 id: request.id
+            }).set("Authorization", "Bearer " + token2);
+            debugger;
+            assert.equal(response.status, errors.alreadyAssigned.status);
+        });
+    
+        it(
+            "should not approve a delivery if it's been cancelled",
+            async function () {
+                let response = await app.post("/delivery/cancel").send({
+                    id: request.id
+                }).set("Authorization", "Bearer " + request.token);
+                assert.equal(response.status, 200);
+                response = await app.post("/delivery/accept").send({
+                    id: request.id
+                }).set("Authorization", "Bearer " + driverToken);
+                assert.equal(response.status, errors.alreadyCancelled.status);
+            }
+        );
+    
+        it("should signal the package reception", async function () {
+            let response;
+            await Delivery.update({driverId: dbUsers.firstDriver.id}, {
+                where: {id: request.id}
+            });
+            response = await app.post("/delivery/signal-reception").send({
+                id: request.id
             }).set("Authorization", "Bearer " + driverToken);
-            assert.equal(response.status, errors.alreadyCancelled.status);
-        }
-    );
+            assert.equal(response.status, errors.cannotPerformAction.status);
+            await Delivery.update({status: Delivery.statuses.pendingReception}, {
+                where: {id: request.id}
+            });
+            response = await app.post("/delivery/signal-reception").send({
+                id: request.id
+            }).set("Authorization", "Bearer " + driverToken);
+            assert.equal(response.status, 200);
+            response = await Delivery.findOne({where: {id: request.id}});
+            assert.equal(response.status, Delivery.statuses.toBeConfirm);
+        });
+    });
+
 });
