@@ -5,10 +5,10 @@ node
 const express = require("express");
 const getDeliveryModule = require("../modules/delivery.module");
 const {errorHandler} = require("../utils/helpers");
+const {availableRoles: roles} = require("../utils/config");
 const {
     allowRoles,
-    protectRoute,
-    verifyValidId
+    protectRoute
 } = require("../utils/middlewares");
 
 function getDeliveryRouter(module) {
@@ -24,15 +24,41 @@ function getDeliveryRouter(module) {
     router.get(
         "/infos",
         protectRoute,
-        verifyValidId,
+        deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.getInfos)
+    );
+    router.get(
+        "/price",
+        protectRoute,
+        errorHandler(deliveryModule.getPrice)
     );
     router.post(
         "/verify-code",
         protectRoute,
-        verifyValidId,
-        allowRoles(["driver"]),
+        deliveryModule.ensureDeliveryExists,
+        allowRoles([roles.driver]),
         errorHandler(deliveryModule.terminateDelivery)
+    );
+    router.post(
+        "/accept",
+        protectRoute,
+        allowRoles([roles.driver]),
+        deliveryModule.ensureDeliveryExists,
+        errorHandler(deliveryModule.acceptDelivery)
+    );
+    router.post(
+        "/cancel",
+        protectRoute,
+        allowRoles([roles.client]),
+        deliveryModule.ensureDeliveryExists,
+        errorHandler(deliveryModule.cancelDelivery)
+    );
+    router.post(
+        "/signal-reception",
+        protectRoute,
+        allowRoles([roles.driver]),
+        deliveryModule.ensureDeliveryExists,
+        errorHandler(deliveryModule.signalReception)
     );
     return router;
 }

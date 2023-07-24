@@ -2,7 +2,7 @@
 node
 */
 "use strict";
-
+const {EventEmitter} = require("node:events");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -18,6 +18,9 @@ const defaultHeader = {
     "content-type": "application/json",
 };
 
+const CustomEmitter = new Function();
+CustomEmitter.prototype = EventEmitter.prototype;
+
 function jwtWrapper() {
     return {
         sign(payload) {
@@ -29,6 +32,7 @@ function jwtWrapper() {
                 verifiedToken = await new Promise(
                     function tokenExecutor(res, rej) {
                         jwt.verify(token, secret, function (err, decoded) {
+                            debugger;
                             if (decoded === undefined) {
                                 rej(err);
                             } else {
@@ -51,6 +55,24 @@ function methodAdder(object) {
             object.prototype[name] = func;
         }
     };
+}
+
+function isValidLocation(location) {
+    let result;
+    function isValidPoint({latitude, longitude}) {
+        return Number.isFinite(latitude) && Number.isFinite(longitude);
+    }
+    if (Array.isArray(location)) {
+        result = location.every(function (point) {
+            if (point !== null && point !== undefined) {
+                return isValidPoint(point);
+            }
+            return false;
+        });
+    } else  if (location !== null && location !== undefined){
+        return isValidPoint(location)
+    }
+    return false;
 }
 
 function getFileHash (path) {
@@ -182,7 +204,7 @@ function getOTPService(model) {
             );
             if (response.ok) {
                 response = await response.json();
-                if (response.verified === "True" && response.msisdn === phone) {
+                if (response.verified && response.msisdn === phone) {
                     await model.destroy({where: {phone}});
                     return {verified: true};
                 }
@@ -222,6 +244,7 @@ function otpManager(otpService) {
 }
 
 module.exports = Object.freeze({
+    CustomEmitter,
     comparePassword(givenPassword, hash) {
         return new Promise(function executor(resolve, reject) {
             bcrypt.compare(givenPassword, hash, function (err, result) {
@@ -245,6 +268,7 @@ module.exports = Object.freeze({
             });
         });
     },
+    isValidLocation,
     jwtWrapper,
     methodAdder,
     otpManager,

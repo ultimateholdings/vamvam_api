@@ -2,9 +2,18 @@
 node
 */
 const {DataTypes} = require("sequelize");
-const {propertiesPicker} = require("../utils/helpers");
+const {CustomEmitter, propertiesPicker} = require("../utils/helpers");
 
 function defineDeliveryModel(connection) {
+    const emitter = new CustomEmitter();
+    const availableStatus = {
+        cancelled: "cancelled",
+        initial: "pending-driver-approval",
+        pendingReception: "pending-driver-reception",
+        toBeConfirm: "pending-client-approval",
+        started: "started",
+        terminated: "terminated",
+    };
     const schema = {
         begin: DataTypes.DATE,
         code: DataTypes.STRING,
@@ -29,9 +38,9 @@ function defineDeliveryModel(connection) {
             type: DataTypes.JSON
         },
         status: {
-            defaultValue: "pending",
+            defaultValue: "pending-driver-approval",
             type: DataTypes.ENUM,
-            values: ["pending", "cancelled", "started", "terminated"]
+            values: Object.values(availableStatus)
         }
     };
     const delivery = connection.define("delivery", schema);
@@ -52,6 +61,13 @@ function defineDeliveryModel(connection) {
         }
         return propertiesPicker(result)(allowedProps);
     }
+    delivery.addEventListener = function (eventName, func) {
+        emitter.on(eventName, func);
+    }
+    delivery.emitEvent = function (eventName, data) {
+        emitter.emit(eventName, data);
+    }
+    delivery.statuses = availableStatus;
     return delivery;
 }
 

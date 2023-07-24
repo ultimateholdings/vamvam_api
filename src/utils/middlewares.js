@@ -16,7 +16,13 @@ async function protectRoute(req, res, next) {
     } else {
         try {
             payload = await jwtHandler.verify(token);
-            req.user = payload;
+            if(payload.valid === true) {
+                req.user = payload;
+            } else {
+                res.status(errors.tokenExpired.status).send({
+                    message: errors.tokenExpired.message
+                });
+            }
             next();
         } catch (error) {
             sendAuthFaillure(res, error);

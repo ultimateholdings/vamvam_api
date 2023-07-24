@@ -2,8 +2,16 @@
 node
 */
 
+require("dotenv").config();
 const nock = require("nock");
 const {io: Client} = require("socket.io-client");
+const supertest = require("supertest");
+const {buildServer} = require("../../src");
+const authModule = require("../../src/modules/auth.module");
+const userModule = require("../../src/modules/user.module");
+const buildAuthRoutes = require("../../src/routes/auth.route");
+const buildUserRoutes = require("../../src/routes/user.route");
+const buildRouter = require("../../src/routes");
 const users = {
     badUser: {
         firstName: "NKANG NGWET",
@@ -33,6 +41,10 @@ const users = {
     }
 };
 const pinIds = ["aewrjafk;9539", "121-dhjds-2330"];
+const otpHandler = {
+    sendCode: () => Promise.resolve({verified: true}),
+    verifyCode: () => Promise.resolve({verified: true})
+};
 
 
 function setupInterceptor() {
@@ -50,8 +62,7 @@ function setupInterceptor() {
             }
         ).includes(body.to)
     ).reply(200, function (uri, requestBody) {
-        const body = JSON.parse(requestBody);
-        if (body.to === goodUser.phone) {
+        if (requestBody.to === goodUser.phone) {
             return {
                 phone: goodUser.phone,
                 pinId: pinIds[0],
@@ -68,8 +79,7 @@ function setupInterceptor() {
         /otp\/verify/,
         (body) => pinIds.includes(body.pin_id)
     ).reply(200, function (uri, requestBody) {
-        const body = JSON.parse(requestBody);
-        if (body.pin_id === pinIds[0]) {
+        if (requestBody.pin_id === pinIds[0]) {
             return {
                 msisdn: goodUser.phone,
                 pinId: pinIds[0],
@@ -88,13 +98,20 @@ function setupInterceptor() {
 
 function clientSocketCreator(room) {
     return function (token) {
-        let client;
-        let options = {};
-        if (token !== null && token !== undefined ) {
-            options.auth = {token};
-        }
-        client = new Client("http://localhost:3000/" + room, options);
-        return client;
+        return new Promise(function(res, rej) {
+            let client;
+            let options = {};
+            if (token !== null && token !== undefined) {
+                options.auth = {token};
+            }
+            client = new Client("http://localhost:3000/" + room, options);
+            client.on("connect", function () {
+                res(client);
+            });
+            client.on("connect_error", function (err) {
+                rej(err);
+            })
+        });
     };
 }
 
@@ -108,10 +125,38 @@ async function getToken(app, phone, role) {
     return response.body.token;
 }
 
+async function syncUsers(users, model) {
+    let dbUsers;
+    const phoneMap = Object.entries(users).reduce(
+        function (acc, [key, val]) {
+            acc[val.phone] = key;
+            return acc;
+        },
+        {}
+    );
+    dbUsers = await model.bulkCreate(Object.values(users));
+    dbUsers = dbUsers.reduce(function (acc, user) {
+        acc[phoneMap[user.phone]] = user;
+        return acc;
+    }, {});
+    return dbUsers;
+}
+
+function setupAuthServer(otpHandler) {
+    const authRoutes = buildAuthRoutes(authModule({otpHandler}));
+    const userRoutes = buildUserRoutes(userModule({}))
+    const server = buildServer(buildRouter({authRoutes, userRoutes}));
+    const app = supertest.agent(server);
+    return Object.freeze({app, server});
+}
+
 module.exports = Object.freeze({
     clientSocketCreator,
     getToken,
+    otpHandler,
     pinIds,
+    setupAuthServer,
     setupInterceptor,
+    syncUsers,
     users
 });

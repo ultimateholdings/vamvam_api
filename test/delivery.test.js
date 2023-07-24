@@ -2,7 +2,6 @@
 node, nomen
 */
 
-require("dotenv").config();
 const {
     after,
     afterEach,
@@ -11,65 +10,41 @@ const {
     describe,
     it
 } = require("mocha");
-const supertest = require("supertest");
 const {assert} = require("chai");
 const {Delivery, User, connection} = require("../src/models");
-const {buildServer} = require("../src");
-const deliveryModule = require("../src/modules/delivery.module");
-const buildDeliveryRoutes = require("../src/routes/delivery.route");
-const buildRouter = require("../src/routes");
-const {getToken, users} = require("./fixtures/users.data");
-const {badDelevery, deliveries} = require("./fixtures/deliveries.data");
-const buildAuthRoutes = require("../src/routes/auth.route");
-const getAuthModule = require("../src/modules/auth.module");
-const {errors} = require("../src/utils/config");
+const {
+    clientSocketCreator,
+    getToken,
+    otpHandler,
+    syncUsers,
+    users
+} = require("./fixtures/users.data");
+const {
+    badDelevery,
+    deliveries,
+    deliveryResquestor,
+    setupDeliveryServer
+} = require("./fixtures/deliveries.data");
+const {errors, availableRoles: roles} = require("../src/utils/config");
 
-async function requestDelivery(app, phone, data) {
-    let token = await getToken(app, phone);
-    let response = await app.post("/delivery/request").send(
-        data
-    ).set("authorization", "Bearer " + token);
-    if (response.body.id !== undefined) {
-        await Delivery.update({status: "started"}, {
-            where: {id: response.body.id}
-        });
-    }
-    response.body.token = token;
-    response.body.status = response.status;
-    return response.body;
-}
-
+const {
+    requestDelivery,
+    setupDeliveryClosing
+} = deliveryResquestor(getToken, Delivery);
 describe("delivery CRUD test", function () {
     let server;
     let app;
     let dbUsers;
 
     before(function () {
-        let deliveryRoutes;
-        const otpHandler = {
-            sendCode: () => Promise.resolve({verified: true}),
-            verifyCode: () => Promise.resolve({verified: true})
-        };
-        const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));
-        deliveryRoutes = buildDeliveryRoutes(deliveryModule({}));
-        server = buildServer(buildRouter({authRoutes, deliveryRoutes}));
-        app = supertest.agent(server);
+        const tmp = setupDeliveryServer(otpHandler);
+        server = tmp.server;
+        app = tmp.app;
     });
 
     beforeEach(async function () {
-        const phoneMap = Object.entries(users).reduce(
-            function (acc, [key, val]) {
-                acc[val.phone] = key;
-                return acc;
-            },
-            {}
-        );
         await connection.sync({force: true});
-        dbUsers = await User.bulkCreate(Object.values(users));
-        dbUsers = dbUsers.reduce(function (acc, user) {
-            acc[phoneMap[user.phone]] = user;
-            return acc;
-        }, {});
+        dbUsers = await syncUsers(users, User);
     });
 
     afterEach(async function () {
@@ -81,11 +56,11 @@ describe("delivery CRUD test", function () {
     });
 
     it("should create a new delivery", async function () {
-        let response = await requestDelivery(
+        let response = await requestDelivery({
             app,
-            users.goodUser.phone,
-            deliveries[0]
-        );
+            phone: users.goodUser.phone,
+            data: deliveries[0]
+        });
         assert.equal(response.status, 200);
         response = await Delivery.findOne({
             where: {clientId: dbUsers.goodUser.id}
@@ -94,20 +69,20 @@ describe("delivery CRUD test", function () {
     });
 
     it("should return a 440 status on invalid location", async function () {
-        let response = await requestDelivery(
+        let response = await requestDelivery({
             app,
-            dbUsers.goodUser.phone,
-            badDelevery
-        );
+            phone: dbUsers.goodUser.phone,
+            data: badDelevery
+        });
         assert.equal(response.status, errors.invalidLocation.status);
     });
 
     it("should provide the infos of a delivery", async function () {
-        const goodUserRequest = await requestDelivery(
+        const goodUserRequest = await requestDelivery({
             app,
-            dbUsers.goodUser.phone,
-            deliveries[0]
-        );
+            phone: dbUsers.goodUser.phone,
+            data: deliveries[0]
+        });
         let response = await app.get("/delivery/infos").send({
             id: null
         }).set("authorization", "Bearer " + goodUserRequest.token);
@@ -122,16 +97,16 @@ describe("delivery CRUD test", function () {
     it(
         "should not allow a client to fetch another one's delivery",
         async function () {
-            const goodUserRequest = await requestDelivery(
+            const goodUserRequest = await requestDelivery({
                 app,
-                dbUsers.goodUser.phone,
-                deliveries[0]
-            );
-            const secondUserRequest = await requestDelivery(
+                phone: dbUsers.goodUser.phone,
+                data: deliveries[0]
+            });
+            const secondUserRequest = await requestDelivery({
                 app,
-                dbUsers.firstDriver.phone,
-                deliveries[1]
-            );
+                phone: dbUsers.firstDriver.phone,
+                data: deliveries[1]
+            });
             let response = await app.get("/delivery/infos").send({
                 id: secondUserRequest.id
             }).set("authorization", "Bearer " + goodUserRequest.token);
@@ -146,28 +121,24 @@ describe("delivery CRUD test", function () {
     it(
         "should terminate a delivery when a verification code is correct",
         async function () {
-            const goodUserRequest = await requestDelivery(
+            const {request, driverToken} = await setupDeliveryClosing({
                 app,
-                dbUsers.goodUser.phone,
-                deliveries[0]
-            );
-            let response;
-            let token = await getToken(app, dbUsers.firstDriver.phone);
-            await Delivery.update({driverId: dbUsers.firstDriver.id}, {
-                where: {id: goodUserRequest.id}
+                clientPhone: dbUsers.goodUser.phone,
+                delivery: deliveries[0],
+                driverData: dbUsers.firstDriver
             });
             response = await app.post("/delivery/verify-code").send({
                 code: "1234590900",
-                id: goodUserRequest.id
-            }).set("authorization", "Bearer " + token);
+                id: request.id
+            }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, errors.invalidValues.status);
             response = await app.post("/delivery/verify-code").send({
-                code: goodUserRequest.code,
-                id: goodUserRequest.id
-            }).set("authorization", "Bearer " + token);
+                code: request.code,
+                id: request.id
+            }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, 200);
             response = await Delivery.findOne({
-                where: {id: goodUserRequest.id}
+                where: {id: request.id}
             });
             assert.equal(response.status, "terminated");
         }
@@ -178,26 +149,23 @@ describe("delivery CRUD test", function () {
         async function () {
             //Note: goodUser is a client so he cannot verify the code
             let response;
-            const goodUserRequest = await requestDelivery(
+            const {request} = await setupDeliveryClosing({
                 app,
-                dbUsers.goodUser.phone,
-                deliveries[0]
-            );
+                clientPhone: dbUsers.goodUser.phone,
+                delivery: deliveries[0],
+                driverData: dbUsers.firstDriver
+            });
             const secondDriverToken = await getToken(
                 app,
                 dbUsers.secondDriver.phone
             );
-            await Delivery.update(
-                {driverId: dbUsers.firstDriver.id},
-                {where: {id: goodUserRequest.id}}
-            );
             response = await app.post("/delivery/verify-code").send({
-                code: goodUserRequest.code,
-                id: goodUserRequest.id
-            }).set("Authorization", "Bearer " + goodUserRequest.token);
+                code: request.code,
+                id: request.id
+            }).set("Authorization", "Bearer " + request.token);
             assert.equal(response.status, errors.notAuthorized.status);
             response = await app.post("/delivery/verify-code").send(
-                goodUserRequest
+                request
             ).set("Authorization", "Bearer " + secondDriverToken);
             assert.equal(response.status, errors.notAuthorized.status);
         }
@@ -207,23 +175,83 @@ describe("delivery CRUD test", function () {
         "should not verify a delivery which isn't in started status",
         async function () {
             let response;
-            const goodUserRequest = await requestDelivery(
+            const {request, driverToken} = await setupDeliveryClosing({
                 app,
-                dbUsers.goodUser.phone,
-                deliveries[0]
-            );
-            const firstDriverToken = await getToken(
-                app,
-                dbUsers.firstDriver.phone
-            );
+                clientPhone: dbUsers.goodUser.phone,
+                delivery: deliveries[0],
+                driverData: dbUsers.firstDriver
+            });
             await Delivery.update({
                 status: "terminated",
                 driverId: dbUsers.firstDriver.id
-            }, {where: {id: goodUserRequest.id}});
+            }, {where: {id: request.id}});
             response = await app.post("/delivery/verify-code").send(
-                goodUserRequest
-            ).set("Authorization", "Bearer " + firstDriverToken);
+                request
+            ).set("Authorization", "Bearer " + driverToken);
             assert.equal(response.status, errors.cannotPerformAction.status);
         }
     );
+
+    describe("delivery state mutation tests", function () {
+        let request;
+        let driverToken;
+        beforeEach(async function() {
+            request = await requestDelivery({
+                app,
+                data: deliveries[0],
+                phone: dbUsers.goodUser.phone
+            });
+            driverToken = await getToken(
+                app,
+                dbUsers.firstDriver.phone
+            );
+        })
+        it("should aprove a delivery request", async function () {
+            const token2 = await getToken(app, dbUsers.secondDriver.phone);
+            let response = await app.post("/delivery/accept").send({
+                id: request.id
+            }).set("Authorization", "Bearer " + driverToken);
+            assert.equal(response.status, 200);
+            response = await app.post("/delivery/accept").send({
+                id: request.id
+            }).set("Authorization", "Bearer " + token2);
+            debugger;
+            assert.equal(response.status, errors.alreadyAssigned.status);
+        });
+    
+        it(
+            "should not approve a delivery if it's been cancelled",
+            async function () {
+                let response = await app.post("/delivery/cancel").send({
+                    id: request.id
+                }).set("Authorization", "Bearer " + request.token);
+                assert.equal(response.status, 200);
+                response = await app.post("/delivery/accept").send({
+                    id: request.id
+                }).set("Authorization", "Bearer " + driverToken);
+                assert.equal(response.status, errors.alreadyCancelled.status);
+            }
+        );
+    
+        it("should signal the package reception", async function () {
+            let response;
+            await Delivery.update({driverId: dbUsers.firstDriver.id}, {
+                where: {id: request.id}
+            });
+            response = await app.post("/delivery/signal-reception").send({
+                id: request.id
+            }).set("Authorization", "Bearer " + driverToken);
+            assert.equal(response.status, errors.cannotPerformAction.status);
+            await Delivery.update({status: Delivery.statuses.pendingReception}, {
+                where: {id: request.id}
+            });
+            response = await app.post("/delivery/signal-reception").send({
+                id: request.id
+            }).set("Authorization", "Bearer " + driverToken);
+            assert.equal(response.status, 200);
+            response = await Delivery.findOne({where: {id: request.id}});
+            assert.equal(response.status, Delivery.statuses.toBeConfirm);
+        });
+    });
+
 });

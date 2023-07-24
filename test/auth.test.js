@@ -11,15 +11,8 @@ const {
     describe,
     it
 } = require("mocha");
-const supertest = require("supertest");
 const {assert} = require("chai");
 const {otpRequest, User, connection} = require("../src/models");
-const {buildServer} = require("../src");
-const authModule = require("../src/modules/auth.module");
-const userModule = require("../src/modules/user.module");
-const buildAuthRoutes = require("../src/routes/auth.route");
-const buildUserRoutes = require("../src/routes/user.route");
-const buildRouter = require("../src/routes");
 const {comparePassword, getFileHash} = require("../src/utils/helpers");
 const {errors} = require("../src/utils/config");
 const getSocketManager = require("../src/utils/socket-manager");
@@ -27,23 +20,20 @@ const {
     clientSocketCreator,
     pinIds,
     getToken,
+    otpHandler,
+    setupAuthServer,
     setupInterceptor,
     users: {badUser, goodUser, firstDriver: secondUser}
 } = require("./fixtures/users.data");
-
-const otpHandlerFake = {
-    sendCode: () => Promise.resolve({verified: true}),
-    verifyCode: () => Promise.resolve({verified: true})
-};
 
 describe("authentication tests", function () {
     let server;
     let app;
     const signature = "1234567890";
     before(function () {
-        let authRoutes = buildAuthRoutes(authModule({}));
-        server = buildServer(buildRouter({authRoutes}));
-        app = supertest.agent(server);
+        let tmp = setupAuthServer();
+        server = tmp.server;
+        app = tmp.app;
         setupInterceptor();
     });
     
@@ -162,24 +152,19 @@ describe("authentication tests", function () {
 describe("user interactions tests", function () {
     let server;
     let app;
-    let updates;
     let currentUser;
-
+    const updates = {
+        deviceToken: "sldjfal;kjalsdkjf aslkf;ja",
+        email: "totoNg@notexisting.edu",
+        firstName: "Toto Ngom",
+        lastName: "Founkreo",
+        password: "@sdjUlT2340!**&&&&&&&&"
+    };
 
     before(function () {
-        const userRoutes = buildUserRoutes(userModule({}));
-        let authRoutes;
-        updates = {
-            deviceToken: "sldjfal;kjalsdkjf aslkf;ja",
-            email: "totoNg@notexisting.edu",
-            firstName: "Toto Ngom",
-            lastName: "Founkreo",
-            password: "@sdjUlT2340!**&&&&&&&&"
-        };
-        authRoutes = buildAuthRoutes(authModule({otpHandler: otpHandlerFake}));
-        server = buildServer(buildRouter({authRoutes, userRoutes}));
-        app = supertest.agent(server);
-
+        let tmp = setupAuthServer(otpHandler);
+        server = tmp.server;
+        app = tmp.app;
     });
     beforeEach(async function () {
         await connection.sync({alter: true});
@@ -355,17 +340,20 @@ describe("socket authentication", function () {
     let server;
     let socketServer;
     let app;
+    let currentUser;
     let socketGenerator = clientSocketCreator("delivery");
     before(function () {
-        let authRoutes = buildAuthRoutes(authModule({
-            otpHandler: otpHandlerFake
-        }));
-        server = buildServer(buildRouter({authRoutes}));
-        app = supertest.agent(server);
-        socketServer = getSocketManager(server);
+        const tmp = setupAuthServer(otpHandler)
+        server = tmp.server;
+        app = tmp.app;
+        socketServer = getSocketManager({httpServer: server});
     });
     beforeEach(async function () {
+        let userToken
         await connection.sync({alter: true});
+        currentUser = await User.create(goodUser);
+        userToken = await getToken(app, goodUser.phone);
+        currentUser.token = userToken;
     });
     afterEach(async function () {
         await connection.drop();
@@ -373,20 +361,28 @@ describe("socket authentication", function () {
     after(function () {
         socketServer.io.close();
         server.close();
-    })
-    it("should reject if a user is not authenticated", function (done) {
-        let client = socketGenerator();
-        client.on("connect_error", function (err) {
-            assert.deepEqual(err.data, errors.notAuthorized.message);
-            done();
-        });
+    });
+    it("should reject if a user is not authenticated", async function () {
+        let client;
+        try {
+            client = await socketGenerator();
+        } catch (error) {
+            assert.deepEqual(error.data, errors.notAuthorized.message);
+        }
     });
     it("should allow the user when having token", function (done){
-        getToken(app, goodUser.phone).then(function (token) {
-            let client = socketGenerator(token);
-            client.on("connect", function () {
+        socketGenerator(currentUser.token).then(function (client) {
+            client.on("new-delivery", function (data) {
+                assert.deepEqual(data, {price: 1000});
                 done();
+                client.close();
             });
+            socketServer.forwardMessage(
+                currentUser.id,
+                "new-delivery",
+                {price: 1000}
+            );
+
         });
     });
 });

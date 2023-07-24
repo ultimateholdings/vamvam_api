@@ -2,8 +2,26 @@
 node
 */
 "use strict";
-
+const availableRoles = {
+    admin: "admin",
+    client: "client",
+    driver: "driver"
+};
 const errors = {
+    alreadyAssigned: {
+        message: {
+            en: "Sorry this resource has already been assigned",
+            fr: "Désolé, cette ressource a déjà été attribuée"
+        },
+        status: 451
+    },
+    alreadyCancelled: {
+        message: {
+            en: "Sorry this resource has already been cancelled",
+            fr: "Désolé, cette ressource a déjà été annulée"
+        },
+        status: 450
+    },
     cannotPerformAction: {
         message: {
             en: "You can not perform this action now",
@@ -74,9 +92,22 @@ const errors = {
             fr: "OTP non valide, vous devriez envisager d'en demander un autre."
         },
         status: 448
+    },
+    tokenExpired: {
+        message: {
+            en: "Your access Token has expired, please login again",
+            fr: "Votre accès a expiré, veuillez vous connecter à nouveau."
+        },
+        status: 402
     }
 };
+
+const defaultValues = {
+    ttl: 180
+};
 const config = Object.freeze({
+    availableRoles,
+    defaultValues,
     errors,
     getOTPConfig() {
         const {

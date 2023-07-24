@@ -3,7 +3,7 @@ node
 */
 "use strict";
 const {User, otpRequest} = require("../models");
-const {errors} = require("../utils/config");
+const {defaultValues,errors} = require("../utils/config");
 const {
     comparePassword,
     getOTPService,
@@ -48,7 +48,7 @@ function getAuthModule({
             sent
         } = await authOtpHandler.sendCode(phoneNumber, signature);
         if (sent === true) {
-            res.status(200).send({sent, ttl: 3});
+            res.status(200).send({sent, ttl: defaultValues.ttl});
         } else {
             res.status(code).send({message});
         }
