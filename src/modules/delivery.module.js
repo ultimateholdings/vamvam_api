@@ -3,7 +3,7 @@ node
 */
 const crypto = require("crypto");
 const {Delivery, User} = require("../models");
-const {errors} = require("../utils/config");
+const {availableRoles: roles, errors} = require("../utils/config");
 const {isValidLocation} = require("../utils/helpers");
 
 
@@ -28,24 +28,41 @@ function getDeliveryModule({associatedModels, model}) {
         });
     }
 
+    function sendNotAuthorized(res, data = {}) {
+        res.status(errors.notAuthorized.status).send({
+            data,
+            message: errors.notAuthorized.message
+        });
+    }
+
+    function canAccessDelivery({delivery, role, userId}) {
+        const isAdmin = role === roles.admin;
+        let isInvolved = (delivery.clientId === userId) || (
+            delivery.driverId === userId
+        );
+        isInvolved = isInvolved && (userId !== null || userId !== undefined);
+        return isAdmin || isInvolved;
+    }
+
     async function handleClosing({code, delivery, userId}) {
+        const {started} = deliveryModel?.statuses || {};
         const canTerminate = delivery.code === code &&
         delivery.driverId === userId &&
-        delivery.status === "started";
+        delivery.status === started;
         if (delivery.code !== code) {
             return {
                 body: {message: "Invalid code, Try again"},
                 status: 400
             };
         }
-        if (delivery.status !== "started") {
+        if (delivery.status !== started) {
             return {
                 body: {message: errors.cannotPerformAction.message},
                 status: errors.cannotPerformAction.status
-            }
+            };
         }
         if (canTerminate) {
-            await deliveryModel.update({status: "terminated"}, {
+            await deliveryModel?.update({status: deliveryModel.statuses.terminated}, {
                 where: {
                     id: delivery.id
                 }
@@ -97,6 +114,56 @@ function getDeliveryModule({associatedModels, model}) {
         return result;
     }
 
+    async function acceptDelivery(req, res) {
+        let delivery;
+        let driver;
+        const {id: userId, phone} = req.user.token;
+        const {id} = req.body;
+        delivery = await deliveryModel?.findOne({where: {id}});
+        if (delivery === null) {
+            return send404(res);
+        }
+        if (delivery.driverId !== null) {
+            return res.status(errors.alreadyAssigned.status).send({
+                message: errors.alreadyAssigned.message
+            });
+        }
+        if (delivery.status === deliveryModel.statuses.cancelled) {
+            return res.status(errors.alreadyCancelled.status).send({
+                message: errors.alreadyCancelled.message
+            });
+        }
+        driver = await associations.User.findOne({
+            where: {phone, id: userId}
+        });
+        delivery.setDriver(driver);
+        return res.status(200).send({
+            status: deliveryModel.statuses.pendingReception
+        });
+    }
+
+    async function cancelDelivery(req, res) {
+        let delivery;
+        const {id: userId} = req.user.token;
+        const {id} = req.body;
+        
+        delivery = await deliveryModel?.findOne({where: {id}});
+        if (delivery === null) {
+            return send404(res);
+        }
+        if (delivery.clientId !== userId) {
+            return sendNotAuthorized(res, {cancelled: false});
+        }
+        if (delivery.driverId !== null) {
+            return res.status(errors.alreadyAssigned.status).send({
+                message: errors.alreadyAssigned.message
+            });
+        }
+        delivery.status = deliveryModel.statuses.cancelled;
+        await delivery.save();
+        res.status(200).send({cancelled: true})
+    }
+
     async function requestDelivery(req, res) {
         const {id, phone} = req.user.token;
         let user;
@@ -125,6 +192,7 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function getInfos(req, res) {
         const {
+            role,
             id: userId
         } = req.user.token;
         const {id} = req.body;
@@ -136,16 +204,13 @@ function getDeliveryModule({associatedModels, model}) {
         }
         client = await delivery.getClient();
         driver = await delivery.getDriver();
-        if (client?.id !== userId && driver?.id !== userId) {
-            res.status(errors.notAuthorized.status).send({
-                message: errors.notAuthorized.message
-            });
-        } else {
-            delivery = delivery.toResponse();
-            delivery.client = client;
-            delivery.driver = driver;
-            res.status(200).json(delivery);
+        if (!canAccessDelivery({delivery, role, userId})) {
+            return sendNotAuthorized(res);
         }
+        delivery = delivery.toResponse();
+        delivery.client = client;
+        delivery.driver = driver;
+        res.status(200).json(delivery);
     }
 
     async function terminateDelivery(req, res) {
@@ -154,7 +219,7 @@ function getDeliveryModule({associatedModels, model}) {
         } = req.user.token;
         const {code, id} = req.body;
         let closing;
-        let delivery = await deliveryModel.findOne({where: {id}})
+        let delivery = await deliveryModel.findOne({where: {id}});
         if (delivery === null) {
             send404(res);
         } else {
@@ -164,6 +229,8 @@ function getDeliveryModule({associatedModels, model}) {
     }
 
     return Object.freeze({
+        acceptDelivery,
+        cancelDelivery,
         getInfos,
         requestDelivery,
         terminateDelivery

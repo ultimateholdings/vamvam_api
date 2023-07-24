@@ -87,13 +87,27 @@ const positions = [
 ];
 
 function deliveryResquestor(tokenGetter, model) {
-    async function requestDelivery(app, phone, data) {
+
+    async function fetchDelivery({app, data, phone, url}) {
         let token = await tokenGetter(app, phone);
-        let response = await app.post("/delivery/request").send(
+        let response = await app.post(url).send(
             data
         ).set("authorization", "Bearer " + token);
+        return {response, token};
+    }
+    async function requestDelivery({
+        app,
+        data,
+        phone
+    }) {
+        let {response, token} = await fetchDelivery({
+            app,
+            data,
+            phone,
+            url: "/delivery/request"
+        })
         if (response.body.id !== undefined) {
-            await model.update({status: "started"}, {
+        await model.update({status: model.statuses.started}, {
                 where: {id: response.body.id}
             });
         }
@@ -108,11 +122,11 @@ function deliveryResquestor(tokenGetter, model) {
         delivery,
         driverData
     }) {
-        const request = await requestDelivery(
+        const request = await requestDelivery({
             app,
-            clientPhone,
-            delivery
-        );
+            phone: clientPhone,
+            data: delivery
+        });
         let token = await tokenGetter(app, driverData.phone);
         await model.update({driverId: driverData.id}, {
             where: {id: request.id}

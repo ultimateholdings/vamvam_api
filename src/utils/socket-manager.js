@@ -21,7 +21,6 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
         let position;
         let interestedClients
         const {id} = socket.user;
-        debugger;
         if (isValidLocation(data)) {
             if (Array.isArray(data)) {
                 position = data.at(-1);

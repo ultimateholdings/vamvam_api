@@ -43,6 +43,7 @@ describe("delivery side effects test", function () {
         socketServer = getSocketManager({
             deliveryModel: Delivery,
             httpServer: server,
+            userModel: User
         });
     });
 
@@ -101,10 +102,17 @@ describe("delivery side effects test", function () {
             }).then(function ([{value: clientSocket}]) {
                 clientSocket.on("new-position", function (data) {
                     assert.deepEqual(data, missoke);
-                    done();
+                    User.findOne({where: {id: dbUsers.firstDriver.id}}).then(
+                        function (user){
+                            assert.deepEqual(user.position, {
+                                type: "Point",
+                                coordinates: [missoke.latitude, missoke.longitude]
+                            });
+                            done();
+                        }
+                    );
                 });
             });
         }
     );
-
 });

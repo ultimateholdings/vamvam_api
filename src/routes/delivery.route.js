@@ -5,6 +5,7 @@ node
 const express = require("express");
 const getDeliveryModule = require("../modules/delivery.module");
 const {errorHandler} = require("../utils/helpers");
+const {availableRoles: roles} = require("../utils/config");
 const {
     allowRoles,
     protectRoute,
@@ -31,8 +32,22 @@ function getDeliveryRouter(module) {
         "/verify-code",
         protectRoute,
         verifyValidId,
-        allowRoles(["driver"]),
+        allowRoles([roles.driver]),
         errorHandler(deliveryModule.terminateDelivery)
+    );
+    router.post(
+        "/accept",
+        protectRoute,
+        verifyValidId,
+        allowRoles([roles.driver]),
+        errorHandler(deliveryModule.acceptDelivery)
+    );
+    router.post(
+        "/cancel",
+        protectRoute,
+        verifyValidId,
+        allowRoles([roles.client]),
+        errorHandler(deliveryModule.cancelDelivery)
     );
     return router;
 }
