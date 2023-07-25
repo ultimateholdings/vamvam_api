@@ -22,67 +22,45 @@ function getDeliveryModule({associatedModels, model}) {
         return 1000;
     }
 
-    function send404(res) {
-        res.status(errors.notFound.status).send({
-            message: errors.notFound.message
-        });
-    }
-
-    function sendNotAuthorized(res, data = {}) {
-        res.status(errors.notAuthorized.status).send({
+    function sendResponse(res, content, data = {}) {
+        res.status(content.status).send({
             data,
-            message: errors.notAuthorized.message
+            message: content.message
         });
     }
 
-    function canAccessDelivery({delivery, role, userId}) {
+    function canAccessDelivery(req, res, next) {
+        const {id, role} = req.user.token;
+        const {delivery} = req;
         const isAdmin = role === roles.admin;
-        let isInvolved = (delivery.clientId === userId) || (
-            delivery.driverId === userId
+        let isInvolved = (delivery.clientId === id) || (
+            delivery.driverId === id
         );
-        isInvolved = isInvolved && (userId !== null || userId !== undefined);
-        return isAdmin || isInvolved;
+        isInvolved = isInvolved && (id !== null || id !== undefined);
+        if (isAdmin || isInvolved) {
+            next();
+        } else {
+            sendResponse(res, errors.notAuthorized);
+        }
     }
 
-    async function handleClosing({code, delivery, userId}) {
+    function ensureCanTerminate(req, res, next) {
         const {started} = deliveryModel?.statuses || {};
-        const canTerminate = delivery.code === code &&
-        delivery.driverId === userId &&
-        delivery.status === started;
-        if (delivery.code !== code) {
-            return {
-                body: {message: "Invalid code, Try again"},
-                status: 400
-            };
+        const {id} = req.user.token;
+        const {delivery} = req;
+        const {code} = req.body;
+
+        if (delivery.driverId !== id ) {
+            return sendResponse(res, errors.notAuthorized);
         }
         if (delivery.status !== started) {
-            return {
-                body: {message: errors.cannotPerformAction.message},
-                status: errors.cannotPerformAction.status
-            };
+            return sendResponse(res, errors.cannotPerformAction);
         }
-        if (canTerminate) {
-            await deliveryModel?.update({status: deliveryModel.statuses.terminated}, {
-                where: {
-                    id: delivery.id
-                }
-            });
-            deliveryModel?.emitEvent(
-                "delivery-end",
-                {clientId: delivery.clientId, deliveryId: delivery.id}
-            );
-            return {
-                body: {terminated: true},
-                status: 200
-            };
-        } else {
-            return {
-                body: {
-                    message: errors.notAuthorized.message
-                },
-                status: errors.notAuthorized.status
-            };
+        if (delivery.code !== code) {
+            return sendResponse(res, errors.invalidCode)
         }
+        req.canTerminate = true;
+        next();
     }
 
     function formatBody(body) {
@@ -119,14 +97,10 @@ function getDeliveryModule({associatedModels, model}) {
         const {id: userId, phone} = req.user.token;
         const {delivery} = req;
         if (delivery.driverId !== null) {
-            return res.status(errors.alreadyAssigned.status).send({
-                message: errors.alreadyAssigned.message
-            });
+            return sendResponse(res, errors.alreadyAssigned);
         }
         if (delivery.status === deliveryModel.statuses.cancelled) {
-            return res.status(errors.alreadyCancelled.status).send({
-                message: errors.alreadyCancelled.message
-            });
+            return sendResponse(res, errors.alreadyCancelled);
         }
         driver = await associations.User.findOne({
             where: {phone, id: userId}
@@ -144,7 +118,7 @@ function getDeliveryModule({associatedModels, model}) {
         const delivery = await deliveryModel?.findOne({where: {id}});
         
         if (delivery === null) {
-            return send404(res);
+            return sendResponse(res, errors.notFound);
         }
         req.delivery = delivery;
         next();
@@ -160,16 +134,29 @@ function getDeliveryModule({associatedModels, model}) {
         const {id: userId} = req.user.token;
         const {delivery} = req;
         if (delivery.clientId !== userId) {
-            return sendNotAuthorized(res, {cancelled: false});
+            return sendResponse(res, errors.notAuthorized, {cancelled: false});
         }
         if (delivery.driverId !== null) {
-            return res.status(errors.alreadyAssigned.status).send({
-                message: errors.alreadyAssigned.message
-            });
+            return sendResponse(res, errors.alreadyAssigned);
         }
         delivery.status = deliveryModel.statuses.cancelled;
         await delivery.save();
         res.status(200).send({cancelled: true})
+    }
+
+    async function confirmDeposit(req, res) {
+        const {id} = req.user.token;
+        const {delivery} = req;
+
+        if (delivery.clientId !== id) {
+            return sendResponse(res, errors.notAuthorized);
+        }
+        if (delivery.status !== deliveryModel.statuses.toBeConfirmed) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
+        delivery.status = deliveryModel.statuses.started;
+        await delivery.save();
+        res.status(200).send({started: true});
     }
 
     async function requestDelivery(req, res) {
@@ -180,10 +167,8 @@ function getDeliveryModule({associatedModels, model}) {
         try {
             body = formatBody(req.body);
         } catch (error) {
-            res.status(errors.invalidLocation.status).send({
-                content: error.message,
-                message: errors.invalidLocation.message
-            });
+            tmp = {content: error.message};
+            return sendResponse(res, errors.invalidLocation, tmp);
         }
         user = await associations.User.findOne({where: {id, phone}});
         tmp = await generateCode();
@@ -199,18 +184,12 @@ function getDeliveryModule({associatedModels, model}) {
     }
 
     async function getInfos(req, res) {
-        const {
-            role,
-            id: userId
-        } = req.user.token;
-        const {delivery} = req;
+        let {delivery} = req;
         let client;
         let driver;
+        debugger;
         client = await delivery.getClient();
         driver = await delivery.getDriver();
-        if (!canAccessDelivery({delivery, role, userId})) {
-            return sendNotAuthorized(res);
-        }
         delivery = delivery.toResponse();
         delivery.client = client;
         delivery.driver = driver;
@@ -221,36 +200,41 @@ function getDeliveryModule({associatedModels, model}) {
         const {id} = req.user.token;
         const {delivery} = req;
         if (delivery.driverId !== id) {
-            return sendNotAuthorized(res);
+            return sendResponse(res, errors.notAuthorized);
         }
         if (delivery.status !== deliveryModel.statuses.pendingReception) {
-            return res.status(errors.cannotPerformAction.status).send({
-                message: errors.cannotPerformAction.message
-            });
+            return sendResponse(res, errors.cannotPerformAction);
         }
-        delivery.status = deliveryModel.statuses.toBeConfirm;
+        delivery.status = deliveryModel.statuses.toBeConfirmed;
         await delivery.save();
         res.status(200).send({driverRecieved: true});
     }
 
     async function terminateDelivery(req, res) {
-        const {
-            id: userId
-        } = req.user.token;
-        const {code} = req.body;
-        const {delivery} = req;
-        let closing;
-        if (delivery === null) {
-            send404(res);
+        const {canTerminate, delivery} = req;
+        if (canTerminate === true) {
+            await deliveryModel?.update(
+                {status: deliveryModel.statuses.terminated},
+                {where: {id: delivery.id}}
+            );
+            deliveryModel?.emitEvent(
+                "delivery-end",
+                {clientId: delivery.clientId, deliveryId: delivery.id}
+            );
+            res.status(200).send({
+                terminated: true
+            });
         } else {
-            closing = await handleClosing({code, delivery, res, userId});
-            res.status(closing.status).json(closing.body);
+            return sendResponse(res, errors.cannotPerformAction, {canTerminate});
         }
     }
 
     return Object.freeze({
         acceptDelivery,
+        canAccessDelivery,
         cancelDelivery,
+        confirmDeposit,
+        ensureCanTerminate,
         ensureDeliveryExists,
         getInfos,
         getPrice,

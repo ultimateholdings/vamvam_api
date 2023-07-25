@@ -6,14 +6,14 @@ const {CustomEmitter, propertiesPicker} = require("../utils/helpers");
 
 function defineDeliveryModel(connection) {
     const emitter = new CustomEmitter();
-    const availableStatus = {
+    const availableStatus = Object.freeze({
         cancelled: "cancelled",
         initial: "pending-driver-approval",
         pendingReception: "pending-driver-reception",
-        toBeConfirm: "pending-client-approval",
+        toBeConfirmed: "pending-client-approval",
         started: "started",
         terminated: "terminated",
-    };
+    });
     const schema = {
         begin: DataTypes.DATE,
         code: DataTypes.STRING,

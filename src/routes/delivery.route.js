@@ -25,6 +25,7 @@ function getDeliveryRouter(module) {
         "/infos",
         protectRoute,
         deliveryModule.ensureDeliveryExists,
+        deliveryModule.canAccessDelivery,
         errorHandler(deliveryModule.getInfos)
     );
     router.get(
@@ -36,7 +37,7 @@ function getDeliveryRouter(module) {
         "/verify-code",
         protectRoute,
         deliveryModule.ensureDeliveryExists,
-        allowRoles([roles.driver]),
+        deliveryModule.ensureCanTerminate,
         errorHandler(deliveryModule.terminateDelivery)
     );
     router.post(
@@ -59,6 +60,13 @@ function getDeliveryRouter(module) {
         allowRoles([roles.driver]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.signalReception)
+    );
+    router.post(
+        "/confirm-deposit",
+        protectRoute,
+        allowRoles([roles.client]),
+        deliveryModule.ensureDeliveryExists,
+        errorHandler(deliveryModule.confirmDeposit)
     );
     return router;
 }

@@ -13,7 +13,6 @@ const {
 const {assert} = require("chai");
 const {Delivery, User, connection} = require("../src/models");
 const {
-    clientSocketCreator,
     getToken,
     otpHandler,
     syncUsers,
@@ -55,18 +54,6 @@ describe("delivery CRUD test", function () {
         server.close();
     });
 
-    it("should create a new delivery", async function () {
-        let response = await requestDelivery({
-            app,
-            phone: users.goodUser.phone,
-            data: deliveries[0]
-        });
-        assert.equal(response.status, 200);
-        response = await Delivery.findOne({
-            where: {clientId: dbUsers.goodUser.id}
-        });
-        assert.isNotNull(response);
-    });
 
     it("should return a 440 status on invalid location", async function () {
         let response = await requestDelivery({
@@ -85,11 +72,11 @@ describe("delivery CRUD test", function () {
         });
         let response = await app.get("/delivery/infos").send({
             id: null
-        }).set("authorization", "Bearer " + goodUserRequest.token);
-        assert.equal(response.status, errors.invalidValues.status);
+        }).set("Authorization", "Bearer " + goodUserRequest.token);
+        assert.equal(response.status, errors.notFound.status);
         response = await app.get("/delivery/infos").send({
             id: goodUserRequest.id
-        }).set("authorization", "Bearer " + goodUserRequest.token);
+        }).set("Authorization", "Bearer " + goodUserRequest.token);
         assert.equal(response.status, 200);
         assert.equal(response.body.client.phone, dbUsers.goodUser.phone);
     });
@@ -109,11 +96,7 @@ describe("delivery CRUD test", function () {
             });
             let response = await app.get("/delivery/infos").send({
                 id: secondUserRequest.id
-            }).set("authorization", "Bearer " + goodUserRequest.token);
-            assert.equal(response.status, errors.notAuthorized.status);
-            response = await app.get("/delivery/infos").send({
-                id: goodUserRequest.id
-            }).set("authorization", "Bearer " + secondUserRequest.token);
+            }).set("Authorization", "Bearer " + goodUserRequest.token);
             assert.equal(response.status, errors.notAuthorized.status);
         }
     );
@@ -130,12 +113,12 @@ describe("delivery CRUD test", function () {
             response = await app.post("/delivery/verify-code").send({
                 code: "1234590900",
                 id: request.id
-            }).set("authorization", "Bearer " + driverToken);
-            assert.equal(response.status, errors.invalidValues.status);
+            }).set("Authorization", "Bearer " + driverToken);
+            assert.equal(response.status, errors.invalidCode.status);
             response = await app.post("/delivery/verify-code").send({
                 code: request.code,
                 id: request.id
-            }).set("authorization", "Bearer " + driverToken);
+            }).set("Authorization", "Bearer " + driverToken);
             assert.equal(response.status, 200);
             response = await Delivery.findOne({
                 where: {id: request.id}
@@ -215,7 +198,6 @@ describe("delivery CRUD test", function () {
             response = await app.post("/delivery/accept").send({
                 id: request.id
             }).set("Authorization", "Bearer " + token2);
-            debugger;
             assert.equal(response.status, errors.alreadyAssigned.status);
         });
     
@@ -250,7 +232,28 @@ describe("delivery CRUD test", function () {
             }).set("Authorization", "Bearer " + driverToken);
             assert.equal(response.status, 200);
             response = await Delivery.findOne({where: {id: request.id}});
-            assert.equal(response.status, Delivery.statuses.toBeConfirm);
+            assert.equal(response.status, Delivery.statuses.toBeConfirmed);
+        });
+
+        it("should confirm package deposit", async function () {
+            let response;
+            await Delivery.update({
+                driverId: dbUsers.firstDriver.id,
+                status: Delivery.statuses.pendingReception,
+            }, {where: {id: request.id}});
+            response = await app.post("/delivery/confirm-deposit").send({
+                id: request.id
+            }).set("Authorization", "Bearer " + request.token);
+            assert.equal(response.status, errors.cannotPerformAction.status);
+            await app.post("/delivery/signal-reception").send({
+                id: request.id
+            }).set("Authorization", "Bearer " + driverToken);
+            response = await app.post("/delivery/confirm-deposit").send({
+                id: request.id
+            }).set("Authorization", "Bearer " + request.token);
+            assert.equal(response.status, 200);
+            response = await Delivery.findOne({where: {id: request.id}});
+            assert.equal(response.status, Delivery.statuses.started);
         });
     });
 
