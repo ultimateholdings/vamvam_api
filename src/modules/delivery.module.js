@@ -102,12 +102,19 @@ function getDeliveryModule({associatedModels, model}) {
         if (delivery.status === deliveryModel.statuses.cancelled) {
             return sendResponse(res, errors.alreadyCancelled);
         }
+        if (delivery.status !== deliveryModel.statuses.initial) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
         driver = await associations.User.findOne({
             where: {phone, id: userId}
         });
         delivery.status = deliveryModel.statuses.pendingReception;
         await delivery.save();
         await delivery.setDriver(driver);
+        deliveryModel?.emitEvent("delivery-accepted", {
+            clientId: delivery.clientId,
+            driver: driver.toResponse()
+        });
         return res.status(200).send({
             accepted: true
         });
@@ -155,6 +162,7 @@ function getDeliveryModule({associatedModels, model}) {
             return sendResponse(res, errors.cannotPerformAction);
         }
         delivery.status = deliveryModel.statuses.started;
+        delivery.begin = new Date().toISOString();
         await delivery.save();
         res.status(200).send({started: true});
     }
@@ -187,7 +195,6 @@ function getDeliveryModule({associatedModels, model}) {
         let {delivery} = req;
         let client;
         let driver;
-        debugger;
         client = await delivery.getClient();
         driver = await delivery.getDriver();
         delivery = delivery.toResponse();
@@ -213,10 +220,9 @@ function getDeliveryModule({associatedModels, model}) {
     async function terminateDelivery(req, res) {
         const {canTerminate, delivery} = req;
         if (canTerminate === true) {
-            await deliveryModel?.update(
-                {status: deliveryModel.statuses.terminated},
-                {where: {id: delivery.id}}
-            );
+            delivery.status = deliveryModel.statuses.terminated;
+            delivery.end = new Date().toISOString();
+            await delivery.save();
             deliveryModel?.emitEvent(
                 "delivery-end",
                 {clientId: delivery.clientId, deliveryId: delivery.id}

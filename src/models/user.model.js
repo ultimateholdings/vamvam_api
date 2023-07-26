@@ -3,10 +3,10 @@ node, nomen
 */
 const fs = require("fs");
 const {DataTypes} = require("sequelize");
-const {hashPassword} = require("../utils/helpers");
+const {hashPassword, propertiesPicker} = require("../utils/helpers");
 
 function defineUserModel(connection) {
-    const user = connection.define("user", {
+    const schema = {
         age: {
           type: DataTypes.ENUM,
           values: ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"]
@@ -61,7 +61,8 @@ function defineUserModel(connection) {
             primaryKey: true,
             type: DataTypes.UUID
         }
-    }, {
+    };
+    const user = connection.define("user", schema, {
         hooks: {
             beforeCreate: async function (record) {
                 let {password} = record.dataValues;
@@ -97,6 +98,20 @@ function defineUserModel(connection) {
             }
         }
     });
+    user.prototype.toResponse = function () {
+        const excludedProps = ["password", "deviceToken"];
+        const allowedProps = Object.keys(schema).filter(
+            (key) => !excludedProps.includes(key)
+        );
+        let result = this.dataValues;
+        if (result.position !== null && result.position !== undefined) {
+            result.postion = {
+                latitude: result.position.coordinates[0],
+                longitude: result.position.coordinates[1]
+            };
+        }
+        return propertiesPicker(result)(allowedProps);
+    }
     return user;
 }
 

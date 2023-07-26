@@ -10,10 +10,15 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
     const deliveries = io.of("/delivery");
     const connectedUsers = Object.create(null);
     
-    function deliveryEndHandler(data) {
+    function handleEnding(data) {
         const {clientId, deliveryId} = data;
         
         connectedUsers[clientId]?.emit("delivery-end", {deliveryId});
+    }
+
+    function handleAcceptation(data) {
+        const {clientId, driver} = data;
+        connectedUsers[clientId]?.emit("delivery-accepted", driver);
     }
 
 
@@ -45,7 +50,8 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
             socket.emit("position-rejected", errors.invalidValues.message);
         }
     }
-    deliveryModel?.addEventListener("delivery-end", deliveryEndHandler);
+    deliveryModel?.addEventListener("delivery-end", handleEnding);
+    deliveryModel?.addEventListener("delivery-accepted", handleAcceptation)
     deliveries.use(socketAuthenticator());
     io.use(socketAuthenticator(["admin"]));
 
