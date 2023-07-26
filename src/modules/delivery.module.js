@@ -131,6 +131,21 @@ function getDeliveryModule({associatedModels, model}) {
         next();
     }
 
+    async function notifyNearbyDrivers(delivery, eventName) {
+        let drivers = await associations?.User?.nearTo(
+            delivery.departure,
+            5500,
+            "driver"
+        );
+        drivers = drivers ?? [];
+        drivers.forEach(function (driver) {
+            deliveryModel?.emitEvent(eventName, {
+                driverId: driver.id,
+                delivery
+            });
+        });
+    }
+
     function getPrice(req, res) {
         res.status(200).send({
             price: calculatePrice()
@@ -149,6 +164,7 @@ function getDeliveryModule({associatedModels, model}) {
         delivery.status = deliveryModel.statuses.cancelled;
         await delivery.save();
         res.status(200).send({cancelled: true})
+        await notifyNearbyDrivers(delivery, "delivery-cancelled");
     }
 
     async function confirmDeposit(req, res) {

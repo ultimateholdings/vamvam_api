@@ -21,6 +21,14 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
         connectedUsers[clientId]?.emit("delivery-accepted", driver);
     }
 
+    function handleCancellation(data) {
+        const {driverId, delivery} = data;
+        connectedUsers[driverId]?.emit(
+            "delivery-cancelled",
+            delivery.id
+        );
+    }
+
 
     async function positionUpdateHandler (socket, data) {
         let position;
@@ -46,12 +54,14 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
             ).forEach(function(clientId) {
                 connectedUsers[clientId]?.emit("new-position", data)
             });
+            socket.emit("position-updated", position);
         } else {
             socket.emit("position-rejected", errors.invalidValues.message);
         }
     }
     deliveryModel?.addEventListener("delivery-end", handleEnding);
-    deliveryModel?.addEventListener("delivery-accepted", handleAcceptation)
+    deliveryModel?.addEventListener("delivery-accepted", handleAcceptation);
+    deliveryModel?.addEventListener("delivery-cancelled", handleCancellation);
     deliveries.use(socketAuthenticator());
     io.use(socketAuthenticator(["admin"]));
 
