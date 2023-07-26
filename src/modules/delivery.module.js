@@ -231,6 +231,10 @@ function getDeliveryModule({associatedModels, model}) {
         delivery.status = deliveryModel.statuses.toBeConfirmed;
         await delivery.save();
         res.status(200).send({driverRecieved: true});
+        deliveryModel?.emitEvent("delivery-recieved", {
+            clientId: delivery.clientId,
+            deliveryId: delivery.id
+        });
     }
 
     async function terminateDelivery(req, res) {

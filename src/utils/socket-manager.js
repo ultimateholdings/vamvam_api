@@ -29,6 +29,14 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
         );
     }
 
+    function handleReception(data) {
+        const {clientId, deliveryId} = data;
+        connectedUsers[clientId]?.emit(
+            "delivery-recieved",
+            deliveryId
+        );
+    }
+
 
     async function positionUpdateHandler (socket, data) {
         let position;
@@ -62,6 +70,7 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
     deliveryModel?.addEventListener("delivery-end", handleEnding);
     deliveryModel?.addEventListener("delivery-accepted", handleAcceptation);
     deliveryModel?.addEventListener("delivery-cancelled", handleCancellation);
+    deliveryModel?.addEventListener("delivery-recieved", handleReception);
     deliveries.use(socketAuthenticator());
     io.use(socketAuthenticator(["admin"]));
 

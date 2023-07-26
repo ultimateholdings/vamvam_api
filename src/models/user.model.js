@@ -2,7 +2,7 @@
 node, nomen, this
 */
 const fs = require("fs");
-const {DataTypes, QueryTypes } = require("sequelize");
+const {DataTypes, QueryTypes} = require("sequelize");
 const {hashPassword, propertiesPicker} = require("../utils/helpers");
 
 function defineUserModel(connection) {
@@ -64,7 +64,7 @@ function defineUserModel(connection) {
     };
     const excludedProps = ["password", "deviceToken"];
     const allowedProps = Object.keys(schema).filter(
-            (key) => !excludedProps.includes(key)
+        (key) => !excludedProps.includes(key)
     );
     const user = connection.define("user", schema, {
         hooks: {

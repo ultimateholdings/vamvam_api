@@ -161,5 +161,24 @@ describe("delivery side effects test", function () {
             });
             assert.equal(data, request.id);
         });
+        it("should notify the client on driver reception", async function () {
+            let data;
+            const {driverToken} = setupDatas;
+            const client = await socketGenerator(request.token);
+            await Delivery.update({
+                status: Delivery.statuses.pendingReception,
+                driverId: dbUsers.firstDriver.id
+            }, {where: {id: request.id}});
+            await app.post("/delivery/signal-reception").send(request).set(
+                "authorization", "Bearer " + driverToken
+            );
+            data = await new Promise(function (res) {
+                client.on("delivery-recieved", function (data) {
+                    client.close();
+                    res(data);
+                });
+            });
+            assert.equal(data, request.id);
+        })
     })
 });
