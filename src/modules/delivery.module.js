@@ -170,7 +170,6 @@ function getDeliveryModule({associatedModels, model}) {
     async function confirmDeposit(req, res) {
         const {id} = req.user.token;
         const {delivery} = req;
-
         if (delivery.clientId !== id) {
             return sendResponse(res, errors.notAuthorized);
         }
@@ -181,6 +180,13 @@ function getDeliveryModule({associatedModels, model}) {
         delivery.begin = new Date().toISOString();
         await delivery.save();
         res.status(200).send({started: true});
+        deliveryModel?.emitEvent("delivery-started", {
+            deliveryId: delivery.id,
+            participants: [
+                delivery.clientId,
+                delivery.driverId
+            ]
+        });
     }
 
     async function requestDelivery(req, res) {

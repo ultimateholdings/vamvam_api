@@ -179,6 +179,37 @@ describe("delivery side effects test", function () {
                 });
             });
             assert.equal(data, request.id);
-        })
-    })
+        });
+        it(
+            "should notify delivery's begining on client confirmation",
+            async function () {
+                let data;
+                const {driverToken} = setupDatas;
+                const client = await socketGenerator(request.token);
+                const driverSocket = await socketGenerator(driverToken);
+                await Delivery.update({
+                    driverId: dbUsers.firstDriver.id,
+                    status: Delivery.statuses.toBeConfirmed
+                }, {where: {id: request.id}});
+                await app.post("/delivery/confirm-deposit").send(request).set(
+                    "authorization", "Bearer " + request.token
+                );
+                data = await Promise.all([
+                    new Promise(function(res) {
+                        client.on("delivery-started", function (data) {
+                            client.close();
+                            res(data);
+                        });
+                    }),
+                    new Promise(function (res) {
+                        driverSocket.on("delivery-started", function (data) {
+                            driverSocket.close();
+                            res(data);
+                        });
+                    })
+                ]);
+                assert.deepEqual(data, new Array(2).fill(request.id));
+            }
+        );
+    });
 });
