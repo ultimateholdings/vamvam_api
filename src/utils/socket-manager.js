@@ -28,6 +28,14 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
             delivery.id
         );
     }
+    
+    function handleNewDelivery(data) {
+        const {driverId, delivery} = data;
+        connectedUsers[driverId]?.emit(
+            "new-delivery",
+            delivery
+        );
+    }
 
     function handleReception(data) {
         const {clientId, deliveryId} = data;
@@ -84,6 +92,7 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
     deliveryModel?.addEventListener("delivery-cancelled", handleCancellation);
     deliveryModel?.addEventListener("delivery-recieved", handleReception);
     deliveryModel?.addEventListener("delivery-started", handleBegining);
+    deliveryModel?.addEventListener("new-delivery", handleNewDelivery);
     deliveries.use(socketAuthenticator());
     io.use(socketAuthenticator(["admin"]));
 

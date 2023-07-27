@@ -63,9 +63,9 @@ describe("delivery side effects test", function () {
         await connection.drop();
     });
 
-    after(function () {
-        server.close();
-        socketServer.io.close();
+    after(async function () {
+        await server.close();
+        await socketServer.io.close();
     });
     it("should notify the client on delivery's ending", async function () {
         let data;
@@ -110,6 +110,14 @@ describe("delivery side effects test", function () {
     );
     describe("delivery initialization interactions", function () {
         let request;
+        const nearByPoint = {
+            latitude: 4.044562,
+            longitude: 9.693046
+        };
+        const farPoint = {
+            latitude: 4.033725,
+            longitude: 9.683893
+        };
         beforeEach(async function () {
             request = await requestDelivery({
                 app,
@@ -120,6 +128,25 @@ describe("delivery side effects test", function () {
                 where: {id: request.id}
             });
         });
+
+        function listenToNewDelivery(socket,timeout) {
+            return new Promise(function (res, rej) {
+                socket.on("new-delivery", function (data) {
+                    socket.close();
+                    res(data);
+                });
+                setTimeout(function () {
+                    socket.close();
+                    rej("Timeout");
+                }, timeout);
+            });
+        }
+        function updatePosition(socket, position) {
+            return new Promise(function (res) {
+                socket.emit("new-position", position);
+                socket.on("position-updated", res);
+            });
+        }
             
         it("should notify a client on driver approval", async function () {
             let data;
@@ -141,15 +168,7 @@ describe("delivery side effects test", function () {
             let data;
             const {driverToken} = setupDatas;
             const driverSocket = await socketGenerator(driverToken);
-            await new Promise(function (res) {
-                driverSocket.emit("new-position", {
-                    latitude: 4.072985,
-                    longitude: 9.716445
-                });
-                driverSocket.on("position-updated", function () {
-                    res();
-                });
-            });
+            await updatePosition(driverSocket, nearByPoint);
             await app.post("/delivery/cancel").send(request).set(
                 "authorization", "Bearer " + request.token
             );
@@ -211,5 +230,32 @@ describe("delivery side effects test", function () {
                 assert.deepEqual(data, new Array(2).fill(request.id));
             }
         );
+        it("should notify the nearBy drivers on new delivery", async function () {
+           let data;
+           let request;
+           let delivery;
+           let [client, firstDriver, secondDriver] = await Promise.all([
+               getToken(app, dbUsers.goodUser.phone),
+               getToken(app, dbUsers.firstDriver.phone),
+               getToken(app, dbUsers.secondDriver.phone)
+            ]);
+           [firstDriver, secondDriver] = await Promise.all([
+            socketGenerator(firstDriver),
+            socketGenerator(secondDriver)
+           ]);
+           await Promise.all([
+               updatePosition(firstDriver, nearByPoint),
+               updatePosition(secondDriver, farPoint)
+            ]);
+            request = await app.post("/delivery/request").send(
+                deliveries[1]
+            ).set("authorization", "Bearer " + client);
+            data = await Promise.allSettled([
+                listenToNewDelivery(firstDriver, 1000),
+                listenToNewDelivery(secondDriver, 1000)
+            ]);
+            delivery = await Delivery.findOne({where: {id: request.body.id}});
+            assert.deepEqual(data.map((data) => data.value), [delivery.toResponse(), undefined]);
+        });
     });
 });

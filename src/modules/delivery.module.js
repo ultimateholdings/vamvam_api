@@ -111,12 +111,12 @@ function getDeliveryModule({associatedModels, model}) {
         delivery.status = deliveryModel.statuses.pendingReception;
         await delivery.save();
         await delivery.setDriver(driver);
+        res.status(200).send({
+            accepted: true
+        });
         deliveryModel?.emitEvent("delivery-accepted", {
             clientId: delivery.clientId,
             driver: driver.toResponse()
-        });
-        return res.status(200).send({
-            accepted: true
         });
     }
 
@@ -141,7 +141,7 @@ function getDeliveryModule({associatedModels, model}) {
         drivers.forEach(function (driver) {
             deliveryModel?.emitEvent(eventName, {
                 driverId: driver.id,
-                delivery
+                delivery: delivery.toResponse()
             });
         });
     }
@@ -211,6 +211,7 @@ function getDeliveryModule({associatedModels, model}) {
             id: tmp.id,
             price: body.price
         });
+        await notifyNearbyDrivers(tmp, "new-delivery");
     }
 
     async function getInfos(req, res) {
