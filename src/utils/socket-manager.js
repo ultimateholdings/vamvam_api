@@ -10,10 +10,51 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
     const deliveries = io.of("/delivery");
     const connectedUsers = Object.create(null);
     
-    function deliveryEndHandler(data) {
+    function handleEnding(data) {
         const {clientId, deliveryId} = data;
         
         connectedUsers[clientId]?.emit("delivery-end", {deliveryId});
+    }
+
+    function handleAcceptation(data) {
+        const {clientId, driver} = data;
+        connectedUsers[clientId]?.emit("delivery-accepted", driver);
+    }
+
+    function handleCancellation(data) {
+        const {driverId, delivery} = data;
+        connectedUsers[driverId]?.emit(
+            "delivery-cancelled",
+            delivery.id
+        );
+    }
+    
+    function handleNewDelivery(data) {
+        const {driverId, delivery} = data;
+        connectedUsers[driverId]?.emit(
+            "new-delivery",
+            delivery
+        );
+    }
+
+    function handleReception(data) {
+        const {clientId, deliveryId} = data;
+        connectedUsers[clientId]?.emit(
+            "delivery-recieved",
+            deliveryId
+        );
+    }
+    function handleBegining(data) {
+        const {deliveryId, participants} = data;
+
+        if(Array.isArray(participants)) {
+            participants.forEach(function (participant) {
+                connectedUsers[participant]?.emit(
+                    "delivery-started",
+                    deliveryId
+                );
+            });
+        }
     }
 
 
@@ -41,11 +82,17 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
             ).forEach(function(clientId) {
                 connectedUsers[clientId]?.emit("new-position", data)
             });
+            socket.emit("position-updated", position);
         } else {
             socket.emit("position-rejected", errors.invalidValues.message);
         }
     }
-    deliveryModel?.addEventListener("delivery-end", deliveryEndHandler);
+    deliveryModel?.addEventListener("delivery-end", handleEnding);
+    deliveryModel?.addEventListener("delivery-accepted", handleAcceptation);
+    deliveryModel?.addEventListener("delivery-cancelled", handleCancellation);
+    deliveryModel?.addEventListener("delivery-recieved", handleReception);
+    deliveryModel?.addEventListener("delivery-started", handleBegining);
+    deliveryModel?.addEventListener("new-delivery", handleNewDelivery);
     deliveries.use(socketAuthenticator());
     io.use(socketAuthenticator(["admin"]));
 

@@ -116,12 +116,7 @@ function deliveryResquestor(tokenGetter, model) {
         return response.body;
     }
 
-    async function setupDeliveryClosing({
-        app,
-        clientPhone,
-        delivery,
-        driverData
-    }) {
+    async function setupDelivery({app, clientPhone, delivery, driverData}) {
         const request = await requestDelivery({
             app,
             phone: clientPhone,
@@ -134,7 +129,7 @@ function deliveryResquestor(tokenGetter, model) {
         return {driverToken: token, request};
     }
 
-    return Object.freeze({requestDelivery, setupDeliveryClosing});
+    return Object.freeze({requestDelivery, setupDelivery});
 }
 
 function setupDeliveryServer(otpHandler) {

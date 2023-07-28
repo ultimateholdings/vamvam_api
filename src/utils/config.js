@@ -44,6 +44,13 @@ const errors = {
         },
         status: 400
     },
+    invalidCode: {
+        message: {
+            en: "you provided an invalid verification code",
+            fr: "vous avez fourni un code de vérification non valide"
+        },
+        status: 441
+    },
     invalidLocation: {
         message: {
             en: "The latitude and longitude must be a valid number",

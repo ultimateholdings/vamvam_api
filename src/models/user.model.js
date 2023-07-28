@@ -1,16 +1,16 @@
 /*jslint
-node, nomen
+node, nomen, this
 */
 const fs = require("fs");
-const {DataTypes} = require("sequelize");
+const {DataTypes, QueryTypes} = require("sequelize");
 const {hashPassword, fileExists} = require("../utils/helpers");
-
+const {hashPassword, propertiesPicker} = require("../utils/helpers");
 
 function defineUserModel(connection) {
-    const user = connection.define("user", {
+    const schema = {
         age: {
-          type: DataTypes.ENUM,
-          values: ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"]
+            type: DataTypes.ENUM,
+            values: ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"]
         },
         avatar: DataTypes.STRING,
         carInfos: DataTypes.STRING,
@@ -28,6 +28,16 @@ function defineUserModel(connection) {
             }
         },
         firstName: DataTypes.STRING,
+        gender: {
+            defaultValue: "M",
+            type: DataTypes.ENUM,
+            values: ["F", "M"]
+        },
+        id: {
+            defaultValue: DataTypes.UUIDV4,
+            primaryKey: true,
+            type: DataTypes.UUID
+        },
         lastName: DataTypes.STRING,
         password: {
             type: DataTypes.STRING,
@@ -51,18 +61,13 @@ function defineUserModel(connection) {
             defaultValue: "client",
             type: DataTypes.ENUM,
             values: ["client", "driver", "admin"]
-        },
-        gender: {
-            defaultValue: "M",
-            type: DataTypes.ENUM,
-            values: ["F", "M"]
-        },
-        id: {
-            defaultValue: DataTypes.UUIDV4,
-            primaryKey: true,
-            type: DataTypes.UUID
         }
-    }, {
+    };
+    const excludedProps = ["password", "deviceToken"];
+    const allowedProps = Object.keys(schema).filter(
+        (key) => !excludedProps.includes(key)
+    );
+    const user = connection.define("user", schema, {
         hooks: {
             beforeCreate: async function (record) {
                 let {password} = record.dataValues;
@@ -103,6 +108,44 @@ function defineUserModel(connection) {
             }
         }
     });
+    user.prototype.toResponse = function () {
+        let result = this.dataValues;
+        if (result.position !== null && result.position !== undefined) {
+            result.postion = {
+                latitude: result.position.coordinates[0],
+                longitude: result.position.coordinates[1]
+            };
+        }
+        return propertiesPicker(result)(allowedProps);
+    };
+
+/*
+Please note that these GIS functions are only supported on
+PostgreSql, Mysql and MariaDB so if your DB doesn't support it
+it better to use the haversine formula to get the distance between 2 points
+link: https://en.wikipedia.org/wiki/Haversine_formula
+*/
+    user.nearTo = async function (point, by, role) {
+        let result = [];
+        let sql = allowedProps.join(",");
+        let coordinates = point?.coordinates;
+        let distanceQuery;
+        if (Array.isArray(coordinates)) {
+            coordinates = "'POINT(" + coordinates[0] + " " +
+            coordinates[1] + ")'";
+            distanceQuery = "ST_Distance_Sphere(ST_GeomFromText(";
+            distanceQuery += "ST_AsText(position), 4326), ST_GeomFromText(";
+            distanceQuery += coordinates + ", 4326))";
+            sql = "select " + sql + "," + distanceQuery + " as distance from ";
+            sql += this.getTableName() + " where " + distanceQuery + " <=" + by;
+            sql += " and `role` = '" + role + "';";
+
+            result = await connection.query(sql, {
+                type: QueryTypes.SELECT
+            });
+        }
+        return result ?? [];
+    };
     return user;
 }
 
