@@ -30,6 +30,23 @@ function getUserModule({
         res.status(200).json({updated});
     }
 
+    function formatResponse ({avatar, carInfos, updatedProps, updated}) {
+        let response;
+        const responsePicker = propertiesPicker(updatedProps);
+        const responseFields = genericProps.filter(
+            (value) => value !== "avatar" && value !== "carInfos"
+        );
+        response = responsePicker(responseFields) || {};
+        response.updated = updated;
+        if (avatar.length > 0) {
+            response.avatar = "/uploads/" + avatar[0].basename;
+        }
+        if (carInfos.length > 0) {
+            response.carInfos = "/uploads/" + carInfos[0].basename;
+        }
+        return response;
+    }
+
     async function getInformations(req, res) {
         const {id, phone} = req.user.token;
         let response;
@@ -51,26 +68,31 @@ function getUserModule({
             carInfos = []
         } = req.files || {};
         let updated;
-        let propertiesUpdated;
+        let updatedProps;
         const pickedProperties = propertiesPicker(req.body);
         if (avatar.length > 0) {
             req.body.avatar = avatar[0].path;
         }
-
+        
         if (carInfos.length > 0) {
             req.body.carInfos = carInfos[0].path;
         }
-        propertiesUpdated = pickedProperties(genericProps);
+        updatedProps = pickedProperties(genericProps);
 
-        if (propertiesUpdated !== undefined) {
+        if (updatedProps !== undefined) {
             [updated] = await userModel.update(
-                propertiesUpdated,
+                updatedProps,
                 {
                     individualHooks: true,
                     where: {id, phone}
                 }
             );
-            res.status(200).json({updated});
+            res.status(200).json(formatResponse({
+                avatar,
+                carInfos,
+                updatedProps,
+                updated: updated > 0
+            }));
         } else {
             res.status(400).json({
                 message: "cannot update with invalid values"

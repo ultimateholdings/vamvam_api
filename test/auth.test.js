@@ -26,6 +26,17 @@ const {
     users: {badUser, goodUser, firstDriver: secondUser}
 } = require("./fixtures/users.data");
 
+function getFileSize (path) {
+    return new Promise(function (res) {
+        fs.stat(path, {bigint: true}, function (err, stat) {
+            if (err) {
+                res(0n);
+            } else {
+                res(stat.size);
+            }
+        });
+    });
+}
 describe("authentication tests", function () {
     let server;
     let app;
@@ -251,11 +262,14 @@ describe("user interactions tests", function () {
         const carInfosPath = "test/fixtures/specs.pdf";
         let avatarHash;
         let carInfoHash;
+        const files = {};
         before(async function () {
             avatarHash = await getFileHash(avatarPath);
             carInfoHash = await getFileHash(carInfosPath);
             avatarHash = "public/uploads/vamvam_" + avatarHash + ".png";
             carInfoHash = "public/uploads/vamvam_" + carInfoHash + ".pdf";
+            files.avatarSize = await getFileSize(avatarPath);
+            files.carInfoSize = await getFileSize(carInfosPath);
         });
         afterEach(function () {
             if (fs.existsSync(avatarHash)) {
@@ -282,8 +296,12 @@ describe("user interactions tests", function () {
             response = await User.findOne({where: {phone: goodUser.phone}});
             assert.equal(response.avatar, path.normalize(avatarHash));
             assert.equal(response.carInfos, path.normalize(carInfoHash));
-            assert.isTrue(fs.existsSync(avatarHash));
-            assert.isTrue(fs.existsSync(carInfoHash));
+            files.avatarStoredSize = await getFileSize(avatarHash);
+            files.carStoredSize = await getFileSize(carInfoHash);
+            assert.deepEqual(
+                [files.avatarSize, files.carInfoSize],
+                [files.avatarStoredSize, files.carStoredSize]
+            );
         });
 
         it("should verify user avatar deletion", async function () {

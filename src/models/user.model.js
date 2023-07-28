@@ -3,6 +3,7 @@ node, nomen, this
 */
 const fs = require("fs");
 const {DataTypes, QueryTypes} = require("sequelize");
+const {hashPassword, fileExists} = require("../utils/helpers");
 const {hashPassword, propertiesPicker} = require("../utils/helpers");
 
 function defineUserModel(connection) {
@@ -84,18 +85,23 @@ function defineUserModel(connection) {
                     _changed: updates = new Set()
                 } = record;
                 let hash;
+                let previousAvatarExists;
+                let previousInfoExists;
+                
+                previousAvatarExists = await fileExists(previous.avatar);
+                previousInfoExists = await fileExists(previous.carInfos);
                 if (updates.has("password")) {
                     hash = await hashPassword(password);
                     current.password = hash;
                 }
 
-                if (updates.has("avatar") && fs.existsSync(previous.avatar)) {
+                if (updates.has("avatar") && previousAvatarExists) {
                     fs.unlink(previous.avatar, console.log);
                 }
 
                 if (
                     updates.has("carInfos") &&
-                    fs.existsSync(previous.carInfos)
+                    previousInfoExists
                 ) {
                     fs.unlink(previous.carInfos, console.log);
                 }

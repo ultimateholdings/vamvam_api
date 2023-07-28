@@ -151,6 +151,7 @@ const config = Object.freeze({
     },
     getdbConfig() {
         const {
+            dev_db,
             NODE_ENV: env = "test",
             DB_PASSWORD: password = null,
             db_port: port,
@@ -159,6 +160,12 @@ const config = Object.freeze({
             DB_USER: username = "root"
         } = process.env;
         const configs = {
+            development: {
+                database: dev_db,
+                password,
+                port,
+                username
+            },
             production: {
                 database: production_db,
                 password,

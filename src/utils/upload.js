@@ -5,7 +5,11 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
+const {promisify} = require("node:util");
+const {fileExists} = require("./helpers")
 
+const copyAsync = promisify(fs.copyFile);
+const unlinkAsync = promisify(fs.unlink);
 
 function defaultDestination(req, file, cb) {
     cb(null, "/dev/null");
@@ -16,23 +20,7 @@ function HashFileStorage(options) {
 }
 
 HashFileStorage.prototype._handleFile = function _handleFile(req, file, cb) {
-    const {stream} = file;
-    this.getDestination(req, file, function (err, path) {
-        let outputStream;
-        if (err) {
-            cb(err);
-        }
-        if (fs.existsSync(path)) {
-            cb(null, {path});
-        } else {
-            outputStream = fs.createWriteStream(path);
-            stream.pipe(outputStream);
-            outputStream.on("error", cb);
-            outputStream.on("finish", function () {
-                cb(null, {path, size: outputStream.bytesWritten});
-            });
-        }
-    });
+    this.getDestination(req, file, cb);
 };
 
 HashFileStorage.prototype._removeFile = function _removeFile(req, file, cb) {
@@ -43,27 +31,38 @@ HashFileStorage.prototype._removeFile = function _removeFile(req, file, cb) {
 function getDestination({cb, file, folderPath}) {
     const extension = path.extname(file.originalname);
     const hash = crypto.createHash("sha256");
-    const {stream} = file;
-    stream.on("readable", function () {
-        const data = stream.read();
-        if (data !== null) {
-            hash.update(data);
-        } else {
-            cb(
-                null,
-                path.normalize(
-                    folderPath +
-                    "vamvam_" +
-                    hash.digest("hex") +
-                    extension
-                )
-            );
+    const tempPath = "_vamvam"+ crypto.randomUUID();
+    const outStream = fs.createWriteStream(tempPath); 
+    file.stream.pipe(outStream);
+    file.stream.on("data", function (data) {
+        hash.update(data);
+    });
+    outStream.on("error", cb);
+    outStream.on("finish", function () {
+        outStream.close();
+    });
+    outStream.on("close", async function () {
+        let exists;
+        const finalPath = path.normalize(
+            folderPath +
+            "vamvam_" +
+            hash.digest("hex") +
+            extension
+        );
+        exists = await fileExists(finalPath);
+        if (!exists) {
+            await copyAsync(tempPath, finalPath);
         }
+        await unlinkAsync(tempPath);
+        cb(null, {
+            basename: path.basename(finalPath),
+            path: finalPath,
+            size: outStream.bytesWritten
+        });
     });
-    stream.on("error", function (err) {
-        cb(err);
-    });
+
 }
+
 function hashedUploadHandler(
     fieldsOptions = {},
     limits = {fileSize: 6291560}
