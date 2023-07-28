@@ -27,6 +27,7 @@ function getUserRouter(userModule) {
     router.get(
         "/infos",
         protectRoute,
+        routerModule.ensureUserExists,
         errorHandler(routerModule.getInformations)
     );
 

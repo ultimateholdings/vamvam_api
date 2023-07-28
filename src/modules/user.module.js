@@ -2,24 +2,25 @@
 node
 */
 const {User} = require("../models");
-const {propertiesPicker} = require("../utils/helpers");
+const {propertiesPicker, sendResponse} = require("../utils/helpers");
+const {errors} = require("../utils/config");
 
 
 function getUserModule({
     model
 }) {
     const userModel = model || User;
-    const genericProps = [
-        "age",
-        "avatar",
-        "carInfos",
-        "deviceToken",
-        "firstName",
-        "lastName",
-        "password",
-        "gender",
-        "email"
-    ];
+
+    async function ensureUserExists(req, res, next) {
+        let {id, phone} = req.user.token;
+        const userData = await userModel.findOne({where: {id, phone}});
+        if (userData === null) {
+            sendResponse(res, errors.notFound);
+        } else {
+            req.userData = userData;
+            next();
+        }
+    }
 
     async function deleteAvatar(req, res) {
         let {id, phone} = req.user.token;
@@ -27,13 +28,13 @@ function getUserModule({
             individualHooks: true,
             where: {id, phone}
         });
-        res.status(200).json({updated});
+        res.status(200).json({updated: updated > 0});
     }
 
-    function formatResponse ({avatar, carInfos, updatedProps, updated}) {
+    function formatResponse({avatar, carInfos, updated, updatedProps}) {
         let response;
         const responsePicker = propertiesPicker(updatedProps);
-        const responseFields = genericProps.filter(
+        const responseFields = userModel.genericProps.filter(
             (value) => value !== "avatar" && value !== "carInfos"
         );
         response = responsePicker(responseFields) || {};
@@ -47,22 +48,12 @@ function getUserModule({
         return response;
     }
 
-    async function getInformations(req, res) {
-        const {id, phone} = req.user.token;
-        let response;
-        let result = await User.findOne({where: {id, phone}});
-        response = genericProps.reduce(function (accumulator, prop) {
-            accumulator[prop] = result[prop];
-            return accumulator;
-        }, Object.create(null));
-        response.role = result.role;
-        response.phoneNumber = phone;
-        response.id = id;
-        res.status(200).json(response);
+    function getInformations(req, res) {
+        res.status(200).json(req.userData.toResponse());
     }
 
     async function updateProfile(req, res) {
-        let {token: {id, phone}} = req.user;
+        let {id, phone} = req.user.token;
         let {
             avatar = [],
             carInfos = []
@@ -73,11 +64,11 @@ function getUserModule({
         if (avatar.length > 0) {
             req.body.avatar = avatar[0].path;
         }
-        
+
         if (carInfos.length > 0) {
             req.body.carInfos = carInfos[0].path;
         }
-        updatedProps = pickedProperties(genericProps);
+        updatedProps = pickedProperties(userModel.genericProps);
 
         if (updatedProps !== undefined) {
             [updated] = await userModel.update(
@@ -90,18 +81,17 @@ function getUserModule({
             res.status(200).json(formatResponse({
                 avatar,
                 carInfos,
-                updatedProps,
-                updated: updated > 0
+                updated: updated > 0,
+                updatedProps
             }));
         } else {
-            res.status(400).json({
-                message: "cannot update with invalid values"
-            });
+            sendResponse(res, errors.invalidUploadValues);
         }
     }
 
     return Object.freeze({
         deleteAvatar,
+        ensureUserExists,
         getInformations,
         updateProfile
     });

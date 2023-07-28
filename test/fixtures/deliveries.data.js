@@ -105,12 +105,7 @@ function deliveryResquestor(tokenGetter, model) {
             data,
             phone,
             url: "/delivery/request"
-        })
-        if (response.body.id !== undefined) {
-        await model.update({status: model.statuses.started}, {
-                where: {id: response.body.id}
-            });
-        }
+        });
         response.body.token = token;
         response.body.status = response.status;
         return response.body;
@@ -123,7 +118,10 @@ function deliveryResquestor(tokenGetter, model) {
             data: delivery
         });
         let token = await tokenGetter(app, driverData.phone);
-        await model.update({driverId: driverData.id}, {
+        await model.update({
+            driverId: driverData.id,
+            status: model.statuses.started
+        }, {
             where: {id: request.id}
         });
         return {driverToken: token, request};

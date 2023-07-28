@@ -28,7 +28,7 @@ const {errors, availableRoles: roles} = require("../src/utils/config");
 
 const {
     requestDelivery,
-    setupDeliveryClosing
+    setupDelivery
 } = deliveryResquestor(getToken, Delivery);
 describe("delivery CRUD test", function () {
     let server;
@@ -104,7 +104,7 @@ describe("delivery CRUD test", function () {
     it(
         "should terminate a delivery when a verification code is correct",
         async function () {
-            const {request, driverToken} = await setupDeliveryClosing({
+            const {request, driverToken} = await setupDelivery({
                 app,
                 clientPhone: dbUsers.goodUser.phone,
                 delivery: deliveries[0],
@@ -132,7 +132,7 @@ describe("delivery CRUD test", function () {
         async function () {
             //Note: goodUser is a client so he cannot verify the code
             let response;
-            const {request} = await setupDeliveryClosing({
+            const {request} = await setupDelivery({
                 app,
                 clientPhone: dbUsers.goodUser.phone,
                 delivery: deliveries[0],
@@ -158,7 +158,7 @@ describe("delivery CRUD test", function () {
         "should not verify a delivery which isn't in started status",
         async function () {
             let response;
-            const {request, driverToken} = await setupDeliveryClosing({
+            const {request, driverToken} = await setupDelivery({
                 app,
                 clientPhone: dbUsers.goodUser.phone,
                 delivery: deliveries[0],

@@ -12,7 +12,7 @@ const copyAsync = promisify(fs.copyFile);
 const unlinkAsync = promisify(fs.unlink);
 
 function defaultDestination(req, file, cb) {
-    cb(null, "/dev/null");
+    cb(null, {path: "/dev/null"});
 }
 function HashFileStorage(options) {
     let {destination} = options;

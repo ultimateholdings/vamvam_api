@@ -71,12 +71,19 @@ function methodAdder(object) {
         }
     };
 }
+function sendResponse(res, content, data = {}) {
+    res.status(content.status).send({
+        data,
+        message: content.message
+    });
+}
+
+function isValidPoint({latitude, longitude}) {
+    return Number.isFinite(latitude) && Number.isFinite(longitude);
+}
 
 function isValidLocation(location) {
     let result;
-    function isValidPoint({latitude, longitude}) {
-        return Number.isFinite(latitude) && Number.isFinite(longitude);
-    }
     if (Array.isArray(location)) {
         result = location.every(function (point) {
             if (point !== null && point !== undefined) {
@@ -85,9 +92,9 @@ function isValidLocation(location) {
             return false;
         });
     } else  if (location !== null && location !== undefined){
-        return isValidPoint(location)
+        result =  isValidPoint(location)
     }
-    return false;
+    return result;
 }
 
 function getFileHash (path) {
@@ -288,5 +295,6 @@ module.exports = Object.freeze({
     jwtWrapper,
     methodAdder,
     otpManager,
-    propertiesPicker
+    propertiesPicker,
+    sendResponse
 });

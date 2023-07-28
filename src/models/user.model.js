@@ -3,8 +3,11 @@ node, nomen, this
 */
 const fs = require("fs");
 const {DataTypes, QueryTypes} = require("sequelize");
-const {hashPassword, fileExists} = require("../utils/helpers");
-const {hashPassword, propertiesPicker} = require("../utils/helpers");
+const {
+    fileExists,
+    hashPassword,
+    propertiesPicker
+} = require("../utils/helpers");
 
 function defineUserModel(connection) {
     const schema = {
@@ -64,8 +67,12 @@ function defineUserModel(connection) {
         }
     };
     const excludedProps = ["password", "deviceToken"];
+    const forbiddenUpdate = ["position", "role", "id", "phone"];
     const allowedProps = Object.keys(schema).filter(
         (key) => !excludedProps.includes(key)
+    );
+    const genericProps = allowedProps.filter(
+        (prop) => !forbiddenUpdate.includes(prop)
     );
     const user = connection.define("user", schema, {
         hooks: {
@@ -87,7 +94,6 @@ function defineUserModel(connection) {
                 let hash;
                 let previousAvatarExists;
                 let previousInfoExists;
-                
                 previousAvatarExists = await fileExists(previous.avatar);
                 previousInfoExists = await fileExists(previous.carInfos);
                 if (updates.has("password")) {
@@ -110,6 +116,8 @@ function defineUserModel(connection) {
     });
     user.prototype.toResponse = function () {
         let result = this.dataValues;
+        result.phoneNumber = result.phone;
+        delete result.phone;
         if (result.position !== null && result.position !== undefined) {
             result.postion = {
                 latitude: result.position.coordinates[0],
@@ -146,6 +154,7 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         }
         return result ?? [];
     };
+    user.genericProps = genericProps;
     return user;
 }
 

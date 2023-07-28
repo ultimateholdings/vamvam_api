@@ -65,6 +65,14 @@ const errors = {
         },
         status: 400
     },
+    invalidUploadValues: {
+        message: {
+            en: "you should provide informations you want to update",
+            fr: "vous devez fournir les informations que vous " +
+            "souhaitez mettre à jour"
+        },
+        status: 400
+    },
     notAuthorized: {
         message: {
             en: "You are not authorized to perform this action",

@@ -4,7 +4,7 @@ node
 const crypto = require("crypto");
 const {Delivery, User} = require("../models");
 const {availableRoles: roles, errors} = require("../utils/config");
-const {isValidLocation} = require("../utils/helpers");
+const {isValidLocation, sendResponse} = require("../utils/helpers");
 
 
 function getDeliveryModule({associatedModels, model}) {
@@ -20,13 +20,6 @@ function getDeliveryModule({associatedModels, model}) {
 
     function calculatePrice() {
         return 1000;
-    }
-
-    function sendResponse(res, content, data = {}) {
-        res.status(content.status).send({
-            data,
-            message: content.message
-        });
     }
 
     function canAccessDelivery(req, res, next) {
