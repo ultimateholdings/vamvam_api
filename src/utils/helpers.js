@@ -21,6 +21,22 @@ const defaultHeader = {
 const CustomEmitter = new Function();
 CustomEmitter.prototype = EventEmitter.prototype;
 
+async function fileExists(path) {
+    if (typeof path === "string") {
+        return new Promise(function (res) {
+            fs.access(path, fs.constants.F_OK, function (err) {
+                if (err) {
+                    res(false)
+                } else {
+                    res(true);
+                }
+            })
+        });
+    } else {
+        return Promise.resolve(false);
+    }
+}
+
 function jwtWrapper() {
     return {
         sign(payload) {
@@ -32,7 +48,6 @@ function jwtWrapper() {
                 verifiedToken = await new Promise(
                     function tokenExecutor(res, rej) {
                         jwt.verify(token, secret, function (err, decoded) {
-                            debugger;
                             if (decoded === undefined) {
                                 rej(err);
                             } else {
@@ -256,6 +271,7 @@ module.exports = Object.freeze({
         });
     },
     errorHandler,
+    fileExists,
     getFileHash,
     getOTPService,
     hashPassword(password) {

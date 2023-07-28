@@ -215,7 +215,6 @@ describe("delivery CRUD test", function () {
             response = await app.post("/delivery/accept").send({
                 id: request.id
             }).set("Authorization", "Bearer " + token2);
-            debugger;
             assert.equal(response.status, errors.alreadyAssigned.status);
         });
     
