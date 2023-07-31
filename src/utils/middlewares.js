@@ -1,32 +1,25 @@
 /*jslint node */
-const {jwtWrapper} = require("../utils/helpers");
+const {jwtWrapper, sendResponse} = require("../utils/helpers");
 const {errors} = require("../utils/config");
 
-function sendAuthFaillure(res) {
-    const {message, status} = errors.notAuthorized;
-    res.status(status).json({message});
-}
 /*jslint-disable*/
 async function protectRoute(req, res, next) {
     const [, token] = (req.headers.authorization || "").split(" ");
     const jwtHandler = jwtWrapper();
     let payload;
     if (token === null || token === undefined) {
-        sendAuthFaillure(res);
-    } else {
-        try {
-            payload = await jwtHandler.verify(token);
-            if(payload.valid === true) {
-                req.user = payload;
-            } else {
-                res.status(errors.tokenExpired.status).send({
-                    message: errors.tokenExpired.message
-                });
-            }
+        return sendResponse(res, errors.notAuthorized);
+    }
+    try {
+        payload = await jwtHandler.verify(token);
+        if(payload.valid === true) {
+            req.user = payload;
             next();
-        } catch (error) {
-            sendAuthFaillure(res, error);
+        } else {
+            return sendResponse(res, errors.tokenExpired);
         }
+    } catch (error) {
+        sendResponse(res,errors.notAuthorized, error);
     }
 }
 /*jslint-enable*/
@@ -75,7 +68,7 @@ function allowRoles(roles = []) {
         if (Array.isArray(roles) && roles.includes(role)) {
             next();
         } else {
-            sendAuthFaillure(res);
+            sendResponse(res, errors.notAuthorized);
         }
     };
 }

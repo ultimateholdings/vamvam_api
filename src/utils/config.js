@@ -117,13 +117,77 @@ const errors = {
     }
 };
 
+const eventMessages = {
+    deliveryAccepted: {
+        en: {
+            body: "A driver is available for your delivery",
+            title: "Delivery accepted"
+        },
+        fr: {
+            body: "Un chauffeur est disponible pour votre livraison",
+            title: "Livraison acceptée"
+        }
+    },
+    deliveryCancelled: {
+        en: {
+            body: "Sorry but the client has cancelled the delivery",
+            title: "Delivery canceled"
+        },
+        fr: {
+            body: "Désolé mais le client a annulé la livraison",
+            title: "Livraison annulée"
+        }
+    },
+    deliveryEnd: {
+        en: {
+            body: "Your delivery is now completed thank you and see you soon",
+            title: "Delivery completed"
+        },
+        fr: {
+            body: "Votre livraison est maintenant terminée merci et à bientôt",
+            title: "Livraison terminée"
+        }
+    },
+    deliveryStarted: {
+        en: {
+            body: "Your delivery has started you can keep an eye its evolution",
+            title: "Delivery started"
+        },
+        fr: {
+            body: "Votre livraison a commencée, vous pouvez suivre son évolution",
+            title: "Début de la livraison"
+        }
+    },
+    driverArrived: {
+        en: {
+            body: "Please once you give him the package, confirm it here",
+            title: "The driver has arrived"
+        },
+        fr: {
+            body: "Une fois que vous lui aurez remis le paquet, veuillez le confirmer ici.",
+            title: "Le chauffeur est arrivé"
+        }
+    },
+    newDelivery: {
+        en: {
+            body: "You have a new delivery request close to you, check it out",
+            title: "New delivery"
+        },
+        fr: {
+            body: "Vous avez une nouvelle demande de livraison près de vous, consultez-la",
+            title: "New delivery"
+        }
+    }
+};
+
 const defaultValues = {
     ttl: 180
 };
 const config = Object.freeze({
-    availableRoles,
-    defaultValues,
-    errors,
+    availableRoles: Object.freeze(availableRoles),
+    defaultValues: Object.freeze(defaultValues),
+    errors: Object.freeze(errors),
+    eventMessages: Object.freeze(eventMessages),
     getOTPConfig() {
         const {
             otp_key,
@@ -188,6 +252,19 @@ const config = Object.freeze({
             }
         };
         return configs[env];
+    },
+    getFirebaseConfig() {
+        const {
+            msg_url: url,
+            fb_serverKey: key
+        } = process.env;
+        return Object.freeze({
+            headers: {
+                "content-type": "application/json",
+                "Authorization": "key=" + key
+            },
+            url
+        });
     }
 });
 

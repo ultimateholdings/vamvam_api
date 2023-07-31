@@ -104,7 +104,7 @@ function clientSocketCreator(room) {
             if (token !== null && token !== undefined) {
                 options.auth = {token};
             }
-            client = new Client("http://localhost:3000/" + room, options);
+            client = new Client("ws://localhost:3000/" + room, options);
             client.on("connect", function () {
                 res(client);
             });

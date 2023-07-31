@@ -42,6 +42,10 @@ function defineUserModel(connection) {
             type: DataTypes.UUID
         },
         lastName: DataTypes.STRING,
+        lang: {
+            defaultValue: "en",
+            type: DataTypes.STRING
+        },
         password: {
             type: DataTypes.STRING,
             validate: {
@@ -67,11 +71,11 @@ function defineUserModel(connection) {
         }
     };
     const excludedProps = ["password", "deviceToken"];
-    const forbiddenUpdate = ["position", "role", "id", "phone"];
+    const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
     const allowedProps = Object.keys(schema).filter(
         (key) => !excludedProps.includes(key)
     );
-    const genericProps = allowedProps.filter(
+    const genericProps = Object.keys(schema).filter(
         (prop) => !forbiddenUpdate.includes(prop)
     );
     const user = connection.define("user", schema, {
@@ -116,8 +120,6 @@ function defineUserModel(connection) {
     });
     user.prototype.toResponse = function () {
         let result = this.dataValues;
-        result.phoneNumber = result.phone;
-        delete result.phone;
         if (result.position !== null && result.position !== undefined) {
             result.postion = {
                 latitude: result.position.coordinates[0],
@@ -135,19 +137,19 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
 */
     user.nearTo = async function (point, by, role) {
         let result = [];
-        let sql = allowedProps.join(",");
+        let sql = ["deviceToken", ...allowedProps];
         let coordinates = point?.coordinates;
         let distanceQuery;
+        sql = sql.join(" , ")
         if (Array.isArray(coordinates)) {
             coordinates = "'POINT(" + coordinates[0] + " " +
             coordinates[1] + ")'";
             distanceQuery = "ST_Distance_Sphere(ST_GeomFromText(";
             distanceQuery += "ST_AsText(position), 4326), ST_GeomFromText(";
             distanceQuery += coordinates + ", 4326))";
-            sql = "select " + sql + "," + distanceQuery + " as distance from ";
-            sql += this.getTableName() + " where " + distanceQuery + " <=" + by;
+            sql = "select " + sql + " , " + distanceQuery + " as distance from ";
+            sql += this.getTableName() + " where " + distanceQuery + " <= " + by;
             sql += " and `role` = '" + role + "';";
-
             result = await connection.query(sql, {
                 type: QueryTypes.SELECT
             });

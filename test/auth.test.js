@@ -13,7 +13,7 @@ const {
 } = require("mocha");
 const {assert} = require("chai");
 const {otpRequest, User, connection} = require("../src/models");
-const {comparePassword, getFileHash} = require("../src/utils/helpers");
+const {getFileHash} = require("../src/utils/helpers");
 const {errors} = require("../src/utils/config");
 const getSocketManager = require("../src/utils/socket-manager");
 const {

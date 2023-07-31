@@ -1,66 +1,151 @@
-
+/*jslint
+node
+*/
 const {Server} = require("socket.io");
 const {socketAuthenticator} = require("../utils/middlewares");
-const {isValidLocation} = require("../utils/helpers");
-const { errors } = require("./config");
+const {isValidLocation, sendCloudMessage} = require("../utils/helpers");
+const {errors, eventMessages} = require("./config");
 
 
-function getSocketManager ({deliveryModel, httpServer, userModel}) {
+function getSocketManager({deliveryModel, httpServer, userModel}) {
     const io = new Server(httpServer);
     const deliveries = io.of("/delivery");
     const connectedUsers = Object.create(null);
-    
-    function handleEnding(data) {
+    async function handleEnding(data) {
         const {clientId, deliveryId} = data;
-        
-        connectedUsers[clientId]?.emit("delivery-end", {deliveryId});
+        const eventName = "delivery-end";
+        let userInfos;
+        let message;
+        if (connectedUsers[clientId] !== undefined) {
+            connectedUsers[clientId].emit(eventName, {deliveryId});
+        } else {
+            userInfos = await userModel?.findOne({where: {id: clientId}});
+            message = eventMessages.deliveryEnd[userInfos?.lang ?? "en"];
+            if (userInfos !== null && userInfos.deviceToken !== null) {
+                await sendCloudMessage({
+                    body: message.body,
+                    meta: {deliveryId, eventName},
+                    title: message.title,
+                    to: userInfos.deviceToken
+                });
+            }
+        }
+
     }
 
-    function handleAcceptation(data) {
-        const {clientId, driver} = data;
-        connectedUsers[clientId]?.emit("delivery-accepted", driver);
+    async function handleAcceptation(data) {
+        const {clientId, deliveryId, driver} = data;
+        const eventName = "delivery-accepted";
+        let userInfos;
+        let message;
+        if (connectedUsers[clientId] !== undefined) {
+            connectedUsers[clientId]?.emit(
+                eventName,
+                {deliveryId, driver}
+            );
+        } else {
+            userInfos = await userModel?.findOne({where: {id: clientId}});
+            message = eventMessages.deliveryAccepted[userInfos?.lang ?? "en"];
+            if (userInfos !== null && userInfos.deviceToken !== null) {
+                await sendCloudMessage({
+                    body: message.body,
+                    meta: {deliveryId, driver, eventName},
+                    title: message.title,
+                    to: userInfos.deviceToken
+                });
+            }
+        }
     }
-
+    
     function handleCancellation(data) {
-        const {driverId, delivery} = data;
-        connectedUsers[driverId]?.emit(
-            "delivery-cancelled",
-            delivery.id
-        );
+        const {delivery, drivers} = data;
+        const eventName = "delivery-cancelled";
+        let message;
+        drivers?.forEach(async function ({id, deviceToken, lang}) {
+            if (connectedUsers[id] !== undefined) {
+                connectedUsers[id].emit(eventName, delivery.id);
+            } else if (deviceToken !== null) {
+                message = eventMessages.deliveryCancelled[lang ?? "en"];
+                await sendCloudMessage({
+                    body: message.body,
+                    meta: {deliveryId: delivery.id, eventName},
+                    title: message.title,
+                    to: deviceToken
+                });
+            }
+        });
     }
     
-    function handleNewDelivery(data) {
-        const {driverId, delivery} = data;
-        connectedUsers[driverId]?.emit(
-            "new-delivery",
-            delivery
-        );
+    async function handleNewDelivery(data) {
+        const {delivery, drivers} = data;
+        const eventName = "new-delivery";
+        let message;
+        drivers?.forEach(async function ({id, deviceToken, lang}) {
+            if (connectedUsers[id] !== undefined) {
+                connectedUsers[id].emit(eventName, delivery);
+            } else if (deviceToken !== null) {
+                message = eventMessages.newDelivery[lang ?? "en"];
+                await sendCloudMessage({
+                    body: message.body,
+                    meta: {delivery, eventName},
+                    title: message.title,
+                    to: deviceToken
+                });
+            }
+        });
     }
-
-    function handleReception(data) {
+    
+    async function handleReception(data) {
         const {clientId, deliveryId} = data;
-        connectedUsers[clientId]?.emit(
-            "delivery-recieved",
-            deliveryId
-        );
+        const eventName = "delivery-recieved";
+        if (connectedUsers[clientId] !== undefined) {
+            connectedUsers[clientId]?.emit(eventName, deliveryId);
+        } else {
+            userInfos = await userModel?.findOne({where: {id: clientId}});
+            message = eventMessages.newDelivery[userInfos?.lang ?? "en"];
+            if (userInfos !== null && userInfos.deviceToken !== null) {
+                await sendCloudMessage({
+                    body: message.body,
+                    meta: {deliveryId, eventName},
+                    title: message.title,
+                    to: userInfos.deviceToken
+                });
+            }
+        }
     }
     function handleBegining(data) {
         const {deliveryId, participants} = data;
-
-        if(Array.isArray(participants)) {
-            participants.forEach(function (participant) {
-                connectedUsers[participant]?.emit(
-                    "delivery-started",
+        const eventName = "delivery-started";
+        
+        participants?.forEach(async function (id) {
+            let message;
+            let userInfos
+            if (connectedUsers[id] !== undefined) {
+                connectedUsers[id].emit(
+                    eventName,
                     deliveryId
                 );
-            });
-        }
+            } else {
+                userInfos = userModel?.findOne({where: {id}});
+                message = eventMessages.deliveryStarted[
+                    userInfos?.lang ?? "en"
+                ];
+                if (userInfos !== null && userInfos.deviceToken !== null) {
+                    await sendCloudMessage({
+                        body: message.body,
+                        meta: {deliveryId, eventName},
+                        title: message.title,
+                        to: userInfos.deviceToken
+                    });
+                }
+            }
+        });
     }
 
 
-    async function positionUpdateHandler (socket, data) {
+    async function positionUpdateHandler(socket, data) {
         let position;
-        let interestedClients
+        let interestedClients;
         const {id} = socket.user;
         if (isValidLocation(data)) {
             if (Array.isArray(data)) {
@@ -70,17 +155,18 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
             }
             position = {
                 coordinates: [position.latitude, position.longitude],
-                type: "Point",
+                type: "Point"
             };
             await userModel?.update({position}, {where: {id}});
             interestedClients = await deliveryModel?.findAll({where: {
                 driverId: id,
                 status: "started"
             }});
-            interestedClients = (interestedClients ?? []).map(
+            interestedClients = interestedClients ?? [];
+            interestedClients = interestedClients.map(
                 (delivery) => delivery.clientId
-            ).forEach(function(clientId) {
-                connectedUsers[clientId]?.emit("new-position", data)
+            ).forEach(function (clientId) {
+                connectedUsers[clientId]?.emit("new-position", data);
             });
             socket.emit("position-updated", position);
         } else {
@@ -109,12 +195,11 @@ function getSocketManager ({deliveryModel, httpServer, userModel}) {
     });
 
 
-
     return Object.freeze({
-        io,
         forwardMessage(id, eventName, data) {
             connectedUsers[id]?.emit(eventName, data);
-        }
+        },
+        io
     });
 }
 

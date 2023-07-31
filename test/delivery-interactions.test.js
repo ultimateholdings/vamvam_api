@@ -111,12 +111,12 @@ describe("delivery side effects test", function () {
     describe("delivery initialization interactions", function () {
         let request;
         const nearByPoint = {
-            latitude: 4.044562,
-            longitude: 9.693046
+            latitude: 4.0470347,
+            longitude: 9.6971706
         };
         const farPoint = {
-            latitude: 4.033725,
-            longitude: 9.683893
+            latitude: 3.989972,
+            longitude: 9.799537
         };
         beforeEach(async function () {
             request = await requestDelivery({
@@ -150,9 +150,10 @@ describe("delivery side effects test", function () {
             
         it("should notify a client on driver approval", async function () {
             let data;
+            let response;
             const {driverToken} = setupDatas;
             const client = await socketGenerator(request.token);
-            await app.post("/delivery/accept").send(request).set(
+            response = await app.post("/delivery/accept").send(request).set(
                 "authorization", "Bearer " + driverToken
             );
             data = await new Promise(function (res) {
@@ -161,7 +162,10 @@ describe("delivery side effects test", function () {
                     res(data);
                 });
             });
-            assert.deepEqual(data, dbUsers.firstDriver.toResponse());
+            assert.deepEqual(data, {
+                deliveryId: request.id,
+                driver:dbUsers.firstDriver.toResponse()
+            });
         });
     
         it("should notify a driver on client cancellation", async function () {
@@ -251,8 +255,8 @@ describe("delivery side effects test", function () {
                 deliveries[1]
             ).set("authorization", "Bearer " + client);
             data = await Promise.allSettled([
-                listenToNewDelivery(firstDriver, 1000),
-                listenToNewDelivery(secondDriver, 1000)
+                listenToNewDelivery(firstDriver, 1500),
+                listenToNewDelivery(secondDriver, 1500)
             ]);
             delivery = await Delivery.findOne({where: {id: request.body.id}});
             assert.deepEqual(data.map((data) => data.value), [delivery.toResponse(), undefined]);

@@ -1,5 +1,5 @@
 /*jslint
-node
+node, this
 */
 "use strict";
 const {EventEmitter} = require("node:events");
@@ -7,40 +7,38 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
-const {getOTPConfig, errors} = require("../utils/config");
+const {errors, getFirebaseConfig, getOTPConfig} = require("../utils/config");
 const {ValidationError} = require("sequelize");
 const {
     TOKEN_EXP: expiration = 3600,
     JWT_SECRET: secret = "test1234butdefault"
 } = process.env;
 
-const defaultHeader = {
-    "content-type": "application/json",
+const CustomEmitter = function () {
+    this.on("error", console.error);
 };
-
-const CustomEmitter = new Function();
 CustomEmitter.prototype = EventEmitter.prototype;
 
-async function fileExists(path) {
+function fileExists(path) {
     if (typeof path === "string") {
         return new Promise(function (res) {
             fs.access(path, fs.constants.F_OK, function (err) {
                 if (err) {
-                    res(false)
+                    res(false);
                 } else {
                     res(true);
                 }
-            })
+            });
         });
     } else {
         return Promise.resolve(false);
     }
 }
 
-function jwtWrapper() {
+function jwtWrapper(expiresIn = expiration) {
     return {
         sign(payload) {
-            return jwt.sign(payload, secret, {expiresIn: expiration});
+            return jwt.sign(payload, secret, {expiresIn});
         },
         verify: async function (token) {
             let verifiedToken;
@@ -91,13 +89,13 @@ function isValidLocation(location) {
             }
             return false;
         });
-    } else  if (location !== null && location !== undefined){
-        result =  isValidPoint(location)
+    } else if (location !== null && location !== undefined) {
+        result = isValidPoint(location);
     }
     return result;
 }
 
-function getFileHash (path) {
+function getFileHash(path) {
     return new Promise(function executor(res, rej) {
         const stream = fs.createReadStream(path);
         const hash = crypto.createHash("sha256");
@@ -116,26 +114,32 @@ function getFileHash (path) {
     });
 }
 
-async function fetchUrl(url, body={}, headers = defaultHeader) {
-    const {default: fetch} = await import("node-fetch");
-    return  fetch(url, {
+async function fetchUrl({
+    body = {},
+    headers = {"content-type": "application/json"},
+    method = "POST",
+    url
+}) {
+    const {
+        default: fetch
+    } = await import("node-fetch");
+    return fetch(url, {
         body: JSON.stringify(body),
         headers,
-        method: "POST"
+        method
     });
-    
 }
 
-function errorHandler (func) {
+function errorHandler(func) {
     return async function (req, res, next) {
         let err;
         let content;
         try {
             await func(req, res, next);
         } catch (error) {
-            if (error instanceof ValidationError) {
-                err = errors.invalidValues
-                content =  error.errors.map(function ({message}) {
+            if (error.prototype.isPrototypeOf(ValidationError)) {
+                err = errors.invalidValues;
+                content = error.errors.map(function ({message}) {
                     return message.replace(/^\w*\./, "");
                 }, {}).join(" and ");
                 res.status(err.status).json({
@@ -146,14 +150,14 @@ function errorHandler (func) {
             } else {
                 err = errors.internalError;
                 res.status(err.status).json({
-                    code: (error.original || {}).errno,
+                    code: error.original?.errno,
                     content: error.original,
                     message: err.message
                 });
             }
             res.end();
         }
-    }
+    };
 }
 
 function propertiesPicker(object) {
@@ -182,12 +186,13 @@ function getOTPService(model) {
     async function sendOTP(phone, signature) {
         let response;
         try {
-            response = await fetchUrl(
-                config.sent_url,
-                config.getSendingBody(phone, signature)
-            );
+            response = await fetchUrl({
+                body: config.getSendingBody(phone, signature),
+                url: config.sent_url
+            });
         } catch (error) {
             response = errors.internalError;
+            console.error(error);
             return {
                 code: response.status,
                 message: response.message,
@@ -196,7 +201,7 @@ function getOTPService(model) {
         }
         if (response.ok) {
             response = await response.json();
-            await model.upsert({pinId: response.pinId, phone}, {where: phone});
+            await model.upsert({phone, pinId: response.pinId}, {where: phone});
             return {sent: true};
         } else {
             response = await response.json();
@@ -220,10 +225,10 @@ function getOTPService(model) {
             };
         }
         try {
-            response = await fetchUrl(
-                config.verify_url,
-                config.getVerificationBody(response.pinId, code)
-            );
+            response = await fetchUrl({
+                body: config.getVerificationBody(response.pinId, code),
+                url: config.verify_url
+            });
             if (response.ok) {
                 response = await response.json();
                 if (response.verified && response.msisdn === phone) {
@@ -245,8 +250,8 @@ function getOTPService(model) {
             return {
                 errorCode: errors.internalError.status,
                 message: errors.internalError.message,
-                verified: false,
-                sysCode: error.code
+                sysCode: error.code,
+                verified: false
             };
         }
     }
@@ -263,6 +268,76 @@ function otpManager(otpService) {
             return otpService.verifyOTP(phoneNumber, code);
         }
     };
+}
+
+function ressourcePaginator(getRessources, expiration = 3600000) {
+    const tokenManager = jwtWrapper(expiration);
+    async function handleInvalidToken(maxSize) {
+        const {lastId, values} = await getRessources({maxSize, offset: 0});
+        const nextPageToken = tokenManager.sign({
+            lastId,
+            offset: 1
+        });
+        return {nextPageToken, results: values};
+    }
+
+    async function handleValidToken(tokenDatas, maxSize) {
+        let nextPageToken;
+        let results = await getRessources({
+            maxSize,
+            offset: tokenDatas.offset
+        });
+        nextPageToken = (
+            results.values.length < 1
+            ? null
+            : tokenManager.sign({
+                lastId: results.lastId,
+                offset: tokenDatas.offset + 1
+            })
+        );
+        if (results.formerLastId !== tokenDatas.lastId) {
+            results = await handleInvalidToken(maxSize);
+        } else {
+            results = {
+                nextPageToken,
+                results: results.values
+            };
+        }
+        return results;
+    }
+
+    return async function paginate(pageToken, maxPageSize) {
+        let datas;
+        let results;
+        try {
+            datas = await tokenManager.verify(pageToken);
+            if (datas.valid) {
+                results = await handleValidToken(datas.token, maxPageSize);
+            } else {
+                results = await handleInvalidToken(maxPageSize);
+            }
+        } catch (err) {
+            console.error(err);
+            results = await handleInvalidToken(maxPageSize);
+        }
+        return results;
+    };
+}
+
+function sendCloudMessage({body, meta, title, to}) {
+    const config = getFirebaseConfig();
+    return fetchUrl({
+        body: {
+            data: meta,
+            notification: {
+                body,
+                "mutable_content": true,
+                title
+            },
+            to
+        },
+        url: config.url
+    });
 }
 
 module.exports = Object.freeze({
@@ -296,5 +371,7 @@ module.exports = Object.freeze({
     methodAdder,
     otpManager,
     propertiesPicker,
+    ressourcePaginator,
+    sendCloudMessage,
     sendResponse
 });

@@ -4,8 +4,50 @@ node
 const crypto = require("crypto");
 const {Delivery, User} = require("../models");
 const {availableRoles: roles, errors} = require("../utils/config");
-const {isValidLocation, sendResponse} = require("../utils/helpers");
+const {
+    isValidLocation,
+    ressourcePaginator,
+    sendResponse
+} = require("../utils/helpers");
 
+function deliveryFetcher({id, role}) {
+    const roleMap = {
+        "client": {clientId: id},
+        "driver": {driverId: id}
+    };
+
+    return async function getDelivery({offset, maxSize}) {
+        const finder = roleMap[role ?? "client"];
+        let calculatedOffset = offset * maxSize;
+        let first;
+        let deliveries;
+
+        if (calculatedOffset < 0 || !Number.isFinite(calculatedOffset)) {
+            return {
+                values: []
+            };
+        }
+        if (calculatedOffset > 0) {
+            calculatedOffset -= 1;
+        }
+        [first, ...deliveries] = await deliveryModel.findAll({
+            limit: maxSize,
+            offset: calculatedOffset,
+            where:finder
+        });
+        if (offset === 0) {
+            return {
+                lastId: deliveries.at(-1).id,
+                values: [first, ...deliveries]
+            };
+        }
+        return {
+            formerLastId: first.id,
+            lastId: deliveries.at(-1).id,
+            values: deliveries
+        };
+    }
+}
 
 function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
@@ -21,6 +63,7 @@ function getDeliveryModule({associatedModels, model}) {
     function calculatePrice() {
         return 1000;
     }
+
 
     function canAccessDelivery(req, res, next) {
         const {id, role} = req.user.token;
@@ -109,6 +152,7 @@ function getDeliveryModule({associatedModels, model}) {
         });
         deliveryModel?.emitEvent("delivery-accepted", {
             clientId: delivery.clientId,
+            deliveryId: delivery.id,
             driver: driver.toResponse()
         });
     }
@@ -131,14 +175,13 @@ function getDeliveryModule({associatedModels, model}) {
             "driver"
         );
         drivers = drivers ?? [];
-        drivers.forEach(function (driver) {
-            deliveryModel?.emitEvent(eventName, {
-                driverId: driver.id,
-                delivery: delivery.toResponse()
-            });
+        deliveryModel?.emitEvent(eventName, {
+            delivery: delivery.toResponse(),
+            drivers
         });
     }
-
+/*This function is actually a placeholder for the price
+calculation of at delivery */
     function getPrice(req, res) {
         res.status(200).send({
             price: calculatePrice()
@@ -219,6 +262,15 @@ function getDeliveryModule({associatedModels, model}) {
         res.status(200).json(delivery);
     }
 
+    async function getAllPaginated(req, res) {
+        let results;
+        const {id, role} = req.user.token;
+        const {pageToken, maxPageSize} = req.body;
+        const paginator = ressourcePaginator(deliveryFetcher({id, role}));
+        results = await paginator(pageToken, maxPageSize);
+        res.status(200).send(results);
+    }
+
     async function signalReception(req, res) {
         const {id} = req.user.token;
         const {delivery} = req;
@@ -255,6 +307,7 @@ function getDeliveryModule({associatedModels, model}) {
         }
     }
 
+
     return Object.freeze({
         acceptDelivery,
         canAccessDelivery,
@@ -262,6 +315,7 @@ function getDeliveryModule({associatedModels, model}) {
         confirmDeposit,
         ensureCanTerminate,
         ensureDeliveryExists,
+        getAllPaginated,
         getInfos,
         getPrice,
         requestDelivery,
