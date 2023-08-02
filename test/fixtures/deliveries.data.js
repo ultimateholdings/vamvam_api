@@ -19,6 +19,7 @@ const deliveries = [
             latitude: 4.0731928,
             longitude: 9.7133626
         },
+        packageType: "Fragile",
         recipientInfos: {
             name: "Kamga Nouhou",
             phone: "+29820923023209932023",
@@ -36,6 +37,7 @@ const deliveries = [
             latitude: 4.0861186,
             longitude: 9.7578306
         },
+        packageType: "Fragile",
         recipientInfos: {
             name: "Kam Massock",
             phone: "+298209230988045023",
@@ -53,6 +55,7 @@ const deliveries = [
             latitude: 4.070708,
             longitude: 9.683527
         },
+        packageType: "Fragile",
         recipientInfos: {
             name: "Mbouta Mbezoa",
             phone: "+273873489283203",

@@ -32,6 +32,23 @@ function defineDeliveryModel(connection) {
             primaryKey: true,
             type: DataTypes.UUID
         },
+        note: {
+            type: DataTypes.DOUBLE,
+            validate: {
+                max: {
+                    args: [5],
+                    msg: "The rating should not be greater than 0"
+                },
+                min: {
+                    args: [0],
+                    msg: "The rating should not be lesser than 0"
+                }
+            }
+        },
+        packageType: {
+            allowNull: false,
+            type: DataTypes.STRING
+        },
         price: DataTypes.DOUBLE,
         recipientInfos: {
             allowNull: false,
@@ -43,6 +60,12 @@ function defineDeliveryModel(connection) {
             values: Object.values(availableStatus)
         }
     };
+    const updatableProps = [
+        "departure",
+        "destination",
+        "packageType",
+        "recipientInfos"
+    ];
     const delivery = connection.define("delivery", schema);
     delivery.prototype.toResponse = function () {
         const allowedProps = Object.keys(schema).filter((key) => key !== "deliveryMeta");
@@ -68,6 +91,7 @@ function defineDeliveryModel(connection) {
         emitter.emit(eventName, data);
     }
     delivery.statuses = availableStatus;
+    delivery.updatableProps = updatableProps;
     return delivery;
 }
 

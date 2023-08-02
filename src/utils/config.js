@@ -10,10 +10,17 @@ const availableRoles = {
 const errors = {
     alreadyAssigned: {
         message: {
-            en: "Sorry this resource has already been assigned",
-            fr: "Désolé, cette ressource a déjà été attribuée"
+            en: "Sorry this delivery has already been assigned",
+            fr: "Désolé, cette livraison a déjà été attribuée"
         },
         status: 451
+    },
+    alreadyRated: {
+        message: {
+            en: "Sorry this delivery has already been rated",
+            fr: "Désolé, cette livraison a déjà été évaluée"
+        },
+        status: 452
     },
     alreadyCancelled: {
         message: {

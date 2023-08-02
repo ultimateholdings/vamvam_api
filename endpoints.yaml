@@ -1,0 +1,182 @@
+non-auth-endpoints:
+  /auth/login : 
+      action: connect with password
+      type: post
+      body:
+        phoneNumber: "ex: +237xxxxxx"
+        password: string
+      response:
+        valid: boolean
+        token: string
+        userExists: boolean
+        message: 
+          en: string
+          fr: string
+
+  /auth/send-otp :
+      action: send the OTP code
+      type: post
+      body:
+        phoneNumber: "ex: +237xxxxxx"
+        signature: string
+
+  /auth/verify-otp :
+    action: verify the OTP code
+    type: post
+    body:
+      code: string
+      phoneNumber: string
+    response:
+        valid: boolean
+        token: string
+        userExists: boolean
+        message: 
+          en: string
+          fr: string
+
+          
+auth-endpoints:
+  user:
+    /user/infos :
+      action: get user informations
+      type: get
+      response:
+          message: 
+            en: string
+            fr: string
+          age: string
+          avatar: string
+          carInfos: string
+          firstName: string
+          lastName: string
+          gender: string
+          email: string
+          role: string
+          phone: string
+          id: string
+
+    /user/update-profile :
+      action: update user informations
+      type: post
+      body:
+        age: string
+        avatar: File
+        carInfos: File
+        deviceToken: string
+        firstName: string
+        lastName: string
+        lang: string
+        gender: string
+        email: string
+      response: value of updated informations
+
+    /user/delete-avatar :
+      action: delete a user avatar
+      type: post
+      response:
+        updated: boolean
+
+  delivery:
+    /delivery/request :
+      action: request a new delivery
+      type: post
+      body:
+        departure:
+          address: string
+          latitude: number
+          longitude: number
+        destination:
+          address: string
+          latitude: number
+          longitude: number
+        packageType: string
+        recipientInfos: 
+          name: string
+          phone: string
+          otherPhones: [string]
+      response:
+        code: string
+        id: string
+        price: string
+
+    /delivery/infos :
+      action: get delivery informations
+      type: get
+      body:
+        id: string
+      response:
+        begin: date
+        code: string
+        end: date
+        price: string
+        status: string
+        departure:
+          address: string
+          latitude: number
+          longitude: number
+        destination:
+          address: string
+          latitude: number
+          longitude: number
+        packageType: string
+        recipientInfos: 
+          name: string
+          phone: string
+          otherPhones: [string]
+
+    /delivery/price :
+      action: get the price of a delivery
+      type: get
+      body:
+        id: string
+      response:
+        price: number
+
+    /delivery/accept:
+      action: accept a delivery
+      type: post
+      body:
+        id: string
+      response:
+        accepted: boolean
+
+    /delivery/cancel:
+      action: cancel a delivery
+      type: post
+      body:
+        id: string
+      response:
+        canceled: boolean
+
+    /delivery/signal-reception:
+      action: signal the reception a delivery
+      type: post
+      body:
+        id: string
+      response:
+        driverReceived: boolean
+
+    /delivery/confirm-deposit:
+      action: confirm the deposit of a delivery's package
+      type: post
+      body:
+        id: string
+      response:
+        started: boolean
+    
+    /delivery/verify-code:
+      action: verify the code of a delivery package
+      type: post
+      body:
+        id: string
+      response:
+        terminated: boolean
+    /delivery/rate:
+      action: rate a delivery
+      type: post
+      body:
+        id: string
+        note: double
+      response:
+        rated: boolean
+    

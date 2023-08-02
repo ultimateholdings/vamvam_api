@@ -4,19 +4,19 @@ const express = require("express");
 let port;
 dotenv.config();
 port = process.env.API_PORT;
+const staticUploadOptions = {
+    dotfiles: "ignore",
+    etag: false,
+    extensions: ["pdf", "png", "jpg", "docx"],
+    index: false,
+    maxAge: "1d",
+    redirect: false,
+    setHeaders: function (res) {
+        res.set("x-timestamp", Date.now());
+    }
+}
 
 function buildServer(router) {
-    const staticUploadOptions = {
-        dotfiles: "ignore",
-        etag: false,
-        extensions: ["pdf", "png", "jpg", "docx"],
-        index: false,
-        maxAge: "1d",
-        redirect: false,
-        setHeaders: function (res) {
-            res.set("x-timestamp", Date.now());
-        }
-    }
     const app = express();
     app.use(express.json());
     app.use(express.static("public", staticUploadOptions));

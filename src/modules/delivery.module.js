@@ -3,20 +3,53 @@ node
 */
 const crypto = require("crypto");
 const {Delivery, User} = require("../models");
-const {availableRoles: roles, errors} = require("../utils/config");
+const {
+    errors,
+    availableRoles: roles
+} = require("../utils/config");
 const {
     isValidLocation,
+    propertiesPicker,
     ressourcePaginator,
     sendResponse
 } = require("../utils/helpers");
 
-function deliveryFetcher({id, role}) {
+
+function formatBody(deliveryRequest) {
+    const locationProps = ["departure", "destination"];
+    const result = Object.entries(deliveryRequest).reduce(
+        function (acc, [key, value]) {
+            if (acc.deliveryMeta === undefined) {
+                acc.deliveryMeta = {};
+            }
+            if (locationProps.includes(key)) {
+                acc[key] = {
+                    coordinates: [value?.latitude, value?.longitude],
+                    type: "Point"
+                };
+                if (!isValidLocation(value)) {
+                    throw new Error(
+                        key +
+                        " latitude and longitude should be a valid number"
+                    );
+                }
+                acc.deliveryMeta[key + "Address"] = value.address;
+            } else {
+                acc[key] = value;
+            }
+            return acc;
+        },
+        Object.create(null)
+    );
+    return result;
+}
+
+function deliveryFetcher({deliveryModel, id, role}) {
     const roleMap = {
         "client": {clientId: id},
         "driver": {driverId: id}
     };
-
-    return async function getDelivery({offset, maxSize}) {
+    return async function getDelivery({maxSize, offset}) {
         const finder = roleMap[role ?? "client"];
         let calculatedOffset = offset * maxSize;
         let first;
@@ -33,7 +66,7 @@ function deliveryFetcher({id, role}) {
         [first, ...deliveries] = await deliveryModel.findAll({
             limit: maxSize,
             offset: calculatedOffset,
-            where:finder
+            where: finder
         });
         if (offset === 0) {
             return {
@@ -46,24 +79,23 @@ function deliveryFetcher({id, role}) {
             lastId: deliveries.at(-1).id,
             values: deliveries
         };
-    }
+    };
+}
+
+async function generateCode(byteSize = 5) {
+    const {
+        default: encoder
+    } = await import("base32-encode");
+    return encoder(crypto.randomBytes(byteSize), "Crockford");
+}
+
+function calculatePrice() {
+    return 1000;
 }
 
 function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
     const associations = associatedModels || {User};
-
-    async function generateCode(byteSize = 5) {
-        const {
-            default: encoder
-        } = await import("base32-encode");
-        return encoder(crypto.randomBytes(byteSize), "Crockford");
-    }
-
-    function calculatePrice() {
-        return 1000;
-    }
-
 
     function canAccessDelivery(req, res, next) {
         const {id, role} = req.user.token;
@@ -86,51 +118,25 @@ function getDeliveryModule({associatedModels, model}) {
         const {delivery} = req;
         const {code} = req.body;
 
-        if (delivery.driverId !== id ) {
+        if (delivery.driverId !== id) {
             return sendResponse(res, errors.notAuthorized);
         }
         if (delivery.status !== started) {
             return sendResponse(res, errors.cannotPerformAction);
         }
         if (delivery.code !== code) {
-            return sendResponse(res, errors.invalidCode)
+            return sendResponse(res, errors.invalidCode);
         }
         req.canTerminate = true;
         next();
     }
 
-    function formatBody(body) {
-        const result = Object.entries(body).reduce(
-            function (acc, [key, value]) {
-                const locationProps = ["departure", "destination"];
-                if (acc.deliveryMeta === undefined) {
-                    acc.deliveryMeta = {};
-                }
-                if (locationProps.includes(key)) {
-                    acc[key] = {
-                        coordinates: [value?.latitude, value?.longitude],
-                        type: "Point"
-                    };
-                    if (!isValidLocation(value)) {
-                        throw new Error(
-                            key +
-                            " latitude and longitude should be a valid number"
-                        );
-                    }
-                    acc.deliveryMeta[key + "Address"] = value.address;
-                } else {
-                    acc[key] = value;
-                }
-                return acc;
-            },
-            Object.create(null)
-        );
-        return result;
-    }
-
     async function acceptDelivery(req, res) {
         let driver;
-        const {id: userId, phone} = req.user.token;
+        const {
+            phone,
+            id: userId
+        } = req.user.token;
         const {delivery} = req;
         if (delivery.driverId !== null) {
             return sendResponse(res, errors.alreadyAssigned);
@@ -142,7 +148,7 @@ function getDeliveryModule({associatedModels, model}) {
             return sendResponse(res, errors.cannotPerformAction);
         }
         driver = await associations.User.findOne({
-            where: {phone, id: userId}
+            where: {id: userId, phone}
         });
         delivery.status = deliveryModel.statuses.pendingReception;
         await delivery.save();
@@ -160,7 +166,7 @@ function getDeliveryModule({associatedModels, model}) {
     async function ensureDeliveryExists(req, res, next) {
         const {id} = req.body;
         const delivery = await deliveryModel?.findOne({where: {id}});
-        
+
         if (delivery === null) {
             return sendResponse(res, errors.notFound);
         }
@@ -182,14 +188,18 @@ function getDeliveryModule({associatedModels, model}) {
     }
 /*This function is actually a placeholder for the price
 calculation of at delivery */
+/*jslint-disable*/
     function getPrice(req, res) {
         res.status(200).send({
             price: calculatePrice()
         });
     }
+/*jslint-enable*/
 
     async function cancelDelivery(req, res) {
-        const {id: userId} = req.user.token;
+        const {
+            id: userId
+        } = req.user.token;
         const {delivery} = req;
         if (delivery.clientId !== userId) {
             return sendResponse(res, errors.notAuthorized, {cancelled: false});
@@ -199,7 +209,7 @@ calculation of at delivery */
         }
         delivery.status = deliveryModel.statuses.cancelled;
         await delivery.save();
-        res.status(200).send({cancelled: true})
+        res.status(200).send({cancelled: true});
         await notifyNearbyDrivers(delivery, "delivery-cancelled");
     }
 
@@ -225,13 +235,31 @@ calculation of at delivery */
         });
     }
 
+    async function rateDelivery(req, res) {
+        const {note} = req.body;
+        const {delivery} = req;
+
+        if (delivery.note !== null) {
+            return sendResponse(res, errors.alreadyRated);
+        }
+        if (delivery.status !== deliveryModel.statuses.terminated) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
+        delivery.note = note;
+        await delivery.save();
+        res.status(200).send({rated: true});
+
+    }
+
     async function requestDelivery(req, res) {
         const {id, phone} = req.user.token;
         let user;
         let body;
         let tmp;
         try {
-            body = formatBody(req.body);
+            body = formatBody(propertiesPicker(req.body)(
+                deliveryModel?.updatableProps ?? []
+            ));
         } catch (error) {
             tmp = {content: error.message};
             return sendResponse(res, errors.invalidLocation, tmp);
@@ -259,14 +287,16 @@ calculation of at delivery */
         delivery = delivery.toResponse();
         delivery.client = client;
         delivery.driver = driver;
-        res.status(200).json(delivery);
+        res.status(200).send(delivery);
     }
 
     async function getAllPaginated(req, res) {
         let results;
         const {id, role} = req.user.token;
-        const {pageToken, maxPageSize} = req.body;
-        const paginator = ressourcePaginator(deliveryFetcher({id, role}));
+        const {maxPageSize, pageToken} = req.body;
+        const paginator = ressourcePaginator(
+            deliveryFetcher({deliveryModel, id, role})
+        );
         results = await paginator(pageToken, maxPageSize);
         res.status(200).send(results);
     }
@@ -303,7 +333,11 @@ calculation of at delivery */
                 terminated: true
             });
         } else {
-            return sendResponse(res, errors.cannotPerformAction, {canTerminate});
+            return sendResponse(
+                res,
+                errors.cannotPerformAction,
+                {canTerminate}
+            );
         }
     }
 
@@ -317,7 +351,10 @@ calculation of at delivery */
         ensureDeliveryExists,
         getAllPaginated,
         getInfos,
+/*jslint-disable*/
         getPrice,
+/*jslint-enable*/
+        rateDelivery,
         requestDelivery,
         signalReception,
         terminateDelivery

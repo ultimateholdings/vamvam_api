@@ -68,6 +68,14 @@ function getDeliveryRouter(module) {
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.confirmDeposit)
     );
+    router.post(
+        "/rate",
+        protectRoute,
+        allowRoles([roles.client]),
+        deliveryModule.ensureDeliveryExists,
+        deliveryModule.canAccessDelivery,
+        errorHandler(deliveryModule.rateDelivery)
+    );
     return router;
 }
 

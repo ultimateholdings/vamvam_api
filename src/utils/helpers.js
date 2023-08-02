@@ -137,7 +137,7 @@ function errorHandler(func) {
         try {
             await func(req, res, next);
         } catch (error) {
-            if (error.prototype.isPrototypeOf(ValidationError)) {
+            if (ValidationError.prototype.isPrototypeOf(error)) {
                 err = errors.invalidValues;
                 content = error.errors.map(function ({message}) {
                     return message.replace(/^\w*\./, "");

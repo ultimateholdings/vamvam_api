@@ -22,12 +22,7 @@ function defineUserModel(connection) {
             type: DataTypes.STRING,
             unique: true,
             validate: {
-                isValidateEmail: function (value) {
-                    const emailRegex = /^[\w-.+]+@([\w\-]+\.)+[\w\-]{2,4}$/g;
-                    if (emailRegex.test(value) === false) {
-                        throw new Error("Please enter a valid email!");
-                    }
-                }
+                isEmail: true
             }
         },
         firstName: DataTypes.STRING,
@@ -46,18 +41,7 @@ function defineUserModel(connection) {
             defaultValue: "en",
             type: DataTypes.STRING
         },
-        password: {
-            type: DataTypes.STRING,
-            validate: {
-                isValidatePassword: function (value) {
-                    if (value.toString().length < 8) {
-                        throw new Error(
-                            "The password must contain at least 8 characters,"
-                        );
-                    }
-                }
-            }
-        },
+        password: DataTypes.STRING,
         phone: {
             allowNull: false,
             type: DataTypes.STRING,
@@ -68,6 +52,11 @@ function defineUserModel(connection) {
             defaultValue: "client",
             type: DataTypes.ENUM,
             values: ["client", "driver", "admin"]
+        },
+        status: {
+            defaultValue: "active",
+            type: DataTypes.ENUM,
+            values: ["active", "pending", "desactivated"]
         }
     };
     const excludedProps = ["password", "deviceToken"];
