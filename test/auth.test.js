@@ -121,29 +121,6 @@ describe("authentication tests", function () {
         );
         assert.isNull(response);
     });
-
-    it(
-        "send Token when authentication with password is correct",
-        async function () {
-            const password = "23209J@fklsd";
-            let response;
-            response = await app.post("/auth/login").send({
-                password,
-                phoneNumber: users.firstDriver.phone
-            });
-            assert.equal(response.status, errors.invalidValues.status);
-            assert.deepEqual(
-                response.body.message,
-                errors.invalidCredentials.message
-            );
-            await User.create({password, phone: users.firstDriver.phone});
-            response = await app.post("/auth/login").send({
-                password,
-                phoneNumber: users.firstDriver.phone
-            });
-            assert.equal(response.status, 200);
-        }
-    );
 });
 describe("socket authentication", function () {
     let server;

@@ -43,6 +43,17 @@ const errors = {
         },
         status: 453
     },
+    inactiveAccount: {
+        message: {
+            en:
+            "Your account is not yet active please contact the support" +
+            " for any issue",
+            fr:
+            "Votre compte n'est pas encore actif, veuillez contacter le" +
+            " support pour tout problème."
+        },
+        status: 401
+    },
     internalError: {
         message: {
             en: "Something went wrong while processing your request",

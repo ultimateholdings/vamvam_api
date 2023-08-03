@@ -150,6 +150,35 @@ describe("user interactions tests", function () {
             assert.equal(response.status, 200);
 
         });
+        it("should authenticate a driver", async function () {
+            const password = "23209J@fklsd";
+            const driver = subscriber;
+            let response;
+            driver.carInfos = carInfosPath;
+            await registerDriver(app, driver);
+            response = await app.post("/auth/login").send({
+                password,
+                phoneNumber: driver.phoneNumber
+            });
+            assert.deepEqual(
+                response.body.message,
+                errors.inactiveAccount.message
+            );
+            await User.update(
+                {status: User.statuses.activated},
+                {where: {phone: driver.phoneNumber}}    
+            );
+            response = await app.post("/auth/login").send({
+                password,
+                phoneNumber: driver.phoneNumber
+            });
+            assert.equal(response.status, errors.invalidCredentials.status);
+            response = await app.post("/auth/login").send({
+                password: driver.password,
+                phoneNumber: driver.phoneNumber
+            });
+            assert.equal(response.status, 200);
+        });
         it("should handle avatar and carInfos upload", async function () {
             const token = await getToken(app, users.goodUser.phone);
             let response = await app.post("/user/update-profile").field(

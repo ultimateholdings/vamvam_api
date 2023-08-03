@@ -125,6 +125,9 @@ function getAuthModule({
         let currentUser = await authModel.findOne({where: {phone}});
         let isVerified;
         if (currentUser !== null) {
+            if (currentUser.status === authModel.statuses?.pendingValidation) {
+                return sendResponse(res, errors.inactiveAccount);
+            }
             isVerified = await comparePassword(password, currentUser.password);
             if (isVerified) {
                 return sendSuccessResponse(res, currentUser);
