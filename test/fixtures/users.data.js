@@ -38,8 +38,17 @@ const users = {
         lastName: "Marc",
         phone: "+23809090909030943-039303",
         role: "driver"
-    }
+    },
 };
+const subscriber = {
+    email: "foobaz@bar.com",
+    firstName: "Nkang",
+    lastName: "Lowe Plus",
+    password: "+340239230932023234",
+    phoneNumber: "+340239230932023234",
+    carInfos: "test/iaeeae",
+    role: "admin"
+}
 const pinIds = ["aewrjafk;9539", "121-dhjds-2330"];
 const otpHandler = {
     sendCode: () => Promise.resolve({verified: true}),
@@ -150,13 +159,25 @@ function setupAuthServer(otpHandler) {
     return Object.freeze({app, server});
 }
 
+function subscribeDriver(app, driver) {
+    return app.post("/auth/register")
+            .field("phone", driver.phoneNumber)
+            .field("lastName", driver.lastName)
+            .field("firstName", driver.firstName)
+            .field("password", driver.password)
+            .field("email", driver.email)
+            .attach("carInfos", driver.carInfos);
+}
+
 module.exports = Object.freeze({
     clientSocketCreator,
     getToken,
     otpHandler,
     pinIds,
+    registerDriver: subscribeDriver,
     setupAuthServer,
     setupInterceptor,
+    subscriber,
     syncUsers,
     users
 });

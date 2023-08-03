@@ -6,9 +6,13 @@ const {User, otpRequest} = require("../models");
 const {defaultValues,errors} = require("../utils/config");
 const {
     comparePassword,
+    deleteFile,
+    fileExists,
     getOTPService,
     jwtWrapper,
-    otpManager
+    otpManager,
+    propertiesPicker,
+    sendResponse
 } = require("../utils/helpers");
 
 
@@ -35,11 +39,40 @@ function getAuthModule({
         res.status(200).json(result);
     }
 
-    function sendFaillureResponse(res) {
-        const {message, status} = errors.invalidCredentials;
-        res.status(status).json({message});
+    async function ensureValidDatas(req, res, next) {
+        const requiredDatas = authModel.registrationDatas ?? [];
+        let body;
+        let hasFile;
+        req.body.carInfos = req.file?.path;
+        body = propertiesPicker(req.body)(requiredDatas);
+        hasFile = await fileExists(body.carInfos);
+        if (Object.keys(body).length !== requiredDatas.length || !hasFile) {
+            sendResponse(res, errors.invalidValues);
+        } else {
+            req.body = body;
+            next();
+        }
     }
 
+    async function ensureUnregistered(req, res, next) {
+     const {phoneNumber: phone = null} = req.body;
+     const user = await authModel.findOne({where: {phone}});
+     if (user !== null) {
+        sendResponse(res, errors.existingUser);
+     } else {
+        req.body.phone = phone;
+        req.existingUser = false;
+        next();
+     }
+
+    }
+    
+    async function registerDriver(req, res) {
+        const {body} = req;
+        body.status = authModel.statuses?.pendingValidation;
+        await authModel.create(body);
+        res.status(200).json({registred: true});
+    }
     async function sendOTP(req, res) {
         const {phoneNumber, signature} = req.body;
         const {
@@ -64,10 +97,7 @@ function getAuthModule({
         let userExists = true;
         let otpResponse;
         if (role !== undefined && !otpAllowedRoles.includes(role)) {
-            res.status(errors.notAuthorized.status).send({
-                message: errors.notAuthorized.message
-            });
-            return;
+            return sendResponse(res, errors.notAuthorized);
         }
         otpResponse = await authOtpHandler.verifyCode(phone, code);
         if (otpResponse.verified === true) {
@@ -97,16 +127,16 @@ function getAuthModule({
         if (currentUser !== null) {
             isVerified = await comparePassword(password, currentUser.password);
             if (isVerified) {
-                sendSuccessResponse(res, currentUser);
-            } else {
-                sendFaillureResponse(res);
+                return sendSuccessResponse(res, currentUser);
             }
-        } else {
-            sendFaillureResponse(res);
         }
+        sendResponse(res, errors.invalidCredentials);
     }
     return Object.freeze({
+        ensureUnregistered,
+        ensureValidDatas,
         loginUser,
+        registerDriver,
         sendOTP,
         verifyOTP
     });

@@ -15,19 +15,19 @@ const errors = {
         },
         status: 451
     },
-    alreadyRated: {
-        message: {
-            en: "Sorry this delivery has already been rated",
-            fr: "Désolé, cette livraison a déjà été évaluée"
-        },
-        status: 452
-    },
     alreadyCancelled: {
         message: {
             en: "Sorry this resource has already been cancelled",
             fr: "Désolé, cette ressource a déjà été annulée"
         },
         status: 450
+    },
+    alreadyRated: {
+        message: {
+            en: "Sorry this delivery has already been rated",
+            fr: "Désolé, cette livraison a déjà été évaluée"
+        },
+        status: 452
     },
     cannotPerformAction: {
         message: {
@@ -36,12 +36,26 @@ const errors = {
         },
         status: 454
     },
+    existingUser: {
+        message: {
+            en: "This user already exists consider loggin in",
+            fr: "Cet utilisateur existe déjà, pensez à vous connecter"
+        },
+        status: 453
+    },
     internalError: {
         message: {
             en: "Something went wrong while processing your request",
             fr: "Un problème s'est produit lors du traitement de votre demande"
         },
         status: 501
+    },
+    invalidCode: {
+        message: {
+            en: "you provided an invalid verification code",
+            fr: "vous avez fourni un code de vérification non valide"
+        },
+        status: 441
     },
     invalidCredentials: {
         message: {
@@ -51,13 +65,6 @@ const errors = {
         },
         status: 400
     },
-    invalidCode: {
-        message: {
-            en: "you provided an invalid verification code",
-            fr: "vous avez fourni un code de vérification non valide"
-        },
-        status: 441
-    },
     invalidLocation: {
         message: {
             en: "The latitude and longitude must be a valid number",
@@ -65,18 +72,18 @@ const errors = {
         },
         status: 440
     },
-    invalidValues: {
-        message: {
-            en: "you provided one or many invalid informations",
-            fr: "Vous avez fourni une ou plusieurs informations invalide"
-        },
-        status: 400
-    },
     invalidUploadValues: {
         message: {
             en: "you should provide informations you want to update",
             fr: "vous devez fournir les informations que vous " +
             "souhaitez mettre à jour"
+        },
+        status: 400
+    },
+    invalidValues: {
+        message: {
+            en: "you provided one or many invalid informations",
+            fr: "Vous avez fourni une ou plusieurs informations invalide"
         },
         status: 400
     },
@@ -161,7 +168,8 @@ const eventMessages = {
             title: "Delivery started"
         },
         fr: {
-            body: "Votre livraison a commencée, vous pouvez suivre son évolution",
+            body:
+            "Votre livraison a commencée, vous pouvez suivre son évolution",
             title: "Début de la livraison"
         }
     },
@@ -171,7 +179,9 @@ const eventMessages = {
             title: "The driver has arrived"
         },
         fr: {
-            body: "Une fois que vous lui aurez remis le paquet, veuillez le confirmer ici.",
+            body:
+            "Une fois que vous lui aurez remis le paquet," +
+            " veuillez le confirmer ici.",
             title: "Le chauffeur est arrivé"
         }
     },
@@ -181,7 +191,9 @@ const eventMessages = {
             title: "New delivery"
         },
         fr: {
-            body: "Vous avez une nouvelle demande de livraison près de vous, consultez-la",
+            body:
+            "Vous avez une nouvelle demande de livraison près" +
+            " de vous, consultez-la",
             title: "New delivery"
         }
     }
@@ -195,6 +207,19 @@ const config = Object.freeze({
     defaultValues: Object.freeze(defaultValues),
     errors: Object.freeze(errors),
     eventMessages: Object.freeze(eventMessages),
+    getFirebaseConfig() {
+        const {
+            fb_serverKey: key,
+            msg_url: url
+        } = process.env;
+        return Object.freeze({
+            headers: {
+                "Authorization": "key=" + key,
+                "content-type": "application/json"
+            },
+            url
+        });
+    },
     getOTPConfig() {
         const {
             otp_key,
@@ -259,19 +284,6 @@ const config = Object.freeze({
             }
         };
         return configs[env];
-    },
-    getFirebaseConfig() {
-        const {
-            msg_url: url,
-            fb_serverKey: key
-        } = process.env;
-        return Object.freeze({
-            headers: {
-                "content-type": "application/json",
-                "Authorization": "key=" + key
-            },
-            url
-        });
     }
 });
 

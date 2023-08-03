@@ -10,6 +10,12 @@ const {
 } = require("../utils/helpers");
 
 function defineUserModel(connection) {
+    
+    const statuses = {
+        activated: "active",
+        pendingValidation: "pending",
+        inactive: "desactivated"
+    };
     const schema = {
         age: {
             type: DataTypes.ENUM,
@@ -56,9 +62,17 @@ function defineUserModel(connection) {
         status: {
             defaultValue: "active",
             type: DataTypes.ENUM,
-            values: ["active", "pending", "desactivated"]
+            values: Object.values(statuses)
         }
     };
+    const driverRegistrationDatas = [
+        "phone",
+        "firstName",
+        "lastName",
+        "password",
+        "carInfos",
+        "email"
+    ];
     const excludedProps = ["password", "deviceToken"];
     const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
     const allowedProps = Object.keys(schema).filter(
@@ -146,6 +160,8 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         return result ?? [];
     };
     user.genericProps = genericProps;
+    user.registrationDatas = driverRegistrationDatas;
+    user.statuses = statuses;
     return user;
 }
 

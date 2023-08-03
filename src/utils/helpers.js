@@ -14,8 +14,8 @@ const {
     JWT_SECRET: secret = "test1234butdefault"
 } = process.env;
 
-const CustomEmitter = function () {
-    this.on("error", console.error);
+const CustomEmitter = function (name) {
+    this.name = name;
 };
 CustomEmitter.prototype = EventEmitter.prototype;
 
@@ -33,6 +33,20 @@ function fileExists(path) {
     } else {
         return Promise.resolve(false);
     }
+}
+
+function deleteFile(path) {
+    if (typeof path === "string") {
+        return new Promise(function (res) {
+            fs.unlink(path, function (err) {
+                if (err) {
+                    res(false);
+                }
+                res(true);
+            })
+        })
+    }
+    return Promise.resolve(false);
 }
 
 function jwtWrapper(expiresIn = expiration) {
@@ -352,6 +366,7 @@ module.exports = Object.freeze({
             });
         });
     },
+    deleteFile,
     errorHandler,
     fileExists,
     getFileHash,
