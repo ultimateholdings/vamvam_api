@@ -21,8 +21,10 @@ const {
     pinIds,
     setupAuthServer,
     setupInterceptor,
+    subscriber,
     users
 } = require("./fixtures/users.data");
+const {comparePassword} = require("../src/utils/helpers");
 
 describe("authentication tests", function () {
     let server;
@@ -37,6 +39,10 @@ describe("authentication tests", function () {
 
     beforeEach(async function () {
         await connection.sync({force: true});
+        await otpRequest.bulkCreate([
+            {phone: users.firstDriver.phone, pinId: pinIds[0]},
+            {phone: users.goodUser.phone, pinId: pinIds[1]}
+        ]);
     });
 
     afterEach(async function () {
@@ -82,19 +88,9 @@ describe("authentication tests", function () {
     });
     it("should create a new user on verified OTP", async function () {
         let response;
-        await otpRequest.bulkCreate([
-            {phone: users.firstDriver.phone, pinId: pinIds[0]},
-            {phone: users.goodUser.phone, pinId: pinIds[1]}
-        ]);
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
             phoneNumber: users.firstDriver.phone
-        });
-        assert.equal(response.status, errors.notAuthorized.status);
-        response = await app.post("/auth/verify-otp").send({
-            code: "1234",
-            phoneNumber: users.goodUser.phone,
-            role: "admin"
         });
         assert.equal(response.status, errors.notAuthorized.status);
         response = await app.post("/auth/verify-otp").send({
@@ -120,6 +116,35 @@ describe("authentication tests", function () {
             {where: {phone: users.goodUser.phone}}
         );
         assert.isNull(response);
+    });
+
+    it("should allow a user to reset password", async function () {
+        const driver = subscriber;
+        const newPassword = "12345934934";
+        let response;
+        let resetToken;
+        driver.phone = users.goodUser.phone;
+        driver.role = User.roles.driverRole;
+        await User.create({
+            status: User.statuses.activated,
+            ...driver
+        });
+        await app.post("/auth/send-otp").send({
+            phoneNumber: driver.phone
+        });
+        response = await app.post("/auth/verify-reset").send({
+            code: "1234",
+            phoneNumber: driver.phone
+        });
+        resetToken = response.body.resetToken;
+        assert.equal(response.status, 200);
+        response = await app.post("/auth/reset-password").send({
+            key: resetToken,
+            password: newPassword
+        });
+        assert.equal(response.status, 200);
+        response = await User.findOne({where: {phone: driver.phone}});
+        assert.isTrue(await comparePassword(newPassword, response.password));
     });
 });
 describe("socket authentication", function () {

@@ -23,11 +23,16 @@ function getAuthModule({
 }) {
     const authModel = model || User;
     const authOtpHandler = otpHandler || otpManager(getOTPService(otpRequest));
-    const authTokenService = tokenService || jwtWrapper();
+    const authTokenService = tokenService || jwtWrapper;
     const otpAllowedRoles = ["client", "driver"];
+    const otpResetRoles = [
+        authModel.roles.driverRole,
+        authModel.roles.adminRole
+    ];
 
-    function sendSuccessResponse(res, user, userExists) {
-        const token = authTokenService.sign({
+    function handleAuthSuccess(res, user, userExists) {
+        const tokenFactory = authTokenService();
+        const token = tokenFactory.sign({
             id: user.id,
             phone: user.phone,
             role: user.role
@@ -37,6 +42,32 @@ function getAuthModule({
             result.userExists = userExists;
         }
         res.status(200).json(result);
+    }
+
+    function sendResetSuccess(res, user) {
+        const tokenFactory = authTokenService(600000)
+        const resetToken = tokenFactory.sign({
+            phone: user.phone
+        });
+        return res.status(200).send({resetToken});
+    }
+
+    async function validateResetKey(req, res, next) {
+        const {key} = req.body;
+        const tokenFactory = authTokenService();
+        let payload;
+        
+        try {
+            payload = await tokenFactory.verify(key);
+            if (payload.valid === true) {
+                req.user = payload;
+                next();
+            } else {
+                sendResponse(res, errors.tokenExpired);
+            }
+        } catch (error) {
+            sendResponse(res, errors.notAuthorized, error);
+        }
     }
 
     async function ensureValidDatas(req, res, next) {
@@ -87,6 +118,43 @@ function getAuthModule({
         }
     }
 
+    async function verifyReset(req, res) {
+        const {
+            code,
+            phoneNumber: phone
+        } = req.body;
+        let currentUser;
+        let response = await authOtpHandler.verifyCode(phone, code);
+        if (response.verified === false) {
+            return res.status(response.errorCode).send({
+                message: response.message
+            });
+        }
+        currentUser = await authModel.findOne({where: {phone}});
+        if (currentUser === null) {
+            return sendResponse(res, errors.notFound);
+        }
+        if(currentUser.status !== authModel.statuses?.activated) {
+            return sendResponse(res, errors.inactiveAccount);
+        }
+        
+        if (!otpResetRoles.includes(currentUser.role)) {
+            return sendResponse(res, errors.notAuthorized);
+        }
+
+        sendResetSuccess(res, currentUser);
+    }
+
+    async function resetPassword (req, res) {
+        const {phone} = req.user.token;
+        const {password} = req.body;
+        await authModel.update({password}, {
+                individualHooks: true,
+                where: {phone}
+        });
+        res.status(200).send({updated: true})
+    }
+
     async function verifyOTP(req, res) {
         const {
             code,
@@ -100,21 +168,22 @@ function getAuthModule({
             return sendResponse(res, errors.notAuthorized);
         }
         otpResponse = await authOtpHandler.verifyCode(phone, code);
-        if (otpResponse.verified === true) {
-            currentUser = await authModel.findOne({
-                where: {phone}
-            });
-            if (currentUser === null) {
-                currentUser = await authModel.create({phone, role});
-                userExists = false;
-            }
-            sendSuccessResponse(res, currentUser, userExists);
-        } else {
-            res.status(otpResponse.errorCode).send({
+        if (otpResponse.verified === false) {
+            return res.status(otpResponse.errorCode).send({
                 message: otpResponse.message,
                 valid: false
             });
         }
+        currentUser = await authModel.findOne({where: {phone}});
+        if (currentUser === null) {
+            currentUser = await authModel.create({
+                phone,
+                role: authModel.roles?.clientRole,
+                status: authModel.statuses?.activated
+            });
+            userExists = false;
+        }
+        handleAuthSuccess(res, currentUser, userExists);
     }
 
     async function loginUser(req, res) {
@@ -130,7 +199,7 @@ function getAuthModule({
             }
             isVerified = await comparePassword(password, currentUser.password);
             if (isVerified) {
-                return sendSuccessResponse(res, currentUser);
+                return handleAuthSuccess(res, currentUser);
             }
         }
         sendResponse(res, errors.invalidCredentials);
@@ -140,8 +209,11 @@ function getAuthModule({
         ensureValidDatas,
         loginUser,
         registerDriver,
+        resetPassword,
         sendOTP,
-        verifyOTP
+        validateResetKey,
+        verifyOTP,
+        verifyReset
     });
 }
 

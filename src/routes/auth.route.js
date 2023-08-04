@@ -23,6 +23,15 @@ function buildAuthRoutes (authModule) {
         routeModule.ensureValidDatas,
         errorHandler(routeModule.registerDriver)
     );
+    router.post(
+        "/verify-reset",
+        errorHandler(routeModule.verifyReset)
+    );
+    router.post(
+        "/reset-password",
+        routeModule.validateResetKey,
+        errorHandler(routeModule.resetPassword)
+    );
     return router;
 }
 

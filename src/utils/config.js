@@ -295,7 +295,8 @@ const config = Object.freeze({
             }
         };
         return configs[env];
-    }
+    },
+    uploadsRoot: "/uploads/"
 });
 
 module.exports = config;
