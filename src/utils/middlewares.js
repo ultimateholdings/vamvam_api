@@ -16,7 +16,7 @@ async function protectRoute(req, res, next) {
             req.user = payload;
             next();
         } else {
-            return sendResponse(res, errors.tokenExpired);
+            return sendResponse(res, errors.tokenInvalid);
         }
     } catch (error) {
         sendResponse(res,errors.notAuthorized, error);

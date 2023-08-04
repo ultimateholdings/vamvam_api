@@ -38,8 +38,19 @@ const users = {
         lastName: "Marc",
         phone: "+23809090909030943-039303",
         role: "driver"
-    }
+    },
 };
+const subscriber = {
+    age: "25-34",
+    carInfos: "test/iaeeae",
+    email: "foobaz@bar.com",
+    firstName: "Nkang",
+    gender: "M",
+    lastName: "Lowe Plus",
+    password: "+340239230932023234",
+    phoneNumber: "+340239230932023234",
+    role: "admin"
+}
 const pinIds = ["aewrjafk;9539", "121-dhjds-2330"];
 const otpHandler = {
     sendCode: () => Promise.resolve({verified: true}),
@@ -84,19 +95,20 @@ function setupInterceptor() {
                 msisdn: goodUser.phone,
                 pinId: pinIds[0],
                 uri,
-                verified: "True"
+                verified: true
             };
         } else {
             return {
                 msisdn: goodUser.phone,
                 pinId: pinIds[1],
-                verified: "True"
+                verified: true
             };
         }
     }).persist();
 }
 
 function clientSocketCreator(room) {
+    const {API_PORT: port} = process.env
     return function (token) {
         return new Promise(function(res, rej) {
             let client;
@@ -104,7 +116,9 @@ function clientSocketCreator(room) {
             if (token !== null && token !== undefined) {
                 options.auth = {token};
             }
-            client = new Client("ws://localhost:3000/" + room, options);
+            client = new Client(
+                "ws://localhost:" + port +  "/" + room, options
+            );
             client.on("connect", function () {
                 res(client);
             });
@@ -150,13 +164,27 @@ function setupAuthServer(otpHandler) {
     return Object.freeze({app, server});
 }
 
+function subscribeDriver(app, driver) {
+    return app.post("/auth/register")
+            .field("phone", driver.phoneNumber)
+            .field("lastName", driver.lastName)
+            .field("firstName", driver.firstName)
+            .field("password", driver.password)
+            .field("email", driver.email)
+            .field("age", driver.age)
+            .field("gender", driver.gender)
+            .attach("carInfos", driver.carInfos);
+}
+
 module.exports = Object.freeze({
     clientSocketCreator,
     getToken,
     otpHandler,
     pinIds,
+    registerDriver: subscribeDriver,
     setupAuthServer,
     setupInterceptor,
+    subscriber,
     syncUsers,
     users
 });
