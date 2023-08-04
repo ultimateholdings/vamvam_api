@@ -2,6 +2,7 @@ const express = require("express");
 const getAuthModule = require("../modules/auth.module");
 const { errorHandler } = require("../utils/helpers");
 const {carInfosValidator, hashedUploadHandler} = require("../utils/upload");
+const {protectRoute} = require("../utils/middlewares");
 
 const fieldsOptions = {
     "carInfos": {
@@ -31,6 +32,11 @@ function buildAuthRoutes (authModule) {
         "/reset-password",
         routeModule.validateResetKey,
         errorHandler(routeModule.resetPassword)
+    );
+    router.post(
+        "/change-password",
+        protectRoute,
+        errorHandler(routeModule.changePassword)
     );
     return router;
 }

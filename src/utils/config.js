@@ -133,10 +133,11 @@ const errors = {
         },
         status: 448
     },
-    tokenExpired: {
+    tokenInvalid: {
         message: {
-            en: "Your access Token has expired, please login again",
-            fr: "Votre accès a expiré, veuillez vous connecter à nouveau."
+            en: "Your access key is invalid, please login again",
+            fr:
+            "Votre clé d'accès est Invalide, veuillez vous connecter à nouveau"
         },
         status: 402
     }

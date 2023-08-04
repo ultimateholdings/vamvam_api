@@ -63,7 +63,7 @@ function getAuthModule({
                 req.user = payload;
                 next();
             } else {
-                sendResponse(res, errors.tokenExpired);
+                sendResponse(res, errors.tokenInvalid);
             }
         } catch (error) {
             sendResponse(res, errors.notAuthorized, error);
@@ -97,13 +97,34 @@ function getAuthModule({
      }
 
     }
+
+    async function changePassword(req, res) {
+        const {id, phone, role} = req.user.token;
+        const {newPassword, oldPassword} = req.body;
+        const currentUser = await authModel.findOne({where: {id, phone}});
+        let isValidPassword;
+
+        if (!otpResetRoles.includes(role)) {
+            return sendResponse(res, errors.notAuthorized);
+        }
+        isValidPassword = await comparePassword(oldPassword, currentUser.password);
+        if (!isValidPassword) {
+            return sendResponse(res, errors.invalidCredentials);
+        }
+        await authModel.update({password: newPassword}, {
+            individualHooks: true,
+            where: {id, phone}
+        });
+        res.status(200).send({updated: true});
+    }
     
     async function registerDriver(req, res) {
         const {body} = req;
         body.status = authModel.statuses?.pendingValidation;
         await authModel.create(body);
-        res.status(200).json({registred: true});
+        res.status(200).json({registered: true});
     }
+
     async function sendOTP(req, res) {
         const {phoneNumber, signature} = req.body;
         const {
@@ -205,6 +226,7 @@ function getAuthModule({
         sendResponse(res, errors.invalidCredentials);
     }
     return Object.freeze({
+        changePassword,
         ensureUnregistered,
         ensureValidDatas,
         loginUser,

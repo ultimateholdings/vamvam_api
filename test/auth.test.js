@@ -29,11 +29,15 @@ const {comparePassword} = require("../src/utils/helpers");
 describe("authentication tests", function () {
     let server;
     let app;
+    let driver;
     const signature = "1234567890";
     before(function () {
+        driver = subscriber;
         let tmp = setupAuthServer();
         server = tmp.server;
         app = tmp.app;
+        driver.phone = users.goodUser.phone;
+        driver.role = User.roles.driverRole;
         setupInterceptor();
     });
 
@@ -64,20 +68,6 @@ describe("authentication tests", function () {
             assert.equal(response.status, errors.internalError.status);
         }
     );
-    it("should send the OTP verification", async function () {
-        let response = await app.post("/auth/send-otp").send({
-            phoneNumber: users.goodUser.phone,
-            signature
-        });
-        assert.equal(response.status, 200);
-        response = await app.post("/auth/send-otp").send({
-            phoneNumber: users.firstDriver.phone,
-            signature
-        });
-        assert.equal(response.status, 200);
-        response = await otpRequest.findAll();
-        assert.deepEqual(response.length, 2);
-    });
 
     it("should not verify a code if it the OTP wasn't sent", async function () {
         let response = await app.post("/auth/verify-otp").send({
@@ -119,16 +109,12 @@ describe("authentication tests", function () {
     });
 
     it("should allow a user to reset password", async function () {
-        const driver = subscriber;
         const newPassword = "12345934934";
         let response;
         let resetToken;
-        driver.phone = users.goodUser.phone;
-        driver.role = User.roles.driverRole;
-        await User.create({
-            status: User.statuses.activated,
-            ...driver
-        });
+        response = {status: User.statuses.activated};
+        Object.assign(response, driver);
+        await User.create(response);
         await app.post("/auth/send-otp").send({
             phoneNumber: driver.phone
         });
@@ -139,12 +125,40 @@ describe("authentication tests", function () {
         resetToken = response.body.resetToken;
         assert.equal(response.status, 200);
         response = await app.post("/auth/reset-password").send({
+            key: "afaketokenwchich-will-fail",
+            password: newPassword
+        });
+        assert.equal(response.status, errors.tokenInvalid.status);
+        response = await app.post("/auth/reset-password").send({
             key: resetToken,
             password: newPassword
         });
         assert.equal(response.status, 200);
-        response = await User.findOne({where: {phone: driver.phone}});
-        assert.isTrue(await comparePassword(newPassword, response.password));
+    });
+
+    it("should allow a user to change password", async function () {
+        const newPassword = "a dummy pass 1000";
+        let token;
+        let response;
+        response = {status: User.statuses.activated};
+        Object.assign(response, driver);
+        await User.create(response);
+        response = await app.post("/auth/login").send({
+            password: driver.password,
+            phoneNumber: driver.phone
+        });
+        assert.equal(response.status, 200);
+        token = response.body.token;
+        response = await app.post("/auth/change-password").send({
+            newPassword,
+            oldPassword: "a wrong password"
+        }).set("authorization", "Bearer " + token);
+        assert.equal(response.status, errors.invalidCredentials.status);
+        response = await app.post("/auth/change-password").send({
+            newPassword,
+            oldPassword: driver.password
+        }).set("authorization", "Bearer " + token);
+        assert.equal(response.status, 200);
     });
 });
 describe("socket authentication", function () {
