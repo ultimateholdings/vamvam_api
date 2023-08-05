@@ -94,7 +94,7 @@ describe("Message test", function () {
       .set("authorization", "Bearer " + newMessage.token);
     assert.equal(response.status, 200);
     assert.equal(response.body.newReader, userId);
-  });
+  })
   it("should return Room Messages", async function () {
     const roomId = room.id
     messages[0].senderId = dbUsers.goodUser.id;
