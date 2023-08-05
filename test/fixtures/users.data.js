@@ -97,6 +97,7 @@ function setupInterceptor() {
 }
 
 function clientSocketCreator(room) {
+    const { API_PORT: port } = process.env;
     return function (token) {
         return new Promise(function(res, rej) {
             let client;
@@ -104,7 +105,7 @@ function clientSocketCreator(room) {
             if (token !== null && token !== undefined) {
                 options.auth = {token};
             }
-            client = new Client("ws://localhost:3000/" + room, options);
+            client = new Client("ws://localhost:"+ port +"/" + room, options);
             client.on("connect", function () {
                 res(client);
             });
