@@ -22,9 +22,10 @@ const {
     badDelevery,
     deliveries,
     deliveryResquestor,
+    missoke,
     setupDeliveryServer
 } = require("./fixtures/deliveries.data");
-const {errors} = require("../src/utils/config");
+const {deliveryStatuses, errors} = require("../src/utils/config");
 
 const {
     requestDelivery,
@@ -109,7 +110,8 @@ describe("delivery CRUD test", function () {
                 app,
                 clientPhone: dbUsers.goodUser.phone,
                 delivery: deliveries[0],
-                driverData: dbUsers.firstDriver
+                driverData: dbUsers.firstDriver,
+                initialState: deliveryStatuses.started
             });
             response = await app.post("/delivery/verify-code").send({
                 code: "1234590900",
@@ -134,7 +136,8 @@ describe("delivery CRUD test", function () {
             app,
             clientPhone: dbUsers.goodUser.phone,
             delivery: deliveries[0],
-            driverData: dbUsers.firstDriver
+            driverData: dbUsers.firstDriver,
+            initialState: deliveryStatuses.started
         });
         response = await app.post("/delivery/rate").send({
             id: request.id,
@@ -167,7 +170,8 @@ describe("delivery CRUD test", function () {
                 app,
                 clientPhone: dbUsers.goodUser.phone,
                 delivery: deliveries[0],
-                driverData: dbUsers.firstDriver
+                driverData: dbUsers.firstDriver,
+                initialState: deliveryStatuses.started
             });
             const secondDriverToken = await getToken(
                 app,
@@ -185,6 +189,29 @@ describe("delivery CRUD test", function () {
         }
     );
 
+    it("should enable a driver to report a delivery", async function () {
+        let response;
+        const {request, driverToken} = await setupDelivery({
+            app,
+            clientPhone: dbUsers.goodUser.phone,
+            delivery: deliveries[0],
+            driverData: dbUsers.firstDriver,
+            initialState: deliveryStatuses.pendingReception
+        });
+        response = await app.post("/delivery/report").send({
+            conflictType: "package damage",
+            id: request.id,
+            lastPosition: badDelevery.departure
+        }).set("authorization", "Bearer " + driverToken);
+        assert.equal(response.status, errors.invalidLocation.status);
+        response = await app.post("/delivery/report").send({
+            conflictType: "package damage",
+            id: request.id,
+            lastPosition: missoke
+        }).set("authorization", "Bearer " + driverToken);
+        assert.equal(response.status, 200);
+    });
+
     it(
         "should not verify a delivery which isn't in started status",
         async function () {
@@ -193,12 +220,9 @@ describe("delivery CRUD test", function () {
                 app,
                 clientPhone: dbUsers.goodUser.phone,
                 delivery: deliveries[0],
-                driverData: dbUsers.firstDriver
+                driverData: dbUsers.firstDriver,
+                initialState: deliveryStatuses.terminated
             });
-            await Delivery.update({
-                driverId: dbUsers.firstDriver.id,
-                status: "terminated"
-            }, {where: {id: request.id}});
             response = await app.post("/delivery/verify-code").send(
                 request
             ).set("authorization", "Bearer " + driverToken);
@@ -256,7 +280,7 @@ describe("delivery CRUD test", function () {
             }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, errors.cannotPerformAction.status);
             await Delivery.update(
-                {status: Delivery.statuses.pendingReception},
+                {status: deliveryStatuses.pendingReception},
                 {where: {id: request.id}}
             );
             response = await app.post("/delivery/signal-reception").send({
@@ -264,14 +288,14 @@ describe("delivery CRUD test", function () {
             }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, 200);
             response = await Delivery.findOne({where: {id: request.id}});
-            assert.equal(response.status, Delivery.statuses.toBeConfirmed);
+            assert.equal(response.status, deliveryStatuses.toBeConfirmed);
         });
 
         it("should confirm package deposit", async function () {
             let response;
             await Delivery.update({
                 driverId: dbUsers.firstDriver.id,
-                status: Delivery.statuses.pendingReception
+                status: deliveryStatuses.pendingReception
             }, {where: {id: request.id}});
             response = await app.post("/delivery/confirm-deposit").send({
                 id: request.id
@@ -285,7 +309,7 @@ describe("delivery CRUD test", function () {
             }).set("authorization", "Bearer " + request.token);
             assert.equal(response.status, 200);
             response = await Delivery.findOne({where: {id: request.id}});
-            assert.equal(response.status, Delivery.statuses.started);
+            assert.equal(response.status, deliveryStatuses.started);
             assert.isNotNull(response.begin);
         });
     });

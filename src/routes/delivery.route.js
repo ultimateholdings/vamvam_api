@@ -43,38 +43,46 @@ function getDeliveryRouter(module) {
     router.post(
         "/accept",
         protectRoute,
-        allowRoles([roles.driver]),
+        allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.acceptDelivery)
     );
     router.post(
         "/cancel",
         protectRoute,
-        allowRoles([roles.client]),
+        allowRoles([roles.clientRole]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.cancelDelivery)
     );
     router.post(
         "/signal-reception",
         protectRoute,
-        allowRoles([roles.driver]),
+        allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.signalReception)
     );
     router.post(
         "/confirm-deposit",
         protectRoute,
-        allowRoles([roles.client]),
+        allowRoles([roles.clientRole]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.confirmDeposit)
     );
     router.post(
         "/rate",
         protectRoute,
-        allowRoles([roles.client]),
+        allowRoles([roles.clientRole]),
         deliveryModule.ensureDeliveryExists,
         deliveryModule.canAccessDelivery,
         errorHandler(deliveryModule.rateDelivery)
+    );
+    router.post(
+        "/report",
+        protectRoute,
+        allowRoles([roles.driverRole]),
+        deliveryModule.ensureDeliveryExists,
+        deliveryModule.canAccessDelivery,
+        errorHandler(deliveryModule.reportDelivery)
     );
     return router;
 }

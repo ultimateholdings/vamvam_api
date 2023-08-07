@@ -3,7 +3,7 @@ node
 */
 "use strict";
 const {User, otpRequest} = require("../models");
-const {defaultValues,errors} = require("../utils/config");
+const {availableRoles, defaultValues,errors} = require("../utils/config");
 const {
     comparePassword,
     deleteFile,
@@ -26,8 +26,8 @@ function getAuthModule({
     const authTokenService = tokenService || jwtWrapper;
     const otpAllowedRoles = ["client", "driver"];
     const otpResetRoles = [
-        authModel.roles.driverRole,
-        authModel.roles.adminRole
+        availableRoles.driverRole,
+        availableRoles.adminRole
     ];
 
     function handleAuthSuccess(res, user, userExists) {
@@ -199,7 +199,7 @@ function getAuthModule({
         if (currentUser === null) {
             currentUser = await authModel.create({
                 phone,
-                role: authModel.roles?.clientRole,
+                role: availableRoles.clientRole,
                 status: authModel.statuses?.activated
             });
             userExists = false;

@@ -12,37 +12,43 @@ const userModule = require("../../src/modules/user.module");
 const buildAuthRoutes = require("../../src/routes/auth.route");
 const buildUserRoutes = require("../../src/routes/user.route");
 const buildRouter = require("../../src/routes");
+const {availableRoles} = require("../../src/utils/config")
 const users = {
     badUser: {
         firstName: "NKANG NGWET",
         lastName: "Presnel",
         phone: "+23909843850383534",
-        role: "client"
+        role: availableRoles.clientRole
+    },
+    conflictManager: {
+        firstName: "Simplice",
+        lastName: "Enoh",
+        phone: "+2389004848393843934",
+        role: availableRoles.conflictManager
     },
     firstDriver: {
         avatar: "/path/to/avatar2.jpg",
         firstName: "SOP",
         lastName: "Benoît",
         phone: "+00383998-7388-2423",
-        role: "driver"
+        role: availableRoles.driverRole
     },
     goodUser: {
         avatar: "/path/to/avatar.jpg",
         firstName: "Tankoua",
         lastName: "Jean-christophe",
         phone: "+0038399873882423",
-        role: "client"
+        role: availableRoles.clientRole
     },
     secondDriver: {
         firstName: "Fomekong Nguimtsa",
         lastName: "Marc",
         phone: "+23809090909030943-039303",
-        role: "driver"
+        role: availableRoles.driverRole
     },
 };
 const subscriber = {
     age: "25-34",
-    carInfos: "test/iaeeae",
     email: "foobaz@bar.com",
     firstName: "Nkang",
     gender: "M",
@@ -139,6 +145,12 @@ async function getToken(app, phone, role) {
     return response.body.token;
 }
 
+async function loginUser(app, phone, password) {
+    const credentials = {password, phone};
+    const response = await app.post("/auth/login").send(credentials);
+    return response.body.token;
+}
+
 async function syncUsers(users, model) {
     let dbUsers;
     const phoneMap = Object.entries(users).reduce(
@@ -164,24 +176,28 @@ function setupAuthServer(otpHandler) {
     return Object.freeze({app, server});
 }
 
-function subscribeDriver(app, driver) {
-    return app.post("/auth/register")
-            .field("phone", driver.phoneNumber)
+function registerDriver(app, driver) {
+    const request =  app.post("/auth/register")
+            .field("phoneNumber", driver.phoneNumber)
             .field("lastName", driver.lastName)
             .field("firstName", driver.firstName)
             .field("password", driver.password)
             .field("email", driver.email)
             .field("age", driver.age)
-            .field("gender", driver.gender)
-            .attach("carInfos", driver.carInfos);
+            .field("gender", driver.gender);
+    if (driver.carInfos) {
+        request.attach("carInfos", driver.carInfos);
+    }
+    return request;
 }
 
 module.exports = Object.freeze({
     clientSocketCreator,
     getToken,
+    loginUser,
     otpHandler,
     pinIds,
-    registerDriver: subscribeDriver,
+    registerDriver,
     setupAuthServer,
     setupInterceptor,
     subscriber,

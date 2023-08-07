@@ -3,9 +3,11 @@ node
 */
 "use strict";
 const availableRoles = {
-    admin: "admin",
-    client: "client",
-    driver: "driver"
+    adminRole: "admin",
+    clientRole: "client",
+    conflictManager: "conflict-manager",
+    driverRole: "driver",
+    subscriptionManager: "subscription-manager"
 };
 const errors = {
     alreadyAssigned: {
@@ -214,9 +216,19 @@ const eventMessages = {
 const defaultValues = {
     ttl: 180
 };
+const deliveryStatuses = Object.freeze({
+    cancelled: "cancelled",
+    initial: "pending-driver-approval",
+    pendingReception: "pending-driver-reception",
+    toBeConfirmed: "pending-client-approval",
+    started: "started",
+    terminated: "terminated",
+});
+
 const config = Object.freeze({
     availableRoles: Object.freeze(availableRoles),
     defaultValues: Object.freeze(defaultValues),
+    deliveryStatuses,
     errors: Object.freeze(errors),
     eventMessages: Object.freeze(eventMessages),
     getFirebaseConfig() {
@@ -297,6 +309,7 @@ const config = Object.freeze({
         };
         return configs[env];
     },
+    uploadsDir: "public",
     uploadsRoot: "/uploads/"
 });
 

@@ -43,8 +43,8 @@ function deleteFile(path) {
                     res(false);
                 }
                 res(true);
-            })
-        })
+            });
+        });
     }
     return Promise.resolve(false);
 }
@@ -90,19 +90,27 @@ function sendResponse(res, content, data = {}) {
     });
 }
 
-function isValidPoint({latitude, longitude}) {
-    return Number.isFinite(latitude) && Number.isFinite(longitude);
+function isValidPoint(point) {
+    if (point !== null && point !== undefined) {
+        return (
+            Number.isFinite(point.latitude) &&
+            Number.isFinite(point.longitude)
+        );
+    }
+    return false;
+}
+
+function toDbPoint(point) {
+    return {
+        coordinates: [point?.latitude, point?.longitude],
+        type: "Point"
+    };
 }
 
 function isValidLocation(location) {
     let result;
     if (Array.isArray(location)) {
-        result = location.every(function (point) {
-            if (point !== null && point !== undefined) {
-                return isValidPoint(point);
-            }
-            return false;
-        });
+        result = location.every(isValidPoint);
     } else if (location !== null && location !== undefined) {
         result = isValidPoint(location);
     }
@@ -388,5 +396,6 @@ module.exports = Object.freeze({
     propertiesPicker,
     ressourcePaginator,
     sendCloudMessage,
-    sendResponse
+    sendResponse,
+    toDbPoint
 });

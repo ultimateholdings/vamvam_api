@@ -12,7 +12,7 @@ const {
 } = require("mocha");
 const {assert} = require("chai");
 const {User, connection, otpRequest} = require("../src/models");
-const {errors} = require("../src/utils/config");
+const {availableRoles, errors} = require("../src/utils/config");
 const getSocketManager = require("../src/utils/socket-manager");
 const {
     clientSocketCreator,
@@ -24,7 +24,6 @@ const {
     subscriber,
     users
 } = require("./fixtures/users.data");
-const {comparePassword} = require("../src/utils/helpers");
 
 describe("authentication tests", function () {
     let server;
@@ -37,7 +36,7 @@ describe("authentication tests", function () {
         server = tmp.server;
         app = tmp.app;
         driver.phone = users.goodUser.phone;
-        driver.role = User.roles.driverRole;
+        driver.role = availableRoles.driverRole;
         setupInterceptor();
     });
 

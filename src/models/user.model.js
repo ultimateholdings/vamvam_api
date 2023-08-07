@@ -9,30 +9,24 @@ const {
     hashPassword,
     propertiesPicker
 } = require("../utils/helpers");
-const {uploadsRoot} = require("../utils/config");
+const {availableRoles, uploadsDir, uploadsRoot} = require("../utils/config");
 
 function defineUserModel(connection) {
-    
     const statuses = {
         activated: "active",
-        pendingValidation: "pending",
-        inactive: "desactivated"
-    };
-    const roles = {
-        adminRole: "admin",
-        clientRole: "client",
-        driverRole: "driver"
+        inactive: "desactivated",
+        pendingValidation: "pending"
     };
     const schema = {
         age: {
             type: DataTypes.ENUM,
             values: ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"]
         },
-        avatar: DataTypes.STRING,
         available: {
             defaultValue: true,
             type: DataTypes.BOOLEAN
         },
+        avatar: DataTypes.STRING,
         carInfos: DataTypes.STRING,
         deviceToken: DataTypes.STRING,
         email: {
@@ -53,11 +47,11 @@ function defineUserModel(connection) {
             primaryKey: true,
             type: DataTypes.UUID
         },
-        lastName: DataTypes.STRING,
         lang: {
             defaultValue: "en",
             type: DataTypes.STRING
         },
+        lastName: DataTypes.STRING,
         password: DataTypes.STRING,
         phone: {
             allowNull: false,
@@ -66,9 +60,9 @@ function defineUserModel(connection) {
         },
         position: new DataTypes.GEOMETRY("POINT"),
         role: {
-            defaultValue: roles.clientRole,
+            defaultValue: availableRoles.clientRole,
             type: DataTypes.ENUM,
-            values: Object.values(roles)
+            values: Object.values(availableRoles)
         },
         status: {
             defaultValue: statuses.pendingValidation,
@@ -114,8 +108,8 @@ function defineUserModel(connection) {
                 let hash;
                 let previousAvatarExists;
                 let previousInfoExists;
-                previousAvatarExists = await fileExists(uploadsRoot + previous.avatar);
-                previousInfoExists = await fileExists(uploadsRoot + previous.carInfos);
+                previousAvatarExists = await fileExists(previous.avatar);
+                previousInfoExists = await fileExists(previous.carInfos);
                 if (updates.has("password")) {
                     hash = await hashPassword(password);
                     current.password = hash;
@@ -137,16 +131,16 @@ function defineUserModel(connection) {
     user.prototype.toResponse = function () {
         let result = this.dataValues;
         if (result.position !== null && result.position !== undefined) {
-            result.postion = {
+            result.position = {
                 latitude: result.position.coordinates[0],
                 longitude: result.position.coordinates[1]
             };
         }
         if (result.avatar !== null) {
-            result.avatar = uploadsRoot +  path.basename(result.avatar);
+            result.avatar = uploadsRoot + path.basename(result.avatar);
         }
         if (result.carInfos !== null) {
-            result.carInfos = uploadsRoot +  path.basename(result.carInfos);
+            result.carInfos = uploadsRoot + path.basename(result.carInfos);
         }
         return propertiesPicker(result)(allowedProps);
     };
@@ -162,25 +156,23 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         let sql = ["deviceToken", ...allowedProps];
         let coordinates = point?.coordinates;
         let distanceQuery;
-        sql = sql.join(" , ")
+        sql = sql.join(" , ");
         if (Array.isArray(coordinates)) {
             coordinates = "'POINT(" + coordinates[0] + " " +
             coordinates[1] + ")'";
             distanceQuery = "ST_Distance_Sphere(ST_GeomFromText(";
             distanceQuery += "ST_AsText(position), 4326), ST_GeomFromText(";
             distanceQuery += coordinates + ", 4326))";
-            sql = "select " + sql + " , " + distanceQuery + " as distance from ";
-            sql += this.getTableName() + " where " + distanceQuery + " <= " + by;
+            sql = sql + " , " + distanceQuery + " as distance from ";
+            sql = "select " + sql + this.getTableName();
+            sql += " where " + distanceQuery + " <= " + by;
             sql += " and `role` = '" + role + "';";
-            result = await connection.query(sql, {
-                type: QueryTypes.SELECT
-            });
+            result = await connection.query(sql, {type: QueryTypes.SELECT});
         }
         return result ?? [];
     };
     user.genericProps = genericProps;
     user.registrationDatas = driverRegistrationDatas;
-    user.roles = roles;
     user.statuses = statuses;
     return user;
 }

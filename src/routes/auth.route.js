@@ -19,8 +19,8 @@ function buildAuthRoutes (authModule) {
     router.post("/login", errorHandler(routeModule.loginUser));
     router.post(
         "/register",
-        routeModule.ensureUnregistered,
         hashedUploadHandler(fieldsOptions).single("carInfos"),
+        routeModule.ensureUnregistered,
         routeModule.ensureValidDatas,
         errorHandler(routeModule.registerDriver)
     );
