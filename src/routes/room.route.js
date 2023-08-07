@@ -9,14 +9,16 @@ function getRoomRoutes (messageModule) {
     const router = express.Router();
     router.post(
         "/new-room",
+        protectRoute,
         errorHandler(routerModule.createRoom)
     );
     router.get(
-        "/:roomId",
+        "/infos",
+        protectRoute,
         errorHandler(routerModule.getRoom)
     );
     router.get(
-        "/user-rooms/:userId",
+        "/user-rooms",
         errorHandler(routerModule.getUserRooms)
     );
     router.delete(

@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const { Message } = require("../models/index");
+const { Message, User } = require("../models/index");
 const { propertiesPicker } = require("../utils/helpers");
 
 function getMessageModule({ messageTest }) {
@@ -76,14 +76,30 @@ function getMessageModule({ messageTest }) {
           },
           limit: limit,
           offset: offset,
-          order: [['createdAt', 'DESC']]
+          order: [['createdAt', 'DESC']],
+          include: [
+            {
+              model: User,
+              attributes: ["id", "firstName", "lastName", "avatar"],
+            },
+          ],
         });
+        const data = response.rows.map(message =>({
+          messageId: message.id,
+          roomId: message.roomId,
+          content: message.content,
+          date: message.createdAt,
+          userId: message.user.id,
+          avatar: message.user.avatar,
+          firstName: message.user.firstName,
+          lastName: message.user.lastName
+        }));
       if (response !== null) {
         res.status(200).json({
           succes: true,
-          totalmessages: response.count,
-          totalPages: Math.ceil(response.count / limit),
-          messages: response.rows
+          totalmessage: response.count,
+          totalPage: Math.ceil(response.count / limit),
+          messages: data
         });
       } else {
         res.status(400).json({

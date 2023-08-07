@@ -1,6 +1,6 @@
 const { before, after, describe, it } = require("mocha");
 const supertest = require("supertest");
-const { expect, assert } = require("chai");
+const { assert } = require("chai");
 const { connection, User, Room, Message } = require("../src/models");
 const {
   getToken,
@@ -115,5 +115,6 @@ describe("Message test", function () {
     .get("/message/room-messages")
     .send({ roomId })
     .set("authorization", "Bearer " + driverMessage.token);
+    assert.equal(response.body.totalmessage, 2)
   });
 });

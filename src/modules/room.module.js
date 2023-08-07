@@ -35,14 +35,27 @@ function getRoomModule({ roomTest, userTest }) {
   async function createRoom(req, res) {
     try {
       let propertiesCreate;
+      let roomUsers;
       const pickedProperties = propertiesPicker(req.body);
       propertiesCreate = pickedProperties(roomProps);
       if (propertiesCreate !== undefined) {
-        let response = await roomModel.create({
+        let room = await roomModel.create({
           name: propertiesCreate.name,
         });
-        await addUsersInRoom(propertiesCreate.phoneList, response.id);
-        res.status(200).json(response);
+        await addUsersInRoom(propertiesCreate.phoneList, room.id);
+        roomUsers = await room.getUsers({
+          attributes: ["id", "firstName", "lastName", "avatar"],
+        });
+        res.status(200).json({
+          roomId: room.id,
+          name: room.name,
+          users: roomUsers.map((user) => ({
+            userId: user.id,
+            firtName: user.firstName,
+            lastName: user.lastName,
+            avatar: user.avatar,
+          })),
+        });
       }
     } catch (error) {
       return error;
@@ -50,19 +63,31 @@ function getRoomModule({ roomTest, userTest }) {
   }
 
   async function getRoom(req, res) {
-    const roomId = req.params.roomId;
+    const { roomId } = req.body;
     try {
       const room = await roomModel.findOne({
         where: { id: roomId },
-        include: Message,
+        attributes: ["id", "name"],
+        include: [
+          {
+            model: User,
+            attributes: ["id", "firstName", "lastName", "avatar"],
+          },
+        ],
       });
-      const users = await room.getUsers();
       if (!room) {
         res.status(404).json({ succes: false });
       }
       res.status(200).json({
         succes: true,
-        data: { room, users },
+        roomId: room.id,
+        name: room.name,
+        users: room.users.map((user) => ({
+          userId: user.id,
+          firtName: user.firstName,
+          lastName: user.lastName,
+          avatar: user.avatar,
+        })),
       });
     } catch (error) {
       return error;
@@ -70,7 +95,7 @@ function getRoomModule({ roomTest, userTest }) {
   }
 
   async function getUserRooms(req, res) {
-    const { userId } = req.params;
+    const { userId } = req.body;
     try {
       const user = await userModel.findByPk(userId);
       if (!user) {
