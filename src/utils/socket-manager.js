@@ -4,12 +4,13 @@ node
 const {Server} = require("socket.io");
 const {socketAuthenticator} = require("../utils/middlewares");
 const {isValidLocation, sendCloudMessage} = require("../utils/helpers");
-const {errors, eventMessages} = require("./config");
+const {availableRoles, errors, eventMessages} = require("./config");
 
 
 function getSocketManager({deliveryModel, httpServer, userModel}) {
     const io = new Server(httpServer);
     const deliveries = io.of("/delivery");
+    const conflicts = io.of("/conflict");
     const connectedUsers = Object.create(null);
     async function handleEnding(data) {
         const {clientId, deliveryId} = data;
@@ -32,6 +33,23 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
         }
 
     }
+
+    function handleConnection(socket) {
+        connectedUsers[socket.user.id] = socket;
+        socket.on("disconnect", function () {
+            delete connectedUsers[socket.user.id];
+            socket.leave(socket.user.role);
+        });
+        socket.join(socket.user.role);
+    }
+
+    function handleUserConnection(socket) {
+        handleConnection(socket);
+        socket.on("new-position", async function (data) {
+            await positionUpdateHandler(socket, data);
+        });
+    }
+
 
     async function handleAcceptation(data) {
         const {clientId, deliveryId, driver} = data;
@@ -173,26 +191,23 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
             socket.emit("position-rejected", errors.invalidValues.message);
         }
     }
+
     deliveryModel?.addEventListener("delivery-end", handleEnding);
     deliveryModel?.addEventListener("delivery-accepted", handleAcceptation);
     deliveryModel?.addEventListener("delivery-cancelled", handleCancellation);
     deliveryModel?.addEventListener("delivery-recieved", handleReception);
     deliveryModel?.addEventListener("delivery-started", handleBegining);
     deliveryModel?.addEventListener("new-delivery", handleNewDelivery);
-    deliveries.use(socketAuthenticator());
-    io.use(socketAuthenticator(["admin"]));
-
-    deliveries.on("connection", function (socket) {
-        connectedUsers[socket.user.id] = socket;
-        socket.on("disconnect", function () {
-            delete connectedUsers[socket.user.id];
-            socket.leave(socket.user.role);
-        });
-        socket.join(socket.user.role);
-        socket.on("new-position", async function (data) {
-            await positionUpdateHandler(socket, data);
-        });
+    deliveryModel?.addEventListener("new-conflict", async function (data) {
+        conflicts.in(availableRoles.conflictManager).emit("new-conflict", data);
     });
+
+    deliveries.use(socketAuthenticator());
+    conflicts.use(socketAuthenticator([availableRoles.conflictManager]));
+    io.use(socketAuthenticator([availableRoles.adminRole]));
+    conflicts.on("connection", handleConnection);
+    io.on("connection", handleConnection);
+    deliveries.on("connection", handleUserConnection);
 
 
     return Object.freeze({

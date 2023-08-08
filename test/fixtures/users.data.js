@@ -12,7 +12,7 @@ const userModule = require("../../src/modules/user.module");
 const buildAuthRoutes = require("../../src/routes/auth.route");
 const buildUserRoutes = require("../../src/routes/user.route");
 const buildRouter = require("../../src/routes");
-const {availableRoles} = require("../../src/utils/config")
+const {availableRoles, userStatuses} = require("../../src/utils/config")
 const users = {
     badUser: {
         firstName: "NKANG NGWET",
@@ -23,8 +23,10 @@ const users = {
     conflictManager: {
         firstName: "Simplice",
         lastName: "Enoh",
+        password: "aSimplePass",
         phone: "+2389004848393843934",
-        role: availableRoles.conflictManager
+        role: availableRoles.conflictManager,
+        status: userStatuses.activated
     },
     firstDriver: {
         avatar: "/path/to/avatar2.jpg",
@@ -146,8 +148,10 @@ async function getToken(app, phone, role) {
 }
 
 async function loginUser(app, phone, password) {
-    const credentials = {password, phone};
-    const response = await app.post("/auth/login").send(credentials);
+    const response = await app.post("/auth/login").send({
+        password,
+        phoneNumber: phone
+    });
     return response.body.token;
 }
 
@@ -160,7 +164,9 @@ async function syncUsers(users, model) {
         },
         {}
     );
-    dbUsers = await model.bulkCreate(Object.values(users));
+    dbUsers = await model.bulkCreate(Object.values(users), {
+        individualHooks: true
+    });
     dbUsers = dbUsers.reduce(function (acc, user) {
         acc[phoneMap[user.phone]] = user;
         return acc;

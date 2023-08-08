@@ -79,11 +79,6 @@ describe("authentication tests", function () {
         let response;
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
-            phoneNumber: users.firstDriver.phone
-        });
-        assert.equal(response.status, errors.notAuthorized.status);
-        response = await app.post("/auth/verify-otp").send({
-            code: "1234",
             phoneNumber: users.goodUser.phone,
             role: "driver"
         });

@@ -9,14 +9,9 @@ const {
     hashPassword,
     propertiesPicker
 } = require("../utils/helpers");
-const {availableRoles, uploadsDir, uploadsRoot} = require("../utils/config");
+const {availableRoles, uploadsRoot, userStatuses} = require("../utils/config");
 
 function defineUserModel(connection) {
-    const statuses = {
-        activated: "active",
-        inactive: "desactivated",
-        pendingValidation: "pending"
-    };
     const schema = {
         age: {
             type: DataTypes.ENUM,
@@ -65,9 +60,9 @@ function defineUserModel(connection) {
             values: Object.values(availableRoles)
         },
         status: {
-            defaultValue: statuses.pendingValidation,
+            defaultValue: userStatuses.pendingValidation,
             type: DataTypes.ENUM,
-            values: Object.values(statuses)
+            values: Object.values(userStatuses)
         }
     };
     const driverRegistrationDatas = [
@@ -136,11 +131,16 @@ function defineUserModel(connection) {
                 longitude: result.position.coordinates[1]
             };
         }
-        if (result.avatar !== null) {
+        if (result.avatar !== null && result.avatar !== undefined) {
             result.avatar = uploadsRoot + path.basename(result.avatar);
         }
-        if (result.carInfos !== null) {
+        if (result.carInfos !== null && result.carInfos !== undefined) {
             result.carInfos = uploadsRoot + path.basename(result.carInfos);
+        }
+        if (result.role !== availableRoles.driverRole) {
+            delete result.carInfos;
+            delete result.available;
+            delete result.position;
         }
         return propertiesPicker(result)(allowedProps);
     };
@@ -173,7 +173,7 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
     };
     user.genericProps = genericProps;
     user.registrationDatas = driverRegistrationDatas;
-    user.statuses = statuses;
+    user.statuses = userStatuses;
     return user;
 }
 

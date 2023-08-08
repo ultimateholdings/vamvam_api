@@ -224,6 +224,11 @@ const deliveryStatuses = Object.freeze({
     started: "started",
     terminated: "terminated",
 });
+const userStatuses = {
+    activated: "active",
+    inactive: "desactivated",
+    pendingValidation: "pending"
+};
 
 const config = Object.freeze({
     availableRoles: Object.freeze(availableRoles),
@@ -309,8 +314,8 @@ const config = Object.freeze({
         };
         return configs[env];
     },
-    uploadsDir: "public",
-    uploadsRoot: "/uploads/"
+    uploadsRoot: "/uploads/",
+    userStatuses
 });
 
 module.exports = config;

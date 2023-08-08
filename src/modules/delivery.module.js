@@ -124,6 +124,19 @@ function getDeliveryModule({associatedModels, model}) {
         }
     }
 
+    function ensureCanReport(req, res, next) {
+        const {delivery} = req;
+        const allowedStatus = [
+            deliveryStatuses.pendingReception,
+            deliveryStatuses.toBeConfirmed,
+            deliveryStatuses.started,
+        ];
+        if (!allowedStatus.includes(delivery.status)) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
+        next();
+    }
+
     function ensureCanTerminate(req, res, next) {
         const {started} = deliveryStatuses;
         const {id} = req.user.token;
@@ -305,6 +318,13 @@ calculation of at delivery */
         const {id} = req.user.token;
         const {delivery} = req;
         const {conflictType, lastPosition} = req.body;
+        const message = {
+            type: conflictType,
+            delivery: delivery.toResponse(),
+            lastPosition
+        };
+        message.reporter = await associations.User.findOne({where: {id}});
+        message.reporter = message.reporter.toResponse();
 
         if (!isValidLocation(lastPosition)) {
             return sendResponse(res, errors.invalidLocation);
@@ -316,6 +336,7 @@ calculation of at delivery */
             reporterId: id
         });
         res.status(200).send({reported: true});
+        deliveryModel?.emitEvent("new-conflict", message);  
     }
 
     async function signalReception(req, res) {
@@ -365,6 +386,7 @@ calculation of at delivery */
         cancelDelivery,
         confirmDeposit,
         ensureCanTerminate,
+        ensureCanReport,
         ensureDeliveryExists,
         getAllPaginated,
         getInfos,

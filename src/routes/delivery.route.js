@@ -82,6 +82,7 @@ function getDeliveryRouter(module) {
         allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
         deliveryModule.canAccessDelivery,
+        deliveryModule.ensureCanReport,
         errorHandler(deliveryModule.reportDelivery)
     );
     return router;
