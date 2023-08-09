@@ -11,7 +11,12 @@ const {
     it
 } = require("mocha");
 const {assert} = require("chai");
-const {Delivery, User, connection} = require("../src/models");
+const {
+    Delivery,
+    DeliveryConflict,
+    User,
+    connection
+} = require("../src/models");
 const {
     loginUser,
     getToken,
@@ -26,7 +31,11 @@ const {
     missoke,
     setupDeliveryServer
 } = require("./fixtures/deliveries.data");
-const {deliveryStatuses, errors} = require("../src/utils/config");
+const {
+    deliveryStatuses,
+    errors
+} = require("../src/utils/config");
+const {toDbPoint} = require("../src/utils/helpers");
 
 const {
     requestDelivery,
@@ -207,6 +216,36 @@ describe("delivery CRUD test", function () {
             assert.equal(response.status, errors.cannotPerformAction.status);
         }
     );
+
+    it("should enable a manager to archive a conflict", async function () {
+        const endPoint = "/delivery/conflict/archive";
+        const token = await loginUser(
+            app,
+            dbUsers.conflictManager.phone,
+            "aSimplePass"
+        );
+        let response;
+        const {request} = await setupDelivery({
+            app,
+            clientPhone: dbUsers.goodUser.phone,
+            delivery: deliveries[0],
+            driverData: dbUsers.firstDriver,
+            initialState: deliveryStatuses.inConflict
+        });
+        const conflict = await DeliveryConflict.create({
+            deliveryId: request.id,
+            type: "Package damaged",
+            lastLocation: toDbPoint(missoke)
+        });
+        response = await app.post(endPoint).send({
+            id: conflict.id
+        }).set("authorization", "Bearer " + token);
+        assert.equal(response.status, 200);
+        response = await app.post(endPoint).send({
+            id: conflict.id
+        }).set("authorization", "Bearer " + token);
+        assert.equal(response.status, errors.cannotPerformAction.status);
+    });
 
     describe("delivery state mutation tests", function () {
         let request;

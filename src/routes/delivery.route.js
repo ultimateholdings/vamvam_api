@@ -14,6 +14,7 @@ const {
 function getDeliveryRouter(module) {
     const deliveryModule = module || getDeliveryModule({});
     const router = new express.Router();
+    const conflictRouter = new express.Router();
 
     router.post(
         "/request",
@@ -76,7 +77,7 @@ function getDeliveryRouter(module) {
         deliveryModule.canAccessDelivery,
         errorHandler(deliveryModule.rateDelivery)
     );
-    router.post(
+    conflictRouter.post(
         "/report",
         protectRoute,
         allowRoles([roles.driverRole]),
@@ -85,13 +86,23 @@ function getDeliveryRouter(module) {
         deliveryModule.ensureCanReport,
         errorHandler(deliveryModule.reportDelivery)
     );
-    router.post(
+    conflictRouter.post(
         "/assign-driver",
         protectRoute,
         allowRoles([roles.conflictManager]),
-        deliveryModule.verifyAssignmentDatas,
+        deliveryModule.ensureConflictOpened,
+        deliveryModule.ensureDriverExists,
         errorHandler(deliveryModule.assignDriver)
-    )
+    );
+    conflictRouter.post(
+        "/archive",
+        protectRoute,
+        allowRoles([roles.conflictManager]),
+        deliveryModule.ensureConflictOpened,
+        errorHandler(deliveryModule.archiveConflict)
+    );
+    router.use("/conflict", conflictRouter);
+    
     return router;
 }
 

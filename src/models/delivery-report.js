@@ -7,6 +7,7 @@ const {formatDbPoint} = require("../utils/helpers");
 
 function defineReportModel(connection) {
     const schema = {
+        cancellationDate: DataTypes.DATE,
         date: {
             defaultValue: new Date(),
             type: DataTypes.DATE

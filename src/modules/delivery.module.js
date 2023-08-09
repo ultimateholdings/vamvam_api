@@ -157,6 +157,21 @@ function getDeliveryModule({associatedModels, model}) {
         next();
     }
 
+    async function ensureConflictOpened(req, res, next) {
+        const {id} = req.body;
+        const conflict = await associations.DeliveryConflict.findOne({
+            where: {id}
+        });
+        if (conflict === null) {
+            return sendResponse(res, errors.conflictNotFound);
+        }
+        if (conflict.status !== conflictStatuses.opened) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
+        req.conflict = conflict;
+        next();
+    }
+
     async function ensureDeliveryExists(req, res, next) {
         const {id} = req.body;
         const delivery = await deliveryModel?.findOne({where: {id}});
@@ -168,20 +183,9 @@ function getDeliveryModule({associatedModels, model}) {
         next();
     }
 
-    async function verifyAssignmentDatas(req, res, next) {
-        const {id, driverId} = req.body;
-        const conflict = await associations.DeliveryConflict.findOne({
-            where: {id}
-        });
-        let driver;
-        if (conflict === null) {
-            return sendResponse(res, errors.conflictNotFound);
-        }
-        if (conflict.status !== conflictStatuses.opened) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
-        req.conflict = conflict;
-        driver = await associations.User.findOne({
+    async function ensureDriverExists(req, res, next) {
+        const {driverId} = req.body;
+        let driver = await associations.User.findOne({
            where: {id: driverId}
        });
        if (driver === null) {
@@ -221,6 +225,15 @@ function getDeliveryModule({associatedModels, model}) {
             deliveryId: delivery.id,
             driver: driver.toResponse()
         });
+    }
+
+    async function archiveConflict(req, res) {
+        const {conflict} = req;
+        const {id} = req.user.token;
+        conflict.status = conflictStatuses.cancelled;
+        conflict.assignerId = id;
+        await conflict.save();
+        res.status(200).send({archived: true});
     }
 
     async function assignDriver(req, res) {
@@ -429,12 +442,15 @@ calculation of at delivery */
     return Object.freeze({
         acceptDelivery,
         assignDriver,
+        archiveConflict,
         canAccessDelivery,
         cancelDelivery,
         confirmDeposit,
         ensureCanTerminate,
         ensureCanReport,
+        ensureConflictOpened,
         ensureDeliveryExists,
+        ensureDriverExists,
         getAllPaginated,
         getInfos,
 /*jslint-disable*/
@@ -444,8 +460,7 @@ calculation of at delivery */
         requestDelivery,
         reportDelivery,
         signalReception,
-        terminateDelivery,
-        verifyAssignmentDatas
+        terminateDelivery
     });
 }
 

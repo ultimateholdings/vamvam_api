@@ -294,7 +294,7 @@ describe("delivery side effects test", function () {
         );
         conflictManager = await connectConflictManager(conflictManager);
         client = await connectUser(request.token);
-        await app.post("/delivery/report").send({
+        await app.post("/delivery/conflict/report").send({
             conflictType: message.type,
             id: request.id,
             lastPosition: missoke
@@ -312,7 +312,7 @@ describe("delivery side effects test", function () {
     
     it("should notify a driver on new assignment", async function () {
         let response;
-        let delivery;
+        const endPoint = "/delivery/conflict/assign-driver";
         const token = await loginUser(
             app,
             dbUsers.conflictManager.phone,
@@ -331,16 +331,16 @@ describe("delivery side effects test", function () {
             type: "Package damaged",
             lastLocation: toDbPoint(missoke),
         });
-        secondDriver = await connectUser(secondDriver);
-        const payload = {
+        let payload = {
             id: conflict.id,
             driverId: dbUsers.secondDriver.id
         };
-        response = await app.post("/delivery/assign-driver").send(payload).set(
+        secondDriver = await connectUser(secondDriver);
+        response = await app.post(endPoint).send(payload).set(
             "authorization", "Bearer " + driverToken
         );
         assert.equal(response.status, errors.notAuthorized.status);
-        response = await app.post("/delivery/assign-driver").send(payload).set(
+        response = await app.post(endPoint).send(payload).set(
             "authorization", "Bearer " + token
         );
         assert.equal(response.status, 200);
@@ -348,7 +348,7 @@ describe("delivery side effects test", function () {
             name: "new-assignment",
             socket: secondDriver
         });
-        delivery = await conflict.getDeliveryDetails();
-        assert.deepEqual(response, delivery);
+        payload = await conflict.getDeliveryDetails();
+        assert.deepEqual(response, payload);
     });
 });
