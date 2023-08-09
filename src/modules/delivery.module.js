@@ -125,7 +125,8 @@ function getDeliveryModule({associatedModels, model}) {
         }
     }
 
-    function ensureCanReport(req, res, next) {
+    async function ensureCanReport(req, res, next) {
+        let conflict;
         const {delivery} = req;
         const allowedStatus = [
             deliveryStatuses.pendingReception,
@@ -134,6 +135,12 @@ function getDeliveryModule({associatedModels, model}) {
         ];
         if (!allowedStatus.includes(delivery.status)) {
             return sendResponse(res, errors.cannotPerformAction);
+        }
+        conflict = await associations.DeliveryConflict.findOne({
+            where: {deliveryId: delivery.id}
+        });
+        if (conflict !== null) {
+            return sendResponse(res, errors.alreadyReported);
         }
         next();
     }
@@ -164,6 +171,21 @@ function getDeliveryModule({associatedModels, model}) {
         });
         if (conflict === null) {
             return sendResponse(res, errors.conflictNotFound);
+        }
+        if (conflict.status !== conflictStatuses.opened) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
+        req.conflict = conflict;
+        next();
+    }
+
+    async function ensureConflictingDelivery(req, res, next) {
+        const {deliveryId} = req.body;
+        const conflict = await associations.DeliveryConflict.findOne({
+            where: {deliveryId}
+        });
+        if (conflict === null) {
+            return sendResponse(res, errors.deliveryNotConflicted);
         }
         if (conflict.status !== conflictStatuses.opened) {
             return sendResponse(res, errors.cannotPerformAction);
@@ -438,6 +460,27 @@ calculation of at delivery */
         }
     }
 
+    async function verifyConflictingDelivery(req, res) {
+        const {conflict} = req;
+        const {id} = req.user.token;
+        const {code} = req.body;
+        const delivery = await conflict.getDelivery();
+
+        if (conflict.assigneeId !== id) {
+            return sendResponse(res, errors.notAuthorized);
+        }
+        if (delivery.code !== code) {
+            return sendResponse(res, errors.invalidCode);
+        }
+        conflict.status = conflictStatuses.closed;
+        await conflict.save();
+        res.status(200).send({terminated: true});
+        deliveryModel?.emitEvent("conflict-solved", {
+            assignerId: conflict.assignerId,
+            conflictId: conflict.id
+        });
+    }
+
 
     return Object.freeze({
         acceptDelivery,
@@ -449,6 +492,7 @@ calculation of at delivery */
         ensureCanTerminate,
         ensureCanReport,
         ensureConflictOpened,
+        ensureConflictingDelivery,
         ensureDeliveryExists,
         ensureDriverExists,
         getAllPaginated,
@@ -457,10 +501,11 @@ calculation of at delivery */
         getPrice,
 /*jslint-enable*/
         rateDelivery,
-        requestDelivery,
         reportDelivery,
+        requestDelivery,
         signalReception,
-        terminateDelivery
+        terminateDelivery,
+        verifyConflictingDelivery
     });
 }
 

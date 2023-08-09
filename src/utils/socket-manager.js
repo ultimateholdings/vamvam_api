@@ -20,6 +20,7 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
             connectedUsers[driverId].emit(eventName, assignment);
         }
     }
+
     async function handleEnding(data) {
         const {clientId, deliveryId} = data;
         const eventName = "delivery-end";
@@ -59,11 +60,12 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
     }
 
     function handleNewConflict(data) {
+        const eventName = "new-conflict";
         const room = availableRoles.conflictManager;
-        const {deliveryId, conflict, clientId} = data
-        conflicts.in(room).emit("new-conflict", conflict);
+        const {deliveryId, conflict, clientId} = data;
+        conflicts.in(room).emit(eventName, conflict);
         if (connectedUsers[clientId] !== undefined) {
-            connectedUsers[clientId].emit("new-conflict", deliveryId);
+            connectedUsers[clientId].emit(eventName, deliveryId);
         }
     }
 
@@ -90,7 +92,7 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
             }
         }
     }
-    
+
     function handleCancellation(data) {
         const {delivery, drivers} = data;
         const eventName = "delivery-cancelled";
@@ -109,7 +111,15 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
             }
         });
     }
-    
+
+    function handleSolvedConflict(data) {
+        const {conflictId, assignerId} = data;
+        
+        if (connectedUsers[assignerId] !== undefined) {
+            connectedUsers[assignerId].emit("conflict-solved", conflictId);
+        }
+    }
+
     async function handleNewDelivery(data) {
         const {delivery, drivers} = data;
         const eventName = "new-delivery";
@@ -128,7 +138,7 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
             }
         });
     }
-    
+
     async function handleReception(data) {
         const {clientId, deliveryId} = data;
         const eventName = "delivery-recieved";
@@ -176,7 +186,6 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
         });
     }
 
-
     async function positionUpdateHandler(socket, data) {
         let position;
         let interestedClients;
@@ -216,6 +225,7 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
     deliveryModel?.addEventListener("new-delivery", handleNewDelivery);
     deliveryModel?.addEventListener("new-assignment", handleAssignment);
     deliveryModel?.addEventListener("new-conflict", handleNewConflict);
+    deliveryModel?.addEventListener("conflict-solved", handleSolvedConflict);
 
     deliveries.use(socketAuthenticator());
     conflicts.use(socketAuthenticator([availableRoles.conflictManager]));
@@ -223,7 +233,6 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
     conflicts.on("connection", handleConnection);
     io.on("connection", handleConnection);
     deliveries.on("connection", handleUserConnection);
-
 
     return Object.freeze({
         forwardMessage(id, eventName, data) {

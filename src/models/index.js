@@ -51,7 +51,7 @@ DeliveryConflict.belongsTo(Delivery, {
     as: "backupDriver",
     constraints: false,
     foreignKey: {
-        name: "backupId"
+        name: "assigneeId"
     }
 });
 module.exports = Object.freeze({

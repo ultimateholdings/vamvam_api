@@ -31,6 +31,13 @@ const errors = {
         },
         status: 452
     },
+    alreadyReported: {
+        message: {
+            en: "Sorry this delivery already has conflicts",
+            fr: "Désolé, cette livraison a déjà des conflits"
+        },
+        status: 452
+    },
     cannotPerformAction: {
         message: {
             en: "You can not perform this action now",
@@ -44,6 +51,13 @@ const errors = {
             fr: "vous recherchez un conflit inexistant"
         },
         status: 404
+    },
+    deliveryNotConflicted: {
+        message: {
+            en: "This delivery has no conflicts",
+            fr: "Cette livraison n'est pas conflictuelle"
+        },
+        status: 454
     },
     driverNotFound: {
         message: {

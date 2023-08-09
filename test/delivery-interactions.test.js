@@ -271,84 +271,120 @@ describe("delivery side effects test", function () {
             assert.deepEqual(data.map((data) => data.value), [delivery.toResponse(), undefined]);
         });
     });
-    
-    it("should notify the manager and client on conflict", async function () {
-        let data;
-        let client
-        const message = {
-            lastPosition: missoke,
-            reporter: dbUsers.firstDriver.toResponse(),
-            type: "Package damaged"
-        };
-        const {driverToken, request} = await setupDelivery({
-            app,
-            clientPhone: dbUsers.goodUser.phone,
-            delivery: deliveries[0],
-            driverData: dbUsers.firstDriver,
-            initialState: deliveryStatuses.pendingReception
+    describe("conflict tests", function () {
+        let message;
+        let request;
+        let driverToken;
+        let managerToken;
+        let conflict;
+        beforeEach(async function () {
+            const setupDatas = await setupDelivery({
+                app,
+                clientPhone: dbUsers.goodUser.phone,
+                delivery: deliveries[0],
+                driverData: dbUsers.firstDriver,
+                initialState: deliveryStatuses.pendingReception
+            });
+            managerToken = await loginUser(
+                app,
+                dbUsers.conflictManager.phone,
+                "aSimplePass"
+            );
+            message = {
+                lastPosition: missoke,
+                reporter: dbUsers.firstDriver.toResponse(),
+                type: "Package damaged"
+            };
+            request = setupDatas.request;
+            driverToken = setupDatas.driverToken;
+            conflict = await DeliveryConflict.create({
+                deliveryId: request.id,
+                type: "Package damaged",
+                lastLocation: toDbPoint(missoke),
+            });
+            request.delivery = await Delivery.findOne({where: {id: request.id}});
         });
-        let conflictManager = await loginUser(
-            app,
-            dbUsers.conflictManager.phone,
-            "aSimplePass"
-        );
-        conflictManager = await connectConflictManager(conflictManager);
-        client = await connectUser(request.token);
-        await app.post("/delivery/conflict/report").send({
-            conflictType: message.type,
-            id: request.id,
-            lastPosition: missoke
-        }).set("authorization", "Bearer " + driverToken);
-        data = await Promise.all([
-            listenEvent({name: "new-conflict", socket: conflictManager}),
-            listenEvent({name: "new-conflict", socket: client})
-        ]);
-        message.delivery = await Delivery.findOne(
-            {where: {id: request.id}}
-        );
-        message.delivery = message.delivery.toResponse();
-        assert.deepEqual(data, [message, request.id]);
-    });
-    
-    it("should notify a driver on new assignment", async function () {
-        let response;
-        const endPoint = "/delivery/conflict/assign-driver";
-        const token = await loginUser(
-            app,
-            dbUsers.conflictManager.phone,
-            "aSimplePass"
-        );
-        let secondDriver = await getToken(app, dbUsers.secondDriver.phone);
-        const {request, driverToken} = await setupDelivery({
-            app,
-            clientPhone: dbUsers.goodUser.phone,
-            delivery: deliveries[0],
-            driverData: dbUsers.firstDriver,
-            initialState: deliveryStatuses.started
+        it("should notify the manager and client on conflict", async function () {
+            let data;
+            let client;
+            let conflictManager = await connectConflictManager(managerToken);
+            const {
+                request: delivery,
+                driverToken: secondDriverToken,
+            } = await setupDelivery({
+                app,
+                clientPhone: dbUsers.goodUser.phone,
+                delivery: deliveries[0],
+                driverData: dbUsers.secondDriver,
+                initialState: deliveryStatuses.started
+            });
+            client = await connectUser(delivery.token);
+            await app.post("/delivery/conflict/report").send({
+                conflictType: message.type,
+                id: delivery.id,
+                lastPosition: missoke
+            }).set("authorization", "Bearer " + secondDriverToken);
+            data = await Promise.all([
+                listenEvent({name: "new-conflict", socket: conflictManager}),
+                listenEvent({name: "new-conflict", socket: client})
+            ]);
+            message.delivery = await Delivery.findOne(
+                {where: {id: delivery.id}}
+            );
+            message.delivery = message.delivery.toResponse();
+            message.reporter = dbUsers.secondDriver.toResponse();
+            assert.deepEqual(data, [message, delivery.id]);
         });
-        const conflict = await DeliveryConflict.create({
-            deliveryId: request.id,
-            type: "Package damaged",
-            lastLocation: toDbPoint(missoke),
+        
+        it("should notify a driver on new assignment", async function () {
+            let response;
+            const endPoint = "/delivery/conflict/assign-driver";
+            let secondDriver = await getToken(app, dbUsers.secondDriver.phone);
+            let payload = {
+                id: conflict.id,
+                driverId: dbUsers.secondDriver.id
+            };
+            secondDriver = await connectUser(secondDriver);
+            response = await app.post(endPoint).send(payload).set(
+                "authorization", "Bearer " + driverToken
+            );
+            assert.equal(response.status, errors.notAuthorized.status);
+            response = await app.post(endPoint).send(payload).set(
+                "authorization", "Bearer " + managerToken
+            );
+            assert.equal(response.status, 200);
+            response = await listenEvent({
+                name: "new-assignment",
+                socket: secondDriver
+            });
+            payload = await conflict.getDeliveryDetails();
+            assert.deepEqual(response, payload);
         });
-        let payload = {
-            id: conflict.id,
-            driverId: dbUsers.secondDriver.id
-        };
-        secondDriver = await connectUser(secondDriver);
-        response = await app.post(endPoint).send(payload).set(
-            "authorization", "Bearer " + driverToken
+
+        it(
+            "should notify the manager when a backup finish a delivery",
+            async function () {
+                let response;
+                let manager = await connectConflictManager(managerToken);
+                let secondDriver = await getToken(
+                    app,
+                    dbUsers.secondDriver.phone
+                );
+                conflict.assigneeId = dbUsers.secondDriver.id;
+                conflict.assignerId = dbUsers.conflictManager.id;
+                await conflict.save();
+                response = await app.post("/delivery/conflict/verify-code").send({
+                    code: request.delivery.code,
+                    deliveryId: request.id,
+                }).set("authorization", "Bearer " + secondDriver);
+                assert.equal(response.status, 200);
+                response = await listenEvent({
+                    name: "conflict-solved",
+                    socket: manager
+                });
+                assert.equal(response, conflict.id);
+            }
         );
-        assert.equal(response.status, errors.notAuthorized.status);
-        response = await app.post(endPoint).send(payload).set(
-            "authorization", "Bearer " + token
-        );
-        assert.equal(response.status, 200);
-        response = await listenEvent({
-            name: "new-assignment",
-            socket: secondDriver
-        });
-        payload = await conflict.getDeliveryDetails();
-        assert.deepEqual(response, payload);
-    });
+
+    })
 });

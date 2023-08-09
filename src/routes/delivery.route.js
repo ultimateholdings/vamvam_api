@@ -78,6 +78,13 @@ function getDeliveryRouter(module) {
         errorHandler(deliveryModule.rateDelivery)
     );
     conflictRouter.post(
+        "/verify-code",
+        protectRoute,
+        allowRoles([roles.driverRole]),
+        deliveryModule.ensureConflictingDelivery,
+        errorHandler(deliveryModule.verifyConflictingDelivery)
+    )
+    conflictRouter.post(
         "/report",
         protectRoute,
         allowRoles([roles.driverRole]),
