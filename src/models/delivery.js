@@ -75,6 +75,7 @@ function defineDeliveryModel(connection) {
                 longitude: result.departure.coordinates[1]
             };
         }
+        delete result.code;
         return propertiesPicker(result)(allowedProps);
     }
     delivery.addEventListener = function (eventName, func) {

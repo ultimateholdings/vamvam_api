@@ -12,6 +12,14 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
     const deliveries = io.of("/delivery");
     const conflicts = io.of("/conflict");
     const connectedUsers = Object.create(null);
+
+    function handleAssignment (data) {
+        const eventName = "new-assignment";
+        const {assignment, driverId} = data;
+        if (connectedUsers[driverId] !== undefined) {
+            connectedUsers[driverId].emit(eventName, assignment);
+        }
+    }
     async function handleEnding(data) {
         const {clientId, deliveryId} = data;
         const eventName = "delivery-end";
@@ -198,7 +206,8 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
     deliveryModel?.addEventListener("delivery-recieved", handleReception);
     deliveryModel?.addEventListener("delivery-started", handleBegining);
     deliveryModel?.addEventListener("new-delivery", handleNewDelivery);
-    deliveryModel?.addEventListener("new-conflict", async function (data) {
+    deliveryModel?.addEventListener("new-assignment", handleAssignment);
+    deliveryModel?.addEventListener("new-conflict", function (data) {
         conflicts.in(availableRoles.conflictManager).emit("new-conflict", data);
     });
 

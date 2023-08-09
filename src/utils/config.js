@@ -38,6 +38,20 @@ const errors = {
         },
         status: 454
     },
+    conflictNotFound: {
+        message: {
+            en: "you're looking for a non-existing conflict",
+            fr: "vous recherchez un conflit inexistant"
+        },
+        status: 404
+    },
+    driverNotFound: {
+        message: {
+            en: "The driver you're looking for does not exists",
+            fr: "Le transporteur que vous recherchez n'existe pas"
+        },
+        status: 404
+    },
     existingUser: {
         message: {
             en: "This user already exists consider loggin in",
@@ -216,8 +230,14 @@ const eventMessages = {
 const defaultValues = {
     ttl: 180
 };
+const conflictStatuses = Object.freeze({
+    cancelled: "cancelled",
+    closed: "close",
+    opened: "open",
+});
 const deliveryStatuses = Object.freeze({
     cancelled: "cancelled",
+    inConflict: "conflicting",
     initial: "pending-driver-approval",
     pendingReception: "pending-driver-reception",
     toBeConfirmed: "pending-client-approval",
@@ -232,6 +252,7 @@ const userStatuses = {
 
 const config = Object.freeze({
     availableRoles: Object.freeze(availableRoles),
+    conflictStatuses,
     defaultValues: Object.freeze(defaultValues),
     deliveryStatuses,
     errors: Object.freeze(errors),

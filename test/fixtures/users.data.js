@@ -44,6 +44,7 @@ const users = {
     },
     secondDriver: {
         firstName: "Fomekong Nguimtsa",
+        internal: true,
         lastName: "Marc",
         phone: "+23809090909030943-039303",
         role: availableRoles.driverRole

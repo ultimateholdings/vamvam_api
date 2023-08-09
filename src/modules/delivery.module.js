@@ -4,6 +4,7 @@ node
 const crypto = require("crypto");
 const {Delivery, DeliveryConflict, User} = require("../models");
 const {
+    conflictStatuses,
     deliveryStatuses,
     errors,
     availableRoles: roles
@@ -167,6 +168,29 @@ function getDeliveryModule({associatedModels, model}) {
         next();
     }
 
+    async function verifyAssignmentDatas(req, res, next) {
+        const {id, driverId} = req.body;
+        const conflict = await associations.DeliveryConflict.findOne({
+            where: {id}
+        });
+        let driver;
+        if (conflict === null) {
+            return sendResponse(res, errors.conflictNotFound);
+        }
+        if (conflict.status !== conflictStatuses.opened) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
+        req.conflict = conflict;
+        driver = await associations.User.findOne({
+           where: {id: driverId}
+       });
+       if (driver === null) {
+        return sendResponse(res, errors.driverNotFound);
+       }
+       req.driver = driver;
+        next();
+    }
+
     async function acceptDelivery(req, res) {
         let driver;
         const {
@@ -196,6 +220,20 @@ function getDeliveryModule({associatedModels, model}) {
             clientId: delivery.clientId,
             deliveryId: delivery.id,
             driver: driver.toResponse()
+        });
+    }
+
+    async function assignDriver(req, res) {
+        const {driver, conflict} = req;
+        const {id} = req.body;
+        let assignment = await conflict.getDeliveryDetails();
+        conflict.assignerId = id;
+        conflict.backupId = driver.id;
+        await conflict.save();
+        res.status(200).send({assigned: true});
+        deliveryModel?.emitEvent("new-assignment", {
+            assignment,
+            driverId: driver.id,
         });
     }
 
@@ -253,9 +291,11 @@ function getDeliveryModule({associatedModels, model}) {
         let {delivery} = req;
         let client;
         let driver;
+        const code = delivery.code;
         client = await delivery.getClient();
         driver = await delivery.getDriver();
         delivery = delivery.toResponse();
+        delivery.code = code;
         delivery.client = client;
         delivery.driver = driver;
         res.status(200).send(delivery);
@@ -320,7 +360,6 @@ calculation of at delivery */
         const {conflictType, lastPosition} = req.body;
         const message = {
             type: conflictType,
-            delivery: delivery.toResponse(),
             lastPosition
         };
         message.reporter = await associations.User.findOne({where: {id}});
@@ -329,12 +368,15 @@ calculation of at delivery */
         if (!isValidLocation(lastPosition)) {
             return sendResponse(res, errors.invalidLocation);
         }
+        delivery.status = deliveryStatuses.inConflict;
+        await delivery.save();
         await associations.DeliveryConflict.create({
             type: conflictType,
             deliveryId: delivery.id,
             lastLocation: toDbPoint(lastPosition),
             reporterId: id
         });
+        message.delivery = delivery.toResponse();
         res.status(200).send({reported: true});
         deliveryModel?.emitEvent("new-conflict", message);  
     }
@@ -382,6 +424,7 @@ calculation of at delivery */
 
     return Object.freeze({
         acceptDelivery,
+        assignDriver,
         canAccessDelivery,
         cancelDelivery,
         confirmDeposit,
@@ -397,7 +440,8 @@ calculation of at delivery */
         requestDelivery,
         reportDelivery,
         signalReception,
-        terminateDelivery
+        terminateDelivery,
+        verifyAssignmentDatas
     });
 }
 

@@ -13,6 +13,7 @@ const {
 const {assert} = require("chai");
 const {Delivery, User, connection} = require("../src/models");
 const {
+    loginUser,
     getToken,
     otpHandler,
     syncUsers,
@@ -188,29 +189,6 @@ describe("delivery CRUD test", function () {
             assert.equal(response.status, errors.notAuthorized.status);
         }
     );
-
-    it("should enable a driver to report a delivery", async function () {
-        let response;
-        const {request, driverToken} = await setupDelivery({
-            app,
-            clientPhone: dbUsers.goodUser.phone,
-            delivery: deliveries[0],
-            driverData: dbUsers.firstDriver,
-            initialState: deliveryStatuses.pendingReception
-        });
-        response = await app.post("/delivery/report").send({
-            conflictType: "package damage",
-            id: request.id,
-            lastPosition: badDelevery.departure
-        }).set("authorization", "Bearer " + driverToken);
-        assert.equal(response.status, errors.invalidLocation.status);
-        response = await app.post("/delivery/report").send({
-            conflictType: "package damage",
-            id: request.id,
-            lastPosition: missoke
-        }).set("authorization", "Bearer " + driverToken);
-        assert.equal(response.status, 200);
-    });
 
     it(
         "should not verify a delivery which isn't in started status",

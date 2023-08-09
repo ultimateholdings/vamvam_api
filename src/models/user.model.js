@@ -6,6 +6,7 @@ const path = require("path");
 const {DataTypes, QueryTypes} = require("sequelize");
 const {
     fileExists,
+    formatDbPoint,
     hashPassword,
     propertiesPicker
 } = require("../utils/helpers");
@@ -41,6 +42,10 @@ function defineUserModel(connection) {
             defaultValue: DataTypes.UUIDV4,
             primaryKey: true,
             type: DataTypes.UUID
+        },
+        internal: {
+            defaultValue: false,
+            type: DataTypes.BOOLEAN
         },
         lang: {
             defaultValue: "en",
@@ -125,12 +130,7 @@ function defineUserModel(connection) {
     });
     user.prototype.toResponse = function () {
         let result = this.dataValues;
-        if (result.position !== null && result.position !== undefined) {
-            result.position = {
-                latitude: result.position.coordinates[0],
-                longitude: result.position.coordinates[1]
-            };
-        }
+        result.position = formatDbPoint(result.position);
         if (result.avatar !== null && result.avatar !== undefined) {
             result.avatar = uploadsRoot + path.basename(result.avatar);
         }

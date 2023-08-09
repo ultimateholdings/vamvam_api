@@ -107,6 +107,17 @@ function toDbPoint(point) {
     };
 }
 
+function formatDbPoint(dbPoint) {
+    let result = null;
+    if (dbPoint !== null && dbPoint !== undefined) {
+        result = {
+            latitude: dbPoint.coordinates[0],
+            longitude: dbPoint.coordinates[1]
+        };
+    }
+    return result;
+}
+
 function isValidLocation(location) {
     let result;
     if (Array.isArray(location)) {
@@ -377,6 +388,7 @@ module.exports = Object.freeze({
     deleteFile,
     errorHandler,
     fileExists,
+    formatDbPoint,
     getFileHash,
     getOTPService,
     hashPassword(password) {

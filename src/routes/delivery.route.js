@@ -85,6 +85,13 @@ function getDeliveryRouter(module) {
         deliveryModule.ensureCanReport,
         errorHandler(deliveryModule.reportDelivery)
     );
+    router.post(
+        "/assign-driver",
+        protectRoute,
+        allowRoles([roles.conflictManager]),
+        deliveryModule.verifyAssignmentDatas,
+        errorHandler(deliveryModule.assignDriver)
+    )
     return router;
 }
 

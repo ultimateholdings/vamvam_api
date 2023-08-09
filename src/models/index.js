@@ -27,6 +27,13 @@ Delivery.belongsTo(User, {
     }
 });
 DeliveryConflict.belongsTo(User, {
+    as: "Assigner",
+    constraints: false,
+    foreignKey: {
+        name: "assignerId"
+    }
+});
+DeliveryConflict.belongsTo(User, {
     as: "Reporter",
     constraints: false,
     foreignKey: {
@@ -38,6 +45,13 @@ DeliveryConflict.belongsTo(Delivery, {
     constraints: false,
     foreignKey: {
         name: "deliveryId"
+    }
+});
+DeliveryConflict.belongsTo(Delivery, {
+    as: "backupDriver",
+    constraints: false,
+    foreignKey: {
+        name: "backupId"
     }
 });
 module.exports = Object.freeze({
