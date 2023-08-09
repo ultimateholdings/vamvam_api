@@ -58,6 +58,14 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
         });
     }
 
+    function handleNewConflict(data) {
+        const room = availableRoles.conflictManager;
+        const {deliveryId, conflict, clientId} = data
+        conflicts.in(room).emit("new-conflict", conflict);
+        if (connectedUsers[clientId] !== undefined) {
+            connectedUsers[clientId].emit("new-conflict", deliveryId);
+        }
+    }
 
     async function handleAcceptation(data) {
         const {clientId, deliveryId, driver} = data;
@@ -207,9 +215,7 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
     deliveryModel?.addEventListener("delivery-started", handleBegining);
     deliveryModel?.addEventListener("new-delivery", handleNewDelivery);
     deliveryModel?.addEventListener("new-assignment", handleAssignment);
-    deliveryModel?.addEventListener("new-conflict", function (data) {
-        conflicts.in(availableRoles.conflictManager).emit("new-conflict", data);
-    });
+    deliveryModel?.addEventListener("new-conflict", handleNewConflict);
 
     deliveries.use(socketAuthenticator());
     conflicts.use(socketAuthenticator([availableRoles.conflictManager]));

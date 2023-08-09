@@ -358,12 +358,12 @@ calculation of at delivery */
         const {id} = req.user.token;
         const {delivery} = req;
         const {conflictType, lastPosition} = req.body;
-        const message = {
+        const conflict = {
             type: conflictType,
             lastPosition
         };
-        message.reporter = await associations.User.findOne({where: {id}});
-        message.reporter = message.reporter.toResponse();
+        conflict.reporter = await associations.User.findOne({where: {id}});
+        conflict.reporter = conflict.reporter.toResponse();
 
         if (!isValidLocation(lastPosition)) {
             return sendResponse(res, errors.invalidLocation);
@@ -376,9 +376,13 @@ calculation of at delivery */
             lastLocation: toDbPoint(lastPosition),
             reporterId: id
         });
-        message.delivery = delivery.toResponse();
+        conflict.delivery = delivery.toResponse();
         res.status(200).send({reported: true});
-        deliveryModel?.emitEvent("new-conflict", message);  
+        deliveryModel?.emitEvent("new-conflict", {
+            clientId: delivery.clientId,
+            conflict,
+            deliveryId: delivery.id
+        });  
     }
 
     async function signalReception(req, res) {
