@@ -19,10 +19,17 @@ function getRoomRoutes (messageModule) {
     );
     router.get(
         "/user-rooms",
+        protectRoute,
         errorHandler(routerModule.getUserRooms)
     );
-    router.delete(
-        "/:roomId",
+    router.get(
+        "/miss-message",
+        protectRoute,
+        errorHandler(routerModule.getRoomMissMessage)
+    );
+    router.post(
+        "/delete",
+        protectRoute,
         errorHandler(routerModule.deleteRoom)
     );
     return router;

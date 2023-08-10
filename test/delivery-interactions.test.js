@@ -80,7 +80,7 @@ describe("delivery side effects test", function () {
                 res(data)
             });
         });
-        assert.equal(data.deliveryId, request.id);
+        assert.equal(data.deliveryId, request.id);  
     });
     
     it(

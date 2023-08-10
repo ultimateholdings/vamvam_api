@@ -23,5 +23,4 @@ function defineMessageModel(connection) {
   };
   return message;
 }
-
 module.exports = defineMessageModel;

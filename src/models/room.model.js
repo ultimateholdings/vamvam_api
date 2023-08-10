@@ -2,8 +2,10 @@
 node, nomen
 */
 const { DataTypes } = require("sequelize");
+const { CustomEmitter } = require("../utils/helpers");
 
 function defineRoomModel(connection) {
+  const emitter = new CustomEmitter();
   const room = connection.define(
     "room",
     {
@@ -26,7 +28,12 @@ function defineRoomModel(connection) {
       },
     }
   );
-
+  room.addEventListener = function(eventName, func){
+    emitter.on(eventName, func);
+  };
+  room.emitEvent = function(eventName, func){
+    emitter.emit(eventName, func);
+  };
   return room;
 }
 

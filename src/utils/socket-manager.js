@@ -7,13 +7,13 @@ const {isValidLocation, sendCloudMessage} = require("../utils/helpers");
 const {errors, eventMessages} = require("./config");
 
 
-function getSocketManager({deliveryModel, httpServer, userModel}) {
+function getSocketManager({deliveryModel, httpServer, messageModel, roomModel, userModel}) {
     const io = new Server(httpServer);
     const deliveries = io.of("/delivery");
     const connectedUsers = Object.create(null);
     async function handleEnding(data) {
         const {clientId, deliveryId} = data;
-        const eventName = "delivery-end";
+        const eventName = "delivery-end"; 
         let userInfos;
         let message;
         if (connectedUsers[clientId] !== undefined) {
@@ -172,6 +172,15 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
         } else {
             socket.emit("position-rejected", errors.invalidValues.message);
         }
+    };
+    function handleNewMessage(data) {
+        const { roomId } = data;
+        const eventName = "new-message";
+        deliveries.in(roomId).emit( eventName, data);
+    };
+    function handelMessageReading(data){
+        const { roomId } = data;
+        const eventName = "message-reading";
     }
     deliveryModel?.addEventListener("delivery-end", handleEnding);
     deliveryModel?.addEventListener("delivery-accepted", handleAcceptation);
@@ -180,6 +189,7 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
     deliveryModel?.addEventListener("delivery-started", handleBegining);
     deliveryModel?.addEventListener("new-delivery", handleNewDelivery);
     deliveries.use(socketAuthenticator());
+    messageModel?.addEventListener("new-message", handleNewMessage);
     io.use(socketAuthenticator(["admin"]));
 
     deliveries.on("connection", function (socket) {
@@ -192,8 +202,10 @@ function getSocketManager({deliveryModel, httpServer, userModel}) {
         socket.on("new-position", async function (data) {
             await positionUpdateHandler(socket, data);
         });
+        socket.on('join-room', function(roomId) {
+            socket.join(roomId);
+          });
     });
-
 
     return Object.freeze({
         forwardMessage(id, eventName, data) {

@@ -132,7 +132,7 @@ function getMessageModule({ messageTest }) {
       if(updateReader.reader.includes(userId)){
         res.status(200).json({
           messageId: message.id,
-          newReader: userId,
+          readerId: userId,
           roomId: message.roomId,
         });
       }
@@ -141,7 +141,6 @@ function getMessageModule({ messageTest }) {
       return res.status(500).json({message: "An error occurred while updating the message!!"})
     }  
   }
-
   return Object.freeze({
     createMessage,
     getMessageInfos,

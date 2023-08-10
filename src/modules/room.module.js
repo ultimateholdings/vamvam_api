@@ -4,7 +4,7 @@ node
 const Sequelize = require("sequelize");
 const { Room, User, Message } = require("../models/index");
 const { propertiesPicker } = require("../utils/helpers");
-const { eq: opEq, in: opIn } = Sequelize.Op;
+const { eq: opEq, in: opIn, not: opNot, ne: opdif } = Sequelize.Op;
 
 function getRoomModule({ roomTest, userTest }) {
   const roomModel = roomTest || Room;
@@ -56,6 +56,16 @@ function getRoomModule({ roomTest, userTest }) {
             avatar: user.avatar,
           })),
         });
+        roomModel?.emitEvent("new-room", {
+          name: room.name,
+          roomId: room.roomId,
+          users: roomUsers.map((user) => ({
+            userId: user.id,
+            firtName: user.firstName,
+            lastName: user.lastName,
+            avatar: user.avatar,
+          })),
+        });
       }
     } catch (error) {
       return error;
@@ -95,6 +105,7 @@ function getRoomModule({ roomTest, userTest }) {
   }
 
   async function getUserRooms(req, res) {
+    let data;
     const { userId } = req.body;
     try {
       const user = await userModel.findByPk(userId);
@@ -111,19 +122,32 @@ function getRoomModule({ roomTest, userTest }) {
             model: Message,
             required: false,
             order: [["createdAt", "DESC"]],
-            attributes: ["id", "content", "createdAt"],
+            attributes: ["id", "content", "createdAt", "senderId"],
+            limit: 1,
             include: [
               {
                 model: User,
-                attributes: ["id", "firstName", "lastName"],
+                required: false,
+                attributes: ["firstName", "lastName", "avatar"],
               },
             ],
           },
         ],
       });
+      data = rooms.map(room => ({
+        roomId: room.id,
+        name: room.name,
+        senderId: room.Messages.length > 0 ? room.Messages[0].dataValues.senderId : '' ,
+        date: room.Messages.length > 0 ? room.Messages[0].dataValues.createdAt : '',
+        messageId: room.Messages.length > 0 ? room.Messages[0].dataValues.id : '',
+        content: room.Messages.length > 0 ? room.Messages[0].dataValues.content : '',
+        avatar: room.Messages.length > 0 ? room.Messages[0].user.avatar : '',
+        lastName: room.Messages.length > 0 ? room.Messages[0].user.lastName : '',
+        firstName: room.Messages.length > 0 ? room.Messages[0].user.firstName : '',
+      }))
       res.status(200).json({
         succes: true,
-        data: rooms,
+        data: data,
       });
     } catch (error) {
       return error;
@@ -131,23 +155,59 @@ function getRoomModule({ roomTest, userTest }) {
   }
 
   async function deleteRoom(req, res) {
-    const { roomId } = req.params;
+    const { roomId } = req.body;
     try {
       await roomModel.destroy({
         where: { id: roomId },
         individualHooks: true,
       });
-      return res.status(204).send();
+      res.status(204).send();
     } catch (error) {
       console.error(error);
       return res.status(500).json({ error: "Failed to delete room" });
     }
   }
-
+  async function getRoomMissMessage(req, res) {
+    let data;
+    const { userId } = req.body;
+    try {
+      const rooms = await roomModel.findAll({
+        attributes: ["id", "name"],
+        include: [
+          {
+            model: Message,
+            attributes: [
+              [Sequelize.fn("COUNT", Sequelize.col("content")), "n_message"],
+            ],
+            required: false,
+            where: {
+              reader: {
+                [opNot]: [userId]
+              },
+              senderId: {
+                [opdif]: [userId]
+              },
+            },
+          },
+        ],
+      });
+      data = rooms.map((room) => ({
+        roomId: room.id,
+        missedCount: room.Messages.length > 0 ? room.Messages[0].dataValues.n_message : 0,
+      }));
+      res.status(200).json({ data });
+    } catch (error) {
+      console.error(error);
+      res
+        .status(500)
+        .json({ message: "An error occurred while retrieving rooms!" });
+    }
+  }
   return Object.freeze({
     createRoom,
     getRoom,
     getUserRooms,
+    getRoomMissMessage,
     deleteRoom,
   });
 }

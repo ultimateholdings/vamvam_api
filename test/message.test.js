@@ -93,7 +93,7 @@ describe("Message test", function () {
       .send({ messageId, userId })
       .set("authorization", "Bearer " + newMessage.token);
     assert.equal(response.status, 200);
-    assert.equal(response.body.newReader, userId);
+    assert.equal(response.body.readerId, userId);
   })
   it("should return Room Messages", async function () {
     const roomId = room.id
