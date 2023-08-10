@@ -3,7 +3,7 @@ node, nomen, this
 */
 const fs = require("fs");
 const path = require("path");
-const {DataTypes, QueryTypes} = require("sequelize");
+const {DataTypes, Op, QueryTypes, col, fn, where} = require("sequelize");
 const {
     fileExists,
     formatDbPoint,
@@ -151,23 +151,31 @@ PostgreSql, Mysql and MariaDB so if your DB doesn't support it
 it better to use the haversine formula to get the distance between 2 points
 link: https://en.wikipedia.org/wiki/Haversine_formula
 */
-    user.nearTo = async function (point, by, role) {
+    user.nearTo = async function ({point, by, params}) {
         let result = [];
-        let sql = ["deviceToken", ...allowedProps];
         let coordinates = point?.coordinates;
         let distanceQuery;
-        sql = sql.join(" , ");
+        let clause = [];
         if (Array.isArray(coordinates)) {
-            coordinates = "'POINT(" + coordinates[0] + " " +
-            coordinates[1] + ")'";
-            distanceQuery = "ST_Distance_Sphere(ST_GeomFromText(";
-            distanceQuery += "ST_AsText(position), 4326), ST_GeomFromText(";
-            distanceQuery += coordinates + ", 4326))";
-            sql = sql + " , " + distanceQuery + " as distance from ";
-            sql = "select " + sql + this.getTableName();
-            sql += " where " + distanceQuery + " <= " + by;
-            sql += " and `role` = '" + role + "';";
-            result = await connection.query(sql, {type: QueryTypes.SELECT});
+            coordinates =
+            "POINT(" + coordinates[0] + " " + coordinates[1] + ")";
+            distanceQuery = () => fn("ST_Distance_Sphere", fn(
+                "ST_GeomFromText",
+                fn("ST_AsText", col("position")),
+                4326
+            ),fn("ST_GeomFromText", coordinates, 4326));
+            clause.push(where(distanceQuery(), {[Op.lte]: by}));
+            if (params !== null && typeof params === "object") {
+                clause.push(params)
+            }
+            result = await user.findAll({
+                attributes: {
+                    includes: [[distanceQuery(), "distance"]]
+                },
+                where: {
+                    [Op.and]: clause
+                }
+            });
         }
         return result ?? [];
     };

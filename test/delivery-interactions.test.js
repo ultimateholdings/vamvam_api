@@ -173,15 +173,14 @@ describe("delivery side effects test", function () {
             let data;
             const {driverToken} = setupDatas;
             const driverSocket = await connectUser(driverToken);
-            await updatePosition(driverSocket, nearByPoint);
+            dbUsers.firstDriver.position = toDbPoint(nearByPoint);
+            await dbUsers.firstDriver.save();
             await app.post("/delivery/cancel").send(request).set(
                 "authorization", "Bearer " + request.token
             );
-            data = await new Promise(function (res) {
-                driverSocket.on("delivery-cancelled", function (data) {
-                    driverSocket.close();
-                    res(data);
-                });
+            data = await listenEvent({
+                name: "delivery-cancelled",
+                socket: driverSocket
             });
             assert.equal(data, request.id);
         });

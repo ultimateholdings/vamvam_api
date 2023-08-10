@@ -247,6 +247,29 @@ describe("delivery CRUD test", function () {
         assert.equal(response.status, errors.cannotPerformAction.status);
     });
 
+    it("should provide the list of nearby drivers", async function () {
+        const token = await loginUser(
+            app,
+            dbUsers.conflictManager.phone,
+            "aSimplePass"
+        );
+        let response;
+        dbUsers.firstDriver.position = toDbPoint(deliveries[0].departure);
+        dbUsers.firstDriver.available = false;
+        dbUsers.firstDriver.internal = true;
+        dbUsers.secondDriver.position = toDbPoint(deliveries[0].departure);
+        dbUsers.secondDriver.available = true;
+        dbUsers.secondDriver.internal = true;
+        await Promise.all([
+            dbUsers.firstDriver.save(),
+            dbUsers.secondDriver.save()
+        ]);
+        response = await app.get("/user/drivers").send({
+            from: deliveries[0].departure
+        }).set("authorization", "Bearer " + token);
+        assert.deepEqual(response.body.result?.length, 1);
+    });
+
     describe("delivery state mutation tests", function () {
         let request;
         let driverToken;

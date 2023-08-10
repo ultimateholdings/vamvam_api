@@ -98,11 +98,11 @@ function getDeliveryModule({associatedModels, model}) {
     const associations = associatedModels || {DeliveryConflict, User};
 
     async function notifyNearbyDrivers(delivery, eventName) {
-        let drivers = await associations?.User?.nearTo(
-            delivery.departure,
-            5500,
-            "driver"
-        );
+        let drivers = await associations?.User?.nearTo({
+            by: 5500,
+            params: {available: true, role: "driver"},
+            point: delivery.departure
+        });
         drivers = drivers ?? [];
         deliveryModel?.emitEvent(eventName, {
             delivery: delivery.toResponse(),
