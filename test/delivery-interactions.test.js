@@ -24,6 +24,8 @@ const {
     setupDeliveryServer
 } = require("./fixtures/deliveries.data");
 const getSocketManager = require("../src/utils/socket-manager");
+const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
+const getConflictHandler = require("../src/modules/conflict.socket-handler");
 const {deliveryStatuses, errors} = require("../src/utils/config");
 const {toDbPoint} = require("../src/utils/helpers");
 
@@ -65,9 +67,9 @@ describe("delivery side effects test", function () {
         server = tmp.server;
         app = tmp.app;
         socketServer = getSocketManager({
-            deliveryModel: Delivery,
-            httpServer: server,
-            userModel: User
+            conflictHandler: getConflictHandler(Delivery),
+            deliveryHandler: getDeliveryHandler(Delivery),
+            httpServer: server
         });
     });
 
@@ -89,8 +91,17 @@ describe("delivery side effects test", function () {
 
     after(async function () {
         await server.close();
-        await socketServer.io.close();
+        socketServer.close();
     });
+
+    it("should reject if a user is not authenticated", async function () {
+        try {
+            await connectUser();
+        } catch (error) {
+            assert.deepEqual(error.data, errors.notAuthorized.message);
+        }
+    });
+
     it("should notify the client on delivery's ending", async function () {
         let data;
         const {driverToken, request} = setupDatas;
@@ -118,11 +129,9 @@ describe("delivery side effects test", function () {
                     driver.emit("new-position", missoke);
                 })
             ]);
-            data = await new Promise(function (res) {
-                client.on("new-position", function (data) {
-                    client.close();
-                    res(data);
-                });
+            data = await listenEvent({
+                name: "new-driver-position",
+                socket: client
             });
             assert.deepEqual(data, missoke);
             data = await User.findOne({where: {id: dbUsers.firstDriver.id}});

@@ -47,7 +47,7 @@ DeliveryConflict.belongsTo(Delivery, {
         name: "deliveryId"
     }
 });
-DeliveryConflict.belongsTo(Delivery, {
+DeliveryConflict.belongsTo(User, {
     as: "backupDriver",
     constraints: false,
     foreignKey: {

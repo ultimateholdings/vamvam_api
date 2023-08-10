@@ -227,6 +227,31 @@ const eventMessages = {
             title: "Le chauffeur est arrivé"
         }
     },
+    newAssignment: {
+        en: {
+            body: "You have been tasked to complete a conflicting delivery",
+            title: "Emergency Alert"
+        },
+        fr: {
+            body: "Vous avez été chargé(e) de mener à bien une" +
+            " livraison conflictuelle",
+            title: "Alerte d'urgence"
+        }
+    },
+    newConflict: {
+        en: {
+            body:
+            "A conflict has been reported during your delivery, please contact" +
+            " the support for further information",
+            title: "Conflict reported"
+        },
+        fr: {
+            body:
+            "Un conflit a été signalé lors de votre livraison, veuillez contacter" +
+            " le service d'assistance pour plus d'informations",
+            title: "Conflit signalé"
+        }
+    },
     newDelivery: {
         en: {
             body: "You have a new delivery request close to you, check it out",
@@ -236,9 +261,9 @@ const eventMessages = {
             body:
             "Vous avez une nouvelle demande de livraison près" +
             " de vous, consultez-la",
-            title: "New delivery"
+            title: "Nouvelle livraison"
         }
-    }
+    },
 };
 
 const defaultValues = {

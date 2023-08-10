@@ -13,6 +13,7 @@ const {
     isValidLocation,
     propertiesPicker,
     ressourcePaginator,
+    sendCloudMessage,
     sendResponse,
     toDbPoint
 } = require("../utils/helpers");
@@ -109,6 +110,63 @@ function getDeliveryModule({associatedModels, model}) {
             drivers
         });
     }
+
+    async function updateDriverPosition(driverMessage) {
+        const {data, driverId} = driverMessage;
+        let clients;
+        if (isValidLocation(data)) {
+            if (Array.isArray(data)) {
+                position = data.at(-1);
+            } else {
+                position = data;
+            }
+            position = {
+                coordinates: [position.latitude, position.longitude],
+                type: "Point"
+            };
+            await associations?.User.update({position}, {where: {id: driverId}});
+            clients = await deliveryModel?.findAll({where: {
+                driverId,
+                status: "started"
+            }});
+            clients = clients ?? [];
+            deliveryModel.emitEvent("driver-position-update-completed", {
+                clients: clients.map((delivery) => delivery.clientId),
+                data,
+                driverId
+            });
+        }
+    }
+
+    async function handleCloudMessageFallback(data) {
+        let {message, meta, receiverId} = data;
+        const userInfos = await associations?.User?.findOne(
+            {where: {id: receiverId}}
+        );
+        message = message[userInfos?.lang ?? "en"];
+        if (userInfos !== null && userInfos.deviceToken !== null) {
+            await sendCloudMessage({
+                body: message.body,
+                meta,
+                title: message.title,
+                to: userInfos.deviceToken
+            });
+        }
+    }
+
+    deliveryModel.addEventListener(
+        "driver-position-update-requested",
+        updateDriverPosition
+    );
+    deliveryModel.addEventListener(
+        "cloud-message-fallback-requested",
+        handleCloudMessageFallback
+    );
+    deliveryModel.addEventListener(
+        "cloud-message-sending-requested",
+        sendCloudMessage
+    );
+
 
     function canAccessDelivery(req, res, next) {
         const {id, role} = req.user.token;

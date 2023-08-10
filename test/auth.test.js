@@ -13,11 +13,7 @@ const {
 const {assert} = require("chai");
 const {User, connection, otpRequest} = require("../src/models");
 const {availableRoles, errors} = require("../src/utils/config");
-const getSocketManager = require("../src/utils/socket-manager");
 const {
-    clientSocketCreator,
-    getToken,
-    otpHandler,
     pinIds,
     setupAuthServer,
     setupInterceptor,
@@ -153,54 +149,5 @@ describe("authentication tests", function () {
             oldPassword: driver.password
         }).set("authorization", "Bearer " + token);
         assert.equal(response.status, 200);
-    });
-});
-describe("socket authentication", function () {
-    let server;
-    let socketServer;
-    let app;
-    let currentUser;
-    let socketGenerator = clientSocketCreator("delivery");
-    before(function () {
-        const tmp = setupAuthServer(otpHandler);
-        server = tmp.server;
-        app = tmp.app;
-        socketServer = getSocketManager({httpServer: server});
-    });
-    beforeEach(async function () {
-        let userToken;
-        await connection.sync({alter: true});
-        currentUser = await User.create(users.goodUser);
-        userToken = await getToken(app, users.goodUser.phone);
-        currentUser.token = userToken;
-    });
-    afterEach(async function () {
-        await connection.drop();
-    });
-    after(function () {
-        socketServer.io.close();
-        server.close();
-    });
-    it("should reject if a user is not authenticated", async function () {
-        try {
-            await socketGenerator();
-        } catch (error) {
-            assert.deepEqual(error.data, errors.notAuthorized.message);
-        }
-    });
-    it("should allow the user when having token", function (done) {
-        socketGenerator(currentUser.token).then(function (client) {
-            client.on("new-delivery", function (data) {
-                assert.deepEqual(data, {price: 1000});
-                done();
-                client.close();
-            });
-            socketServer.forwardMessage(
-                currentUser.id,
-                "new-delivery",
-                {price: 1000}
-            );
-
-        });
     });
 });
