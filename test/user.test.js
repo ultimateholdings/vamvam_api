@@ -23,7 +23,7 @@ const {
     setupAuthServer,
     subscriber,
     users
-} = require("./fixtures/users.data");
+} = require("./fixtures/helper");
 
 function getFileSize(path) {
     return new Promise(function (res) {
@@ -133,22 +133,6 @@ describe("user interactions tests", function () {
             if (fs.existsSync(carInfoHash)) {
                 fs.unlink(carInfoHash, console.log);
             }
-        });
-        it("should register a new driver", async function () {
-            const driver = subscriber;
-            const badDriver = Object.create(null);
-            let response;
-            Object.assign(badDriver, driver);
-            badDriver.phoneNumber = users.firstDriver.phone;
-            await User.create(users.firstDriver);
-            response = await registerDriver(app, badDriver);
-            assert.equal(response.status, errors.existingUser.status);
-            response = await registerDriver(app, driver);
-            assert.equal(response.status, errors.invalidValues.status);
-            driver.carInfos = carInfosPath;
-            response = await registerDriver(app, driver)
-            assert.equal(response.status, 200);
-
         });
         it("should authenticate a driver", async function () {
             const password = "23209J@fklsd";

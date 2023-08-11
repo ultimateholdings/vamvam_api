@@ -45,7 +45,7 @@ function getAuthModule({
     }
 
     function sendResetSuccess(res, user) {
-        const tokenFactory = authTokenService(600000)
+        const tokenFactory = authTokenService(600000) //expires in 5min
         const resetToken = tokenFactory.sign({
             phone: user.phone
         });

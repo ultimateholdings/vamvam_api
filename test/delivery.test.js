@@ -23,7 +23,7 @@ const {
     otpHandler,
     syncUsers,
     users
-} = require("./fixtures/users.data");
+} = require("./fixtures/helper");
 const {
     badDelevery,
     deliveries,

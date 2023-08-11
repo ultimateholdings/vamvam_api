@@ -7,7 +7,7 @@ const availableRoles = {
     clientRole: "client",
     conflictManager: "conflict-manager",
     driverRole: "driver",
-    subscriptionManager: "subscription-manager"
+    registrationManager: "registration-manager"
 };
 const errors = {
     alreadyAssigned: {
@@ -28,6 +28,14 @@ const errors = {
         message: {
             en: "Sorry this delivery has already been rated",
             fr: "Désolé, cette livraison a déjà été évaluée"
+        },
+        status: 452
+    },
+    alreadyRegistered: {
+        message: {
+            en: "Sorry but you've already made apply for a registration",
+            fr:
+            "Désolé, mais vous avez déjà fait une demande d'enregistrement."
         },
         status: 452
     },
@@ -72,6 +80,13 @@ const errors = {
             fr: "Cet utilisateur existe déjà, pensez à vous connecter"
         },
         status: 453
+    },
+    forbiddenAccess: {
+        message: {
+            en: "You are forbidden from accessing this resource",
+            fr: "L'accès à cette ressource vous est interdit"
+        },
+        status: 403
     },
     inactiveAccount: {
         message: {
@@ -286,10 +301,13 @@ const deliveryStatuses = Object.freeze({
 const userStatuses = {
     activated: "active",
     inactive: "desactivated",
-    pendingValidation: "pending"
+    pendingValidation: "pending",
+    rejected: "rejected"
 };
+const ages = ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"];
 
 const config = Object.freeze({
+    ages,
     availableRoles: Object.freeze(availableRoles),
     conflictStatuses,
     defaultValues: Object.freeze(defaultValues),
@@ -374,6 +392,7 @@ const config = Object.freeze({
         };
         return configs[env];
     },
+    registrationsRoot: "/registrations/",
     uploadsRoot: "/uploads/",
     userStatuses
 });

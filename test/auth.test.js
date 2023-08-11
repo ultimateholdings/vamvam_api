@@ -19,7 +19,7 @@ const {
     setupInterceptor,
     subscriber,
     users
-} = require("./fixtures/users.data");
+} = require("./fixtures/helper");
 
 describe("authentication tests", function () {
     let server;

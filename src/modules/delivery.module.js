@@ -179,7 +179,7 @@ function getDeliveryModule({associatedModels, model}) {
         if (isAdmin || isInvolved) {
             next();
         } else {
-            sendResponse(res, errors.notAuthorized);
+            sendResponse(res, errors.forbiddenAccess);
         }
     }
 
@@ -210,7 +210,7 @@ function getDeliveryModule({associatedModels, model}) {
         const {code} = req.body;
 
         if (delivery.driverId !== id) {
-            return sendResponse(res, errors.notAuthorized);
+            return sendResponse(res, errors.forbiddenAccess);
         }
         if (delivery.status !== started) {
             return sendResponse(res, errors.cannotPerformAction);
@@ -336,7 +336,11 @@ function getDeliveryModule({associatedModels, model}) {
         } = req.user.token;
         const {delivery} = req;
         if (delivery.clientId !== userId) {
-            return sendResponse(res, errors.notAuthorized, {cancelled: false});
+            return sendResponse(
+                res,
+                errors.forbiddenAccess,
+                {cancelled: false}
+            );
         }
         if (delivery.driverId !== null) {
             return sendResponse(res, errors.alreadyAssigned);
@@ -351,7 +355,7 @@ function getDeliveryModule({associatedModels, model}) {
         const {id} = req.user.token;
         const {delivery} = req;
         if (delivery.clientId !== id) {
-            return sendResponse(res, errors.notAuthorized);
+            return sendResponse(res, errors.forbiddenAccess);
         }
         if (delivery.status !== deliveryStatuses.toBeConfirmed) {
             return sendResponse(res, errors.cannotPerformAction);
@@ -482,7 +486,7 @@ calculation of at delivery */
         const {id} = req.user.token;
         const {delivery} = req;
         if (delivery.driverId !== id) {
-            return sendResponse(res, errors.notAuthorized);
+            return sendResponse(res, errors.forbiddenAccess);
         }
         if (delivery.status !== deliveryStatuses.pendingReception) {
             return sendResponse(res, errors.cannotPerformAction);
@@ -525,7 +529,7 @@ calculation of at delivery */
         const delivery = await conflict.getDelivery();
 
         if (conflict.assigneeId !== id) {
-            return sendResponse(res, errors.notAuthorized);
+            return sendResponse(res, errors.forbiddenAccess);
         }
         if (delivery.code !== code) {
             return sendResponse(res, errors.invalidCode);

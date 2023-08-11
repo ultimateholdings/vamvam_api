@@ -1,16 +1,18 @@
 /*jslint
 node
 */
-const defineUserModel = require("./user.model.js");
+const defineUserModel = require("./user.js");
 const otpModel = require("./otp_request.js");
 const defineDeliveryModel = require("./delivery.js");
 const defineReportModel = require("./delivery-report.js");
+const defineRegistration = require("./driver-registration.js");
 const {sequelizeConnection} = require("../utils/db-connector.js");
 const connection = sequelizeConnection();
 const User = defineUserModel(connection);
 const otpRequest = otpModel(connection);
 const Delivery = defineDeliveryModel(connection);
 const DeliveryConflict = defineReportModel(connection);
+const Registration = defineRegistration(connection);
 
 Delivery.belongsTo(User, {
     as: "Driver",
@@ -54,9 +56,17 @@ DeliveryConflict.belongsTo(User, {
         name: "assigneeId"
     }
 });
+Registration.belongsTo(User, {
+    as: "contributor",
+    constraints: false,
+    foreignKey: {
+        name: "contributorId"
+    }
+});
 module.exports = Object.freeze({
     Delivery,
     DeliveryConflict,
+    Registration,
     User,
     connection,
     otpRequest

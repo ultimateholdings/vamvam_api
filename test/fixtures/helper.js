@@ -4,15 +4,19 @@ node
 
 require("dotenv").config();
 const nock = require("nock");
-const {io: Client} = require("socket.io-client");
+const {
+    io: Client
+} = require("socket.io-client");
 const supertest = require("supertest");
 const {buildServer} = require("../../src");
 const authModule = require("../../src/modules/auth.module");
 const userModule = require("../../src/modules/user.module");
+const driverModule = require("../../src/modules/driver.module");
 const buildAuthRoutes = require("../../src/routes/auth.route");
 const buildUserRoutes = require("../../src/routes/user.route");
+const driverRoutes = require("../../src/routes/driver.route");
 const buildRouter = require("../../src/routes");
-const {availableRoles, userStatuses} = require("../../src/utils/config")
+const {availableRoles, userStatuses} = require("../../src/utils/config");
 const users = {
     badUser: {
         firstName: "NKANG NGWET",
@@ -42,13 +46,21 @@ const users = {
         phone: "+0038399873882423",
         role: availableRoles.clientRole
     },
+    registrationManager: {
+        firstName: "Ngombi Yatie",
+        lastName: "Terence",
+        password: "aSimplePass",
+        phone: "+23890048483938439897334",
+        role: availableRoles.registrationManager,
+        status: userStatuses.activated
+    },
     secondDriver: {
         firstName: "Fomekong Nguimtsa",
         internal: true,
         lastName: "Marc",
         phone: "+23809090909030943-039303",
         role: availableRoles.driverRole
-    },
+    }
 };
 const subscriber = {
     age: "25-34",
@@ -59,7 +71,7 @@ const subscriber = {
     password: "+340239230932023234",
     phoneNumber: "+340239230932023234",
     role: "admin"
-}
+};
 const pinIds = ["aewrjafk;9539", "121-dhjds-2330"];
 const otpHandler = {
     sendCode: () => Promise.resolve({verified: true}),
@@ -117,23 +129,26 @@ function setupInterceptor() {
 }
 
 function clientSocketCreator(room) {
-    const {API_PORT: port} = process.env
+    const {
+        API_PORT: port
+    } = process.env;
     return function (token) {
-        return new Promise(function(res, rej) {
+        return new Promise(function (res, rej) {
             let client;
             let options = {};
             if (token !== null && token !== undefined) {
                 options.auth = {token};
             }
             client = new Client(
-                "ws://localhost:" + port +  "/" + room, options
+                "ws://localhost:" + port + "/" + room,
+                options
             );
             client.on("connect", function () {
                 res(client);
             });
             client.on("connect_error", function (err) {
                 rej(err);
-            })
+            });
         });
     };
 }
@@ -177,35 +192,68 @@ async function syncUsers(users, model) {
 
 function setupAuthServer(otpHandler) {
     const authRoutes = buildAuthRoutes(authModule({otpHandler}));
-    const userRoutes = buildUserRoutes(userModule({}))
+    const userRoutes = buildUserRoutes(userModule({}));
     const server = buildServer(buildRouter({authRoutes, userRoutes}));
     const app = supertest.agent(server);
     return Object.freeze({app, server});
 }
 
-function registerDriver(app, driver) {
-    const request =  app.post("/auth/register")
-            .field("phoneNumber", driver.phoneNumber)
-            .field("lastName", driver.lastName)
-            .field("firstName", driver.firstName)
-            .field("password", driver.password)
-            .field("email", driver.email)
-            .field("age", driver.age)
-            .field("gender", driver.gender);
+function setupDriverServer(otpHandler) {
+    const authRoutes = buildAuthRoutes(authModule({otpHandler}));
+    const registrationRoutes = driverRoutes(driverModule({}));
+    const server = buildServer(buildRouter({authRoutes, registrationRoutes}));
+    const app = supertest.agent(server);
+    return Object.freeze({app, server});
+}
+
+function registerDriver({app, driver, token, url = "/driver/register"}) {
+    const request = app.post(url).field(
+        "phoneNumber",
+        driver.phoneNumber
+    ).field("lastName", driver.lastName).field(
+        "firstName",
+        driver.firstName
+    ).field("password", driver.password).field(
+        "email",
+        driver.email
+    ).field("age", driver.age).field(
+        "gender",
+        driver.gender
+    );
     if (driver.carInfos) {
         request.attach("carInfos", driver.carInfos);
     }
+    if (token) {
+        request.set("authorization", "Bearer " + token);
+    }
     return request;
 }
-
+function listenEvent({
+    name,
+    socket,
+    timeout = 1500
+}) {
+    return new Promise(function (res, rej) {
+        socket.on(name, function (data) {
+            socket.close();
+            res(data);
+        });
+        setTimeout(function () {
+            socket.close();
+            rej("Timeout exceeded");
+        }, timeout);
+    });
+}
 module.exports = Object.freeze({
     clientSocketCreator,
     getToken,
+    listenEvent,
     loginUser,
     otpHandler,
     pinIds,
     registerDriver,
     setupAuthServer,
+    setupDriverServer,
     setupInterceptor,
     subscriber,
     syncUsers,

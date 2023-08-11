@@ -11,12 +11,13 @@ const {assert} = require("chai");
 const {Delivery, DeliveryConflict, User, connection} = require("../src/models");
 const {
     clientSocketCreator,
+    listenEvent,
     loginUser,
     getToken,
     otpHandler,
     syncUsers,
     users
-} = require("./fixtures/users.data");
+} = require("./fixtures/helper");
 const {
     deliveries,
     deliveryResquestor,
@@ -34,18 +35,6 @@ const {
     requestDelivery
 } = deliveryResquestor(getToken, Delivery);
 
-function listenEvent({name, socket, timeout = 1500}) {
-    return new Promise(function (res, rej) {
-        socket.on(name, function (data) {
-            socket.close();
-            res(data);
-        });
-        setTimeout(function () {
-            socket.close();
-            rej("Timeout exceeded");
-        }, timeout);
-    });
-}
 function updatePosition(socket, position) {
     return new Promise(function (res) {
         socket.emit("new-position", position);
@@ -90,8 +79,8 @@ describe("delivery side effects test", function () {
     });
 
     after(async function () {
-        await server.close();
         socketServer.close();
+        await server.close();
     });
 
     it("should reject if a user is not authenticated", async function () {

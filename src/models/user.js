@@ -3,20 +3,25 @@ node, nomen, this
 */
 const fs = require("fs");
 const path = require("path");
-const {DataTypes, Op, QueryTypes, col, fn, where} = require("sequelize");
+const {DataTypes, Op, col, fn, where} = require("sequelize");
 const {
     fileExists,
     formatDbPoint,
     hashPassword,
     propertiesPicker
 } = require("../utils/helpers");
-const {availableRoles, uploadsRoot, userStatuses} = require("../utils/config");
+const {
+    ages,
+    availableRoles,
+    uploadsRoot,
+    userStatuses
+} = require("../utils/config");
 
 function defineUserModel(connection) {
     const schema = {
         age: {
             type: DataTypes.ENUM,
-            values: ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"]
+            values: ages
         },
         available: {
             defaultValue: true,
@@ -65,21 +70,11 @@ function defineUserModel(connection) {
             values: Object.values(availableRoles)
         },
         status: {
-            defaultValue: userStatuses.pendingValidation,
+            defaultValue: userStatuses.activated,
             type: DataTypes.ENUM,
             values: Object.values(userStatuses)
         }
     };
-    const driverRegistrationDatas = [
-        "phone",
-        "firstName",
-        "lastName",
-        "password",
-        "carInfos",
-        "gender",
-        "age",
-        "email"
-    ];
     const excludedProps = ["password", "deviceToken"];
     const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
     const allowedProps = Object.keys(schema).filter(
@@ -180,7 +175,6 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         return result ?? [];
     };
     user.genericProps = genericProps;
-    user.registrationDatas = driverRegistrationDatas;
     user.statuses = userStatuses;
     return user;
 }

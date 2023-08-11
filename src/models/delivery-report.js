@@ -12,6 +12,11 @@ function defineReportModel(connection) {
             defaultValue: new Date(),
             type: DataTypes.DATE
         },
+        id: {
+            defaultValue: DataTypes.UUIDV4,
+            primaryKey: true,
+            type: DataTypes.UUID
+        },
         lastLocation: {
             allowNull: false,
             type: new DataTypes.GEOMETRY("POINT")

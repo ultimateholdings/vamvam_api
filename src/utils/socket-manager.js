@@ -6,7 +6,12 @@ const {socketAuthenticator} = require("../utils/middlewares");
 const {availableRoles} = require("./config");
 
 
-function getSocketManager({conflictHandler, deliveryHandler, httpServer}) {
+function getSocketManager({
+    conflictHandler,
+    deliveryHandler,
+    httpServer,
+    registrationHandler
+}) {
     const io = new Server(httpServer);
     const connectedUsers = Object.create(null);
 
@@ -24,6 +29,9 @@ function getSocketManager({conflictHandler, deliveryHandler, httpServer}) {
     }
     if (typeof conflictHandler === "function") {
         conflictHandler(io);
+    }
+    if (typeof registrationHandler === "function") {
+        registrationHandler(io);
     }
 
     io.use(socketAuthenticator([availableRoles.adminRole]));
