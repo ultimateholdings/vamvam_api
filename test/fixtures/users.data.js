@@ -38,6 +38,12 @@ const users = {
         lastName: "Marc",
         phone: "+23809090909030943-039303",
         role: "driver"
+    },
+    subscriberAdmin : {
+        firstName: "Eyong",
+        lastName: "Enow",
+        phone: "+23809090909033487-039303",
+        role: "admin"
     }
 };
 const pinIds = ["aewrjafk;9539", "121-dhjds-2330"];

@@ -184,7 +184,7 @@ const eventMessages = {
             body: "Vous avez une nouvelle demande de livraison près de vous, consultez-la",
             title: "New delivery"
         }
-    }
+    },
 };
 
 const defaultValues = {
