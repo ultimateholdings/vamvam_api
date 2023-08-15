@@ -108,7 +108,7 @@ function setupInterceptor() {
 }
 
 function clientSocketCreator(room) {
-    const {API_PORT: port} = process.env
+    const {API_PORT: port} = process.env;
     return function (token) {
         return new Promise(function(res, rej) {
             let client;
