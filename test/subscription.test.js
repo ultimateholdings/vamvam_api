@@ -1,7 +1,6 @@
 /*jslint
 node, nomen
 */
-
 const { after, afterEach, before, beforeEach, describe, it } = require("mocha");
 const { assert } = require("chai");
 const { Subscription, User, connection } = require("../src/models");
@@ -17,33 +16,34 @@ const {
   setupSubscriptionServer,
 } = require("./fixtures/subscriptions.data");
 const { errors } = require("../src/utils/config");
-
 const { postSubscription } = subscriptionHandle(getToken, Subscription);
-
 describe("Subscription CRUD test", function () {
   let server;
   let app;
   let dbUsers;
-
-  before(function () {
+  before(async function () {
     const tmp = setupSubscriptionServer(otpHandler);
     server = tmp.server;
     app = tmp.app;
-  });
-
-  beforeEach(async function () {
     await connection.sync({ force: true });
     dbUsers = await syncUsers(users, User);
   });
-
-  afterEach(async function () {
+  after(async function () {
     await connection.drop();
+    await server.close();
   });
-
-  after(function () {
-    server.close();
+  it("should return all bunch", async function () {
+    let response;
+    let adminToken = await Promise.all([
+      getToken(app, dbUsers.subscriberAdmin.phone),
+    ]);
+    const bunchs = await Subscription.bulkCreate(subscriptions);
+    response = await app
+      .get("/subscription")
+      .set("authorization", "Bearer " + adminToken);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.data.length, subscriptions.length);
   });
-
   it("should return a 200 status on valid propertices and 404 on invalid propertices", async function () {
     let [userToken, adminToken] = await Promise.all([
       getToken(app, dbUsers.goodUser.phone),
@@ -63,19 +63,58 @@ describe("Subscription CRUD test", function () {
   it("should return subscription infos", async function () {
     let response;
     let adminCreate;
-    let [adminToken] = await Promise.all([
-      getToken(app, dbUsers.subscriberAdmin.phone),
+    let [userToken] = await Promise.all([
+      getToken(app, dbUsers.goodUser.phone),
     ]);
     adminCreate = await postSubscription({
       app,
       data: subscriptions[1],
       phone: dbUsers.subscriberAdmin.phone,
     });
-    const subscriptionId = adminCreate.id;
+    const subscriptionId = adminCreate.data.subscriptionId;
     response = await app
-      .get("subscription/infos")
+      .get("/subscription/infos")
+      .send({ subscriptionId })
+      .set("authorization", "Bearer " + userToken);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.subscriptionId, adminCreate.data.subscriptionId);
+  });
+  it("should edit bunch", async function () {
+    let response;
+    let subscription;
+    let updateData;
+    updateData = {
+      title: "28 Livraisons",
+      bonus: 1,
+      point: 20,
+      unitPrice: 300,
+    };
+    let adminToken = await Promise.all([
+      getToken(app, dbUsers.subscriberAdmin.phone),
+    ]);
+    subscriptions[5].price = 6000,
+    subscriptions[5].gainMin = 20000
+    subscription = await Subscription.create(subscriptions[5]);
+    updateData.subscriptionId = subscription.id
+    response = await app.post("/subscription/update")
+    .send(updateData)
+    .set("authorization", "Bearer " + adminToken);
+    assert.equal(response.status, 200)
+  });
+  it("should delete subscription", async function(){
+    let response;
+    let subscription;
+    let adminToken = await Promise.all([
+      getToken(app, dbUsers.subscriberAdmin.phone),
+    ]);
+    subscriptions[5].price = 6000,
+    subscriptions[5].gainMin = 20000
+    subscription = await Subscription.create(subscriptions[5]);
+    const subscriptionId = subscription.id;
+    response = await app
+      .post("/subscription/delete")
       .send({ subscriptionId })
       .set("authorization", "Bearer " + adminToken);
-    assert.equal(response.status, 200);
-  });
+    assert.equal(response.status, 204);
+  })
 });

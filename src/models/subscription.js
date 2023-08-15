@@ -29,6 +29,11 @@ function defineSubscriptionModel(connection) {
         gainMin: {
             type: DataTypes.DOUBLE,
             allowNull: false
+        },
+        id: {
+            defaultValue: DataTypes.UUIDV4,
+            primaryKey: true,
+            type: DataTypes.UUID
         }
     };
     const subscription = connection.define("subscription", schema)
