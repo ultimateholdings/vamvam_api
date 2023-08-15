@@ -80,7 +80,7 @@ describe("registration tests", function () {
         let response;
         await Registration.create(subscriber);
         response = await registerDriver({app, driver});
-        assert.equal(response.status, errors.existingUser.status);
+        assert.equal(response.status, errors.alreadyRegistered.status);
         driver.email = "driver@test.com";
         driver.phoneNumber = users.goodUser.phone;
         response = await registerDriver({app, driver});

@@ -279,6 +279,18 @@ const eventMessages = {
             title: "Nouvelle livraison"
         }
     },
+    newRoom: {
+        en: {
+            body: "Now you can talk to your delivery contact.",
+            title: "New discussion"
+        },
+        fr: {
+            body:
+            "Vous pouvez désormais dialoguer avec votre interlocuteur" +
+            "  pour la livraison",
+            title: "Nouvelle discussion"
+        }
+    },
 };
 
 const defaultValues = {

@@ -77,6 +77,7 @@ function defineUserModel(connection) {
     };
     const excludedProps = ["password", "deviceToken"];
     const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
+    const shortDescriptionProps = ["id", "avatar", "firstName", "lastName"];
     const allowedProps = Object.keys(schema).filter(
         (key) => !excludedProps.includes(key)
     );
@@ -139,6 +140,11 @@ function defineUserModel(connection) {
         }
         return propertiesPicker(result)(allowedProps);
     };
+
+    user.prototype.toShortResponse = function () {
+        let result = this.dataValues;
+        return propertiesPicker(result)(shortDescriptionProps);
+    }
 
 /*
 Please note that these GIS functions are only supported on

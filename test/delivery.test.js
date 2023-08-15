@@ -108,7 +108,7 @@ describe("delivery CRUD test", function () {
             let response = await app.get("/delivery/infos").send({
                 id: secondUserRequest.id
             }).set("authorization", "Bearer " + goodUserRequest.token);
-            assert.equal(response.status, errors.notAuthorized.status);
+            assert.equal(response.status, errors.forbiddenAccess.status);
         }
     );
 
@@ -191,11 +191,11 @@ describe("delivery CRUD test", function () {
                 code: request.code,
                 id: request.id
             }).set("authorization", "Bearer " + request.token);
-            assert.equal(response.status, errors.notAuthorized.status);
+            assert.equal(response.status, errors.forbiddenAccess.status);
             response = await app.post("/delivery/verify-code").send(
                 request
             ).set("authorization", "Bearer " + secondDriverToken);
-            assert.equal(response.status, errors.notAuthorized.status);
+            assert.equal(response.status, errors.forbiddenAccess.status);
         }
     );
 

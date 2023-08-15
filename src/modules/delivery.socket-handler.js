@@ -180,8 +180,28 @@ function deliveryMessageHandler(emitter) {
                         meta: {deliveryId, eventName},
                         recieverId: clientId
                     }
-                );
-            }
+                    );
+                }
+        }
+        
+        function handleRoomJoin(data) {
+            const {roomId, users} = data;
+            const eventName = "room-created";
+            users.forEach(function (id) {
+                if (connectedUsers[id] !== undefined) {
+                    connectedUsers[id].join(roomId);
+                    connectedUsers[id].emit(eventName, {roomId});
+                } else {
+                    emitter.emitEvent(
+                        "cloud-message-fallback-requested",
+                        {
+                            message: eventMessages.newRoom,
+                            meta: {eventName, roomId},
+                            recieverId: id
+                        }
+                    );
+                }
+            });
         }
 
         emitter?.addEventListener(
@@ -189,14 +209,15 @@ function deliveryMessageHandler(emitter) {
             onPositionUpdateCompleted
         );
 
-        emitter?.addEventListener("delivery-end", handleEnding);
-        emitter?.addEventListener("delivery-accepted", handleAcceptation);
-        emitter?.addEventListener("delivery-cancelled", handleCancellation);
-        emitter?.addEventListener("delivery-recieved", handleReception);
-        emitter?.addEventListener("delivery-started", handleBegining);
-        emitter?.addEventListener("new-delivery", handleNewDelivery);
-        emitter?.addEventListener("new-assignment", handleAssignment);
-        emitter?.addEventListener("new-conflict", handleNewConflict);
+        emitter.addEventListener?.("delivery-end", handleEnding);
+        emitter.addEventListener?.("delivery-accepted", handleAcceptation);
+        emitter.addEventListener?.("delivery-cancelled", handleCancellation);
+        emitter.addEventListener?.("delivery-recieved", handleReception);
+        emitter.addEventListener?.("delivery-started", handleBegining);
+        emitter.addEventListener?.("new-delivery", handleNewDelivery);
+        emitter.addEventListener?.("new-assignment", handleAssignment);
+        emitter.addEventListener?.("new-conflict", handleNewConflict);
+        emitter.addEventListener?.("room-created", handleRoomJoin);
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

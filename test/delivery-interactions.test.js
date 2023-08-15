@@ -8,7 +8,7 @@ const {
     it
 } = require("mocha");
 const {assert} = require("chai");
-const {Delivery, DeliveryConflict, User, connection} = require("../src/models");
+const {Delivery, DeliveryConflict, Room, User, connection} = require("../src/models");
 const {
     clientSocketCreator,
     listenEvent,
@@ -104,7 +104,7 @@ describe("delivery side effects test", function () {
                 res(data)
             });
         });
-        assert.equal(data.deliveryId, request.id);
+        assert.equal(data.deliveryId, request.id);  
     });
     
     it(
@@ -151,13 +151,15 @@ describe("delivery side effects test", function () {
         it("should notify a client on driver approval", async function () {
             let data;
             const {driverToken} = setupDatas;
-            const client = await connectUser(request.token);
+            const [client, driver] = await Promise.all([
+                connectUser(request.token),
+                connectUser(driverToken)
+            ]);
             await app.post("/delivery/accept").send(request).set(
                 "authorization", "Bearer " + driverToken
             );
             data = await new Promise(function (res) {
                 client.on("delivery-accepted", function (data) {
-                    client.close();
                     res(data);
                 });
             });
@@ -165,6 +167,20 @@ describe("delivery side effects test", function () {
                 deliveryId: request.id,
                 driver: dbUsers.firstDriver.toResponse()
             });
+            data = await Promise.allSettled([
+                listenEvent({
+                    name: "room-created",
+                    socket: client,
+                }),
+                listenEvent({
+                    name: "room-created",
+                    socket: driver
+                })
+            ]);
+            assert.isTrue(data.every((item) => item.value?.roomId !== undefined));
+            assert.equal(data[0].value.roomId, data[1].value.roomId);
+            data = await Room.findOne({where: {id: data[0].value.roomId}});
+            assert.isNotNull(data);
         });
     
         it("should notify a driver on client cancellation", async function () {

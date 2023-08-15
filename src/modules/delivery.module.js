@@ -105,12 +105,17 @@ function getDeliveryModule({associatedModels, model}) {
             point: delivery.departure
         });
         drivers = drivers ?? [];
-        deliveryModel?.emitEvent(eventName, {
+        deliveryModel.emitEvent?.(eventName, {
             delivery: delivery.toResponse(),
             drivers
         });
     }
 
+    async function createChatRoom(destination, users) {
+        let name = await generateCode(6);
+        name += "-> " + destination; 
+        deliveryModel.emitEvent?.("room-creation-requested", {name, users});
+    }
     async function updateDriverPosition(driverMessage) {
         const {data, driverId} = driverMessage;
         let clients;
@@ -277,6 +282,7 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function acceptDelivery(req, res) {
         let driver;
+        let client;
         const {
             phone,
             id: userId
@@ -300,11 +306,16 @@ function getDeliveryModule({associatedModels, model}) {
         res.status(200).send({
             accepted: true
         });
+        client = await delivery.getClient();
         deliveryModel?.emitEvent("delivery-accepted", {
             clientId: delivery.clientId,
             deliveryId: delivery.id,
             driver: driver.toResponse()
         });
+        await createChatRoom(
+            delivery.deliveryMeta.destinationAddress,
+            [client, driver]
+        );
     }
 
     async function archiveConflict(req, res) {
