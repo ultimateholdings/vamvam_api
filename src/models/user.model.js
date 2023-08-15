@@ -2,20 +2,37 @@
 node, nomen, this
 */
 const fs = require("fs");
+const path = require("path");
 const {DataTypes, QueryTypes} = require("sequelize");
 const {
     fileExists,
     hashPassword,
     propertiesPicker
 } = require("../utils/helpers");
+const {uploadsRoot} = require("../utils/config");
 
 function defineUserModel(connection) {
+    
+    const statuses = {
+        activated: "active",
+        pendingValidation: "pending",
+        inactive: "desactivated"
+    };
+    const roles = {
+        adminRole: "admin",
+        clientRole: "client",
+        driverRole: "driver"
+    };
     const schema = {
         age: {
             type: DataTypes.ENUM,
             values: ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"]
         },
         avatar: DataTypes.STRING,
+        available: {
+            defaultValue: true,
+            type: DataTypes.BOOLEAN
+        },
         carInfos: DataTypes.STRING,
         deviceToken: DataTypes.STRING,
         email: {
@@ -49,16 +66,26 @@ function defineUserModel(connection) {
         },
         position: new DataTypes.GEOMETRY("POINT"),
         role: {
-            defaultValue: "client",
+            defaultValue: roles.clientRole,
             type: DataTypes.ENUM,
-            values: ["client", "driver", "admin"]
+            values: Object.values(roles)
         },
         status: {
-            defaultValue: "active",
+            defaultValue: statuses.pendingValidation,
             type: DataTypes.ENUM,
-            values: ["active", "pending", "desactivated"]
+            values: Object.values(statuses)
         }
     };
+    const driverRegistrationDatas = [
+        "phone",
+        "firstName",
+        "lastName",
+        "password",
+        "carInfos",
+        "gender",
+        "age",
+        "email"
+    ];
     const excludedProps = ["password", "deviceToken"];
     const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
     const allowedProps = Object.keys(schema).filter(
@@ -87,8 +114,8 @@ function defineUserModel(connection) {
                 let hash;
                 let previousAvatarExists;
                 let previousInfoExists;
-                previousAvatarExists = await fileExists(previous.avatar);
-                previousInfoExists = await fileExists(previous.carInfos);
+                previousAvatarExists = await fileExists(uploadsRoot + previous.avatar);
+                previousInfoExists = await fileExists(uploadsRoot + previous.carInfos);
                 if (updates.has("password")) {
                     hash = await hashPassword(password);
                     current.password = hash;
@@ -114,6 +141,12 @@ function defineUserModel(connection) {
                 latitude: result.position.coordinates[0],
                 longitude: result.position.coordinates[1]
             };
+        }
+        if (result.avatar !== null) {
+            result.avatar = uploadsRoot +  path.basename(result.avatar);
+        }
+        if (result.carInfos !== null) {
+            result.carInfos = uploadsRoot +  path.basename(result.carInfos);
         }
         return propertiesPicker(result)(allowedProps);
     };
@@ -146,6 +179,9 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         return result ?? [];
     };
     user.genericProps = genericProps;
+    user.registrationDatas = driverRegistrationDatas;
+    user.roles = roles;
+    user.statuses = statuses;
     return user;
 }
 

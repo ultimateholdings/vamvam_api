@@ -34,6 +34,47 @@ non-auth-endpoints:
           en: string
           fr: string
 
+  /auth/register :
+    action: register a new driver
+    type: post
+    body:
+      required:
+        phone: string
+        firstName: string
+        lastName: string
+        password: string
+        email: string
+        carInfos: File
+    response:
+        registered: boolean
+        message: 
+          en: string
+          fr: string
+
+  /auth/verify-reset :
+    action: verify the OTP code for password reset
+    type: post
+    body:
+      code: string
+      phoneNumber: string
+    response:
+        resetToken: string
+        message: 
+          en: string
+          fr: string
+
+  /auth/reset-password :
+    action: reset a user's password
+    type: post
+    body:
+      key: string (the eventual resetToken)
+      password: string
+    response:
+        updated: boolean
+        message: 
+          en: string
+          fr: string
+
           
 auth-endpoints:
   user:
@@ -70,9 +111,20 @@ auth-endpoints:
         email: string
       response: value of updated informations
 
-    /user/delete-avatar :
+
+    /user/delete-avatar:
       action: delete a user avatar
       type: post
+      response:
+        updated: boolean
+
+  authentication:
+    /auth/change-password:
+      action: update a user password
+      type: post
+      body:
+        oldPassword: string
+        newPassword: string
       response:
         updated: boolean
 

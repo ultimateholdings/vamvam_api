@@ -3,7 +3,7 @@ node
 */
 const {User} = require("../models");
 const {propertiesPicker, sendResponse} = require("../utils/helpers");
-const {errors} = require("../utils/config");
+const {errors, uploadsRoot} = require("../utils/config");
 
 
 function getUserModule({
@@ -40,10 +40,10 @@ function getUserModule({
         response = responsePicker(responseFields) || {};
         response.updated = updated;
         if (avatar.length > 0) {
-            response.avatar = "/uploads/" + avatar[0].basename;
+            response.avatar = uploadsRoot + avatar[0].basename;
         }
         if (carInfos.length > 0) {
-            response.carInfos = "/uploads/" + carInfos[0].basename;
+            response.carInfos = uploadsRoot + carInfos[0].basename;
         }
         return response;
     }
