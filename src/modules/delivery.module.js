@@ -98,6 +98,20 @@ function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
     const associations = associatedModels || {DeliveryConflict, User};
 
+    deliveryModel.addEventListener(
+        "chat-room-requested",
+        async function ({userId}) {
+            const user = await associations.User.findOne({
+                where: {id: userId}
+            });
+            const rooms = await user?.getRooms();
+            deliveryModel.emitEvent(
+                "user-rooms-request-fulfilled",
+                {rooms: rooms ?? [], userId}
+            );
+        }
+    );
+
     async function notifyNearbyDrivers(delivery, eventName) {
         let drivers = await associations?.User?.nearTo({
             by: 5500,
@@ -105,7 +119,7 @@ function getDeliveryModule({associatedModels, model}) {
             point: delivery.departure
         });
         drivers = drivers ?? [];
-        deliveryModel.emitEvent?.(eventName, {
+        deliveryModel.emitEvent(eventName, {
             delivery: delivery.toResponse(),
             drivers
         });
@@ -113,12 +127,13 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function createChatRoom(destination, users) {
         let name = await generateCode(6);
-        name += "-> " + destination; 
-        deliveryModel.emitEvent?.("room-creation-requested", {name, users});
+        name += " -> " + destination;
+        deliveryModel.emitEvent("room-creation-requested", {name, users});
     }
     async function updateDriverPosition(driverMessage) {
         const {data, driverId} = driverMessage;
         let clients;
+        let position;
         if (isValidLocation(data)) {
             if (Array.isArray(data)) {
                 position = data.at(-1);
@@ -129,7 +144,10 @@ function getDeliveryModule({associatedModels, model}) {
                 coordinates: [position.latitude, position.longitude],
                 type: "Point"
             };
-            await associations?.User.update({position}, {where: {id: driverId}});
+            await associations?.User.update(
+                {position},
+                {where: {id: driverId}}
+            );
             clients = await deliveryModel?.findAll({where: {
                 driverId,
                 status: "started"
@@ -194,7 +212,7 @@ function getDeliveryModule({associatedModels, model}) {
         const allowedStatus = [
             deliveryStatuses.pendingReception,
             deliveryStatuses.toBeConfirmed,
-            deliveryStatuses.started,
+            deliveryStatuses.started
         ];
         if (!allowedStatus.includes(delivery.status)) {
             return sendResponse(res, errors.cannotPerformAction);
@@ -271,12 +289,12 @@ function getDeliveryModule({associatedModels, model}) {
     async function ensureDriverExists(req, res, next) {
         const {driverId} = req.body;
         let driver = await associations.User.findOne({
-           where: {id: driverId}
-       });
-       if (driver === null) {
-        return sendResponse(res, errors.driverNotFound);
-       }
-       req.driver = driver;
+            where: {id: driverId}
+        });
+        if (driver === null) {
+            return sendResponse(res, errors.driverNotFound);
+        }
+        req.driver = driver;
         next();
     }
 
@@ -328,7 +346,7 @@ function getDeliveryModule({associatedModels, model}) {
     }
 
     async function assignDriver(req, res) {
-        const {driver, conflict} = req;
+        const {conflict, driver} = req;
         const {id} = req.body;
         let assignment = await conflict.getDeliveryDetails();
         conflict.assignerId = id;
@@ -337,7 +355,7 @@ function getDeliveryModule({associatedModels, model}) {
         res.status(200).send({assigned: true});
         deliveryModel?.emitEvent("new-assignment", {
             assignment,
-            driverId: driver.id,
+            driverId: driver.id
         });
     }
 
@@ -467,8 +485,8 @@ calculation of at delivery */
         const {delivery} = req;
         const {conflictType, lastPosition} = req.body;
         const conflict = {
-            type: conflictType,
-            lastPosition
+            lastPosition,
+            type: conflictType
         };
         conflict.reporter = await associations.User.findOne({where: {id}});
         conflict.reporter = conflict.reporter.toResponse();
@@ -479,10 +497,10 @@ calculation of at delivery */
         delivery.status = deliveryStatuses.inConflict;
         await delivery.save();
         await associations.DeliveryConflict.create({
-            type: conflictType,
             deliveryId: delivery.id,
             lastLocation: toDbPoint(lastPosition),
-            reporterId: id
+            reporterId: id,
+            type: conflictType
         });
         conflict.delivery = delivery.toResponse();
         res.status(200).send({reported: true});
@@ -490,7 +508,7 @@ calculation of at delivery */
             clientId: delivery.clientId,
             conflict,
             deliveryId: delivery.id
-        });  
+        });
     }
 
     async function signalReception(req, res) {
@@ -557,13 +575,13 @@ calculation of at delivery */
 
     return Object.freeze({
         acceptDelivery,
-        assignDriver,
         archiveConflict,
+        assignDriver,
         canAccessDelivery,
         cancelDelivery,
         confirmDeposit,
-        ensureCanTerminate,
         ensureCanReport,
+        ensureCanTerminate,
         ensureConflictOpened,
         ensureConflictingDelivery,
         ensureDeliveryExists,

@@ -89,7 +89,7 @@ function getMessageModule({ messageTest }) {
     }
   };
 
-  async function updateMessageReader(req, res){
+  async function updateMessageReader(req, res) {
     const { messageId, userId } = req.body;
     try {
       const message = await messageModel.findOne({ where: { id: messageId }});

@@ -19,6 +19,10 @@ function deliveryMessageHandler(emitter) {
             socket.on("new-position", function (data) {
                 positionUpdateHandler(socket, data);
             });
+            emitter.emitEvent(
+                "missed-messages-requested",
+                {userId: socket.user.id}
+            );
         }
 
         function positionUpdateHandler(socket, data) {
@@ -183,6 +187,15 @@ function deliveryMessageHandler(emitter) {
                     );
                 }
         }
+
+        function handleMissedMessages(data) {
+            const {roomId, userId} = data;
+            if (connectedUsers[userId] !== undefined) {
+                connectedUsers[userId].join(roomId);
+                delete data.userId;
+                connectedUsers[userId].emit("new-missed-messages", data);
+            }
+        }
         
         function handleRoomJoin(data) {
             const {roomId, users} = data;
@@ -218,6 +231,7 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener?.("new-assignment", handleAssignment);
         emitter.addEventListener?.("new-conflict", handleNewConflict);
         emitter.addEventListener?.("room-created", handleRoomJoin);
+        emitter.addEventListener?.("missed-messages-from-room", handleMissedMessages);
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

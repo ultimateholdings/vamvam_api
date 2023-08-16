@@ -228,6 +228,13 @@ function registerDriver({app, driver, token, url = "/driver/register"}) {
     }
     return request;
 }
+function postData({app, data, token, url}) {
+    const request = app.post(url).send(data);
+    if (typeof token === "string") {
+        request.set("authorization", "Bearer " + token);
+    }
+    return request;
+}
 function listenEvent({
     name,
     socket,
@@ -251,6 +258,7 @@ module.exports = Object.freeze({
     loginUser,
     otpHandler,
     pinIds,
+    postData,
     registerDriver,
     setupAuthServer,
     setupDriverServer,

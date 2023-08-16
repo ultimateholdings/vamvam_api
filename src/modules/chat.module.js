@@ -9,11 +9,32 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
     const deliveriesModel = deliveryModel || Delivery;
     const messagesModel = messageModel || Message;
     const roomsModel = roomModel || Room;
-
-    deliveriesModel.addEventListener?.("room-creation-requested", async function (data) {
+    
+    deliveriesModel.addEventListener("room-creation-requested", async function (data) {
         const {name, users} = data;
         await createRoom(name, users);
     });
+
+    deliveriesModel.addEventListener(
+        "missed-messages-requested",
+        async function ({userId}) {
+            let missedRooms = await messagesModel.getMissedMessages(userId);
+            Object.entries(missedRooms).forEach(function ([roomId, datas]) {
+                datas.roomId = roomId;
+                datas.userId = userId;
+                deliveriesModel.emitEvent("missed-messages-from-room", datas);
+            });
+        }
+    );
+    
+    async function createRoom(name, userList) {
+        let result = await roomsModel.create({name});
+        result.setUsers(userList);
+        deliveriesModel.emitEvent("room-created", {
+            roomId: result.id,
+            users: userList.map((user) => user.id)
+        });
+    }
 
     async function ensureRoomExists(req, res, next) {
         const {roomId} = req.body;
@@ -32,14 +53,6 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
             return sendResponse(res, errors.forbiddenAccess);
         }
         next();
-    }
-    async function createRoom(name, userList) {
-        let result = await roomsModel.create({name});
-        result.setUsers(userList);
-        deliveriesModel.emitEvent?.("room-created", {
-            roomId: result.id,
-            users: userList.map((user) => user.id)
-        });
     }
     async function sendMessage(req, res) {
         const {id} = req.user.token;

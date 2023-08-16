@@ -144,8 +144,7 @@ function setupDeliveryServer(otpHandler) {
     let app;
     let server;
     const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));
-    deliveryRoutes = buildDeliveryRoutes(deliveryModule({}));
-    server = buildServer(buildRouter({authRoutes, deliveryRoutes}));
+    server = buildServer(buildRouter({authRoutes}));
     app = supertest.agent(server);
     return Object.freeze({app, server});
 }
