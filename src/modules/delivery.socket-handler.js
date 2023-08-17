@@ -211,6 +211,26 @@ function deliveryMessageHandler(emitter) {
                 );
             }
         }
+
+        function handleNewMessage({message, userId}) {
+            const eventName = "new-message";
+            if (connectedUsers[userId] !== undefined) {
+                connectedUsers[userId].emit(eventName, message);
+                connectedUsers[userId].join(message.room.id);
+            } else {
+                emitter.emitEvent(
+                    "cloud-message-fallback-requested",
+                    {
+                        message: eventMessages.withSameContent(
+                            message.room.name,
+                            message.sender.firstName + ": " + message.content
+                        ),
+                        meta: {eventName, message},
+                        recieverId: userId
+                    }
+                );
+            }
+        }
         
         function handleRoomJoin(data) {
             const {roomId, users} = data;
@@ -248,6 +268,7 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener?.("room-created", handleRoomJoin);
         emitter.addEventListener?.("missed-messages-from-room", handleMissedMessages);
         emitter.addEventListener("messages-read-fulfill", handleReadMessages);
+        emitter.addEventListener("new-message-sent", handleNewMessage);
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

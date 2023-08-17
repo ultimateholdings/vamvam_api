@@ -53,8 +53,8 @@ describe("Message test", function () {
       getToken(app, dbUsers.goodUser.phone),
       getToken(app, dbUsers.firstDriver.phone),
     ]);
-  messages[0].roomId = room.id;
-  messages[1].roomId = room.id;
+    messages[0].roomId = room.id;
+    messages[1].roomId = room.id;
   });
 
   afterEach(async function () {
@@ -62,6 +62,7 @@ describe("Message test", function () {
   });
 
   after(function () {
+    socketServer.close();
     server.close();
   });
   it("should return Room Messages", async function () {
@@ -108,4 +109,27 @@ describe("Message test", function () {
     data = await Message.findOne({where: {id: message.id}});
     assert.isNotNull(data);
   });
+  it(
+    "should notify a user on a new message in a discussion",
+    async function () {
+      let data;
+      let response;
+      let [client, driver] = await Promise.all([
+        connectedUser(tokens[0]),
+        connectedUser(tokens[1])
+      ]);
+      response = await postData({
+        app,
+        data: messages[1],
+        token: tokens[1],
+        url: "/discussion/new-message"
+      });
+      data = await Promise.allSettled([
+        listenEvent({name: "new-message", socket: client}),
+        listenEvent({name: "new-message", socket: driver})
+      ]);
+      assert.isTrue(data[0].value?.id === response.body.id);
+      assert.isTrue(data[1].value?.id === undefined);
+    }
+  );
 });

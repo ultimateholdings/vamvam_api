@@ -75,6 +75,9 @@ Message.belongsTo(User, {
     constraints: false,
     foreignKey: "senderId"
 });
+Room.belongsTo(Delivery, {
+    constraints: false
+});
 Room.belongsToMany(User, {through: UserRoom});
 User.belongsToMany(Room, {through: UserRoom});
 Room.hasMany(Message, {foreignKey: "roomId"});

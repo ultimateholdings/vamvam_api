@@ -73,16 +73,38 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
         const {room} = req;
         const {content} = req.body;
         let message;
+        let sender;
+        let users;
 
-        if (typeof content === "string" && content.length > 0) {
-            message = await messagesModel.create({
-                content,
-                senderId: id,
-                roomId: room.id
-            });
-            return res.status(200).send({id: message.id});
+        if (typeof content !== "string" || content?.length <= 0) {
+            return sendResponse(res, errors.invalidValues);
         }
-        sendResponse(res, errors.invalidValues);
+        message = await messagesModel.create({
+            content,
+            senderId: id,
+            roomId: room.id
+        });
+        res.status(200).send({id: message.id});
+        sender = await message.getSender();
+        users = await room.getUsers();
+        message = {
+            content,
+            date: message.createdAt,
+            id: message.id,
+            room: {
+                id: room.id,
+                name: room.name
+            },
+            sender: sender.toShortResponse()
+        };
+        users.forEach(function (user) {
+            if (user.id !== sender.id) {
+                deliveriesModel.emitEvent("new-message-sent", {
+                    message,
+                    userId: user.id
+                });
+            }
+        });
     }
 
     async function getRoomMessages(req, res) {

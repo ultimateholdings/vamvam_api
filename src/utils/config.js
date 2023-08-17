@@ -291,6 +291,12 @@ const eventMessages = {
             title: "Nouvelle discussion"
         }
     },
+    withSameContent(title, body) {
+        return {
+            en: {body, title},
+            fr: {body, title},
+        };
+    }
 };
 
 const defaultValues = {
