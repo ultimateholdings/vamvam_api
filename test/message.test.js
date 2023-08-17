@@ -95,4 +95,17 @@ describe("Message test", function () {
 /*this assertion is made this way to avoid false negative introduced by date comparison*/
     assert.isTrue(data.roomId === room.id && data.messages.length === 1);
   });
+  it("should enable to mark a message as read", async function () {
+    let data;
+    let client;
+    let message = Object.create(null);
+    Object.assign(message, messages[0]);
+    message.senderId = dbUsers.firstDriver.id;
+    message = await Message.create(message);
+    client = await connectedUser(tokens[0]);
+    client.emit("messages-read", [message.id]);
+    await listenEvent({name: "messages-marked-as-read", socket: client});
+    data = await Message.findOne({where: {id: message.id}});
+    assert.isNotNull(data);
+  });
 });

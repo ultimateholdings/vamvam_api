@@ -10,10 +10,13 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
     const messagesModel = messageModel || Message;
     const roomsModel = roomModel || Room;
     
-    deliveriesModel.addEventListener("room-creation-requested", async function (data) {
-        const {name, users} = data;
-        await createRoom(name, users);
-    });
+    deliveriesModel.addEventListener(
+        "room-creation-requested",
+        async function (data) {
+            const {name, users} = data;
+            await createRoom(name, users);
+        }
+    );
 
     deliveriesModel.addEventListener(
         "missed-messages-requested",
@@ -26,6 +29,17 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
             });
         }
     );
+    deliveriesModel.addEventListener(
+        "messages-read-request",
+        async function (data) {
+            const {messagesId = [], userId} = data;
+            let [updated] = await messagesModel.markAsRead(userId, messagesId);
+            deliveriesModel.emitEvent(
+                "messages-read-fulfill",
+                {updated, userId}
+            );
+        }
+    )
     
     async function createRoom(name, userList) {
         let result = await roomsModel.create({name});

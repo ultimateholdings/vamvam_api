@@ -1,8 +1,8 @@
 /*jslint
 node, nomen
 */
-const { DataTypes } = require("sequelize");
-const { CustomEmitter } = require("../utils/helpers");
+const {DataTypes, Op, col, fn} = require("sequelize");
+const {CustomEmitter} = require("../utils/helpers");
 
 function defineMessageModel(connection) {
   const emitter = new CustomEmitter();
@@ -22,6 +22,23 @@ function defineMessageModel(connection) {
   message.emitEvent = function(eventName, func){
     emitter.emit(eventName, func);
   };
+  message.markAsRead = function (userId, messagesId) {
+    return this.update(
+      {
+        reader: fn(
+          "JSON_ARRAY_INSERT",
+          fn(
+            "IF",
+            fn("ISNULL", col("reader")),
+            fn("JSON_ARRAY"), col("reader")
+          ),
+          "$[0]",
+          userId
+        )
+      },
+      {where: {id: {[Op.in]: messagesId}}}
+    );
+  }
   return message;
 }
 module.exports = defineMessageModel;
