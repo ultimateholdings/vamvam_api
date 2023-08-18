@@ -33,7 +33,24 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
                 {updated, userId}
             );
         }
-    )
+    );
+    deliveriesModel.addEventListener("delivery-end", async function (data) {
+        const {deliveryId} = data;
+        const room = await roomsModel.findOne({where: {deliveryId}});
+        let roomUsers;
+        if (room !== null) {
+            roomUsers = await room.getUsers();
+            await roomsModel.destroy({
+                individualHooks: true,
+                where: {id: room.id}
+            });
+            deliveriesModel.emitEvent("room-deleted", {
+                id: room.id,
+                name: room.name,
+                users: roomUsers.map((user) => user.id)
+            });
+        }
+    });
     
     async function createRoom(data) {
         const {delivery, name, users} = data;

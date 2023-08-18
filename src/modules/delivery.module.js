@@ -539,13 +539,13 @@ calculation of at delivery */
             delivery.status = deliveryStatuses.terminated;
             delivery.end = new Date().toISOString();
             await delivery.save();
+            res.status(200).send({
+                terminated: true
+            });
             deliveryModel?.emitEvent(
                 "delivery-end",
                 {clientId: delivery.clientId, deliveryId: delivery.id}
             );
-            res.status(200).send({
-                terminated: true
-            });
         } else {
             return sendResponse(
                 res,

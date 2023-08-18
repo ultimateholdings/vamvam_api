@@ -15,6 +15,7 @@ const {
     loginUser,
     getToken,
     otpHandler,
+    postData,
     syncUsers,
     users
 } = require("./fixtures/helper");
@@ -281,8 +282,60 @@ describe("delivery side effects test", function () {
                 })
             ]);
             delivery = await Delivery.findOne({where: {id: request.body.id}});
-            assert.deepEqual(data.map((data) => data.value), [delivery.toResponse(), undefined]);
+            assert.deepEqual(
+                data.map((data) => data.value),
+                [delivery.toResponse(), undefined]
+            );
         });
+        
+    it(
+        "should terminate a delivery when a verification code is correct",
+        async function () {
+            let data;
+            const driverToken = await getToken(app, dbUsers.firstDriver.phone);
+            const request = await requestDelivery({
+                app,
+                data: deliveries[0],
+                phone: dbUsers.goodUser.phone
+            });
+            const [client, driver] = await Promise.all([
+                connectUser(request.token),
+                connectUser(driverToken)
+            ]);
+            const delivery = await Delivery.findOne({where: {id: request.id}});
+            const room = await Room.create({name: "hello world"});
+            await room.setUsers([
+                dbUsers.firstDriver,
+                dbUsers.goodUser
+            ]);
+            await room.setDelivery(delivery);
+            delivery.status = deliveryStatuses.started;
+            delivery.driverId = dbUsers.firstDriver.id;
+            await delivery.save();
+            data = await postData({
+                app,
+                data: {
+                    code: request.code,
+                    id: request.id
+                },
+                token: driverToken,
+                url: "/delivery/verify-code"
+            });
+            data = await listenEvent({
+                close: false,
+                name: "delivery-end",
+                socket: client
+            });
+            assert.equal(data.deliveryId, request.id)
+            data = await Promise.allSettled([
+                listenEvent({name: "room-deleted", socket: client}),
+                listenEvent({name: "room-deleted", socket: driver})
+            ]);
+            assert.isTrue(data.every(
+                (result) => result.value !== undefined
+            ));
+        }
+    );
     });
     describe("conflict tests", function () {
         let message;

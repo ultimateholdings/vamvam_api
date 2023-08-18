@@ -291,6 +291,17 @@ const eventMessages = {
             title: "Nouvelle discussion"
         }
     },
+    roomDeletedBody: {
+        en: "This discussion is now archived due to the end of the delivery",
+        fr: "Cette discussion est désormais archivée suite à la fin" +
+        " de la livraison."
+    },
+    withSameTitle(title, body) {
+        return {
+            en: {body: body?.en, title},
+            fr: {body: body?.fr, title},
+        };
+    },
     withSameContent(title, body) {
         return {
             en: {body, title},

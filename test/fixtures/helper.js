@@ -246,13 +246,16 @@ function getDatas({app, data, token, url}) {
     return request;
 }
 function listenEvent({
+    close = true,
     name,
     socket,
     timeout = 1500
 }) {
     return new Promise(function (res, rej) {
         socket.on(name, function (data) {
-            socket.close();
+            if (close) {
+                socket.close();
+            }
             res(data);
         });
         setTimeout(function () {

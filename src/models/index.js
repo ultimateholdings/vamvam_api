@@ -226,6 +226,7 @@ module.exports = Object.freeze({
     Registration,
     Room,
     User,
+    UserRoom,
     connection,
     otpRequest
 });

@@ -231,6 +231,32 @@ function deliveryMessageHandler(emitter) {
                 );
             }
         }
+
+        function handleRoomDeleted({id, name, users}) {
+            const eventName = "room-deleted";
+            let room;
+            if (Array.isArray(users)) {
+                users.forEach(function (userId) {
+                    if (connectedUsers[userId] !== undefined) {
+                        connectedUsers[userId].emit(eventName, {id, name});
+                        connectedUsers[userId].leave(id);
+                    } else {
+                        room = {id, name};
+                        emitter.emitEvent(
+                            "cloud-message-fallback-requested",
+                            {
+                                message: eventMessages.withSameTitle(
+                                    name,
+                                    eventMessages.roomDeletedBody
+                                ),
+                                meta: {eventName, room},
+                                recieverId: userId
+                            }
+                        );
+                    }
+                });
+            }
+        }
         
         function handleRoomJoin(data) {
             const {room, users} = data;
@@ -257,18 +283,19 @@ function deliveryMessageHandler(emitter) {
             onPositionUpdateCompleted
         );
 
-        emitter.addEventListener?.("delivery-end", handleEnding);
-        emitter.addEventListener?.("delivery-accepted", handleAcceptation);
-        emitter.addEventListener?.("delivery-cancelled", handleCancellation);
-        emitter.addEventListener?.("delivery-recieved", handleReception);
-        emitter.addEventListener?.("delivery-started", handleBegining);
-        emitter.addEventListener?.("new-delivery", handleNewDelivery);
-        emitter.addEventListener?.("new-assignment", handleAssignment);
-        emitter.addEventListener?.("new-conflict", handleNewConflict);
-        emitter.addEventListener?.("room-created", handleRoomJoin);
-        emitter.addEventListener?.("missed-messages-from-room", handleMissedMessages);
+        emitter.addEventListener("delivery-end", handleEnding);
+        emitter.addEventListener("delivery-accepted", handleAcceptation);
+        emitter.addEventListener("delivery-cancelled", handleCancellation);
+        emitter.addEventListener("delivery-recieved", handleReception);
+        emitter.addEventListener("delivery-started", handleBegining);
+        emitter.addEventListener("new-delivery", handleNewDelivery);
+        emitter.addEventListener("new-assignment", handleAssignment);
+        emitter.addEventListener("new-conflict", handleNewConflict);
+        emitter.addEventListener("room-created", handleRoomJoin);
+        emitter.addEventListener("missed-messages-from-room", handleMissedMessages);
         emitter.addEventListener("messages-read-fulfill", handleReadMessages);
         emitter.addEventListener("new-message-sent", handleNewMessage);
+        emitter.addEventListener("room-deleted", handleRoomDeleted);
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

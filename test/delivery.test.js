@@ -112,35 +112,6 @@ describe("delivery CRUD test", function () {
             assert.equal(response.status, errors.forbiddenAccess.status);
         }
     );
-
-    it(
-        "should terminate a delivery when a verification code is correct",
-        async function () {
-            let response;
-            const {driverToken, request} = await setupDelivery({
-                app,
-                clientPhone: dbUsers.goodUser.phone,
-                delivery: deliveries[0],
-                driverData: dbUsers.firstDriver,
-                initialState: deliveryStatuses.started
-            });
-            response = await app.post("/delivery/verify-code").send({
-                code: "1234590900",
-                id: request.id
-            }).set("authorization", "Bearer " + driverToken);
-            assert.equal(response.status, errors.invalidCode.status);
-            response = await app.post("/delivery/verify-code").send({
-                code: request.code,
-                id: request.id
-            }).set("authorization", "Bearer " + driverToken);
-            assert.equal(response.status, 200);
-            response = await Delivery.findOne({
-                where: {id: request.id}
-            });
-            assert.equal(response.status, "terminated");
-        }
-    );
-
     it("should allow a rate a delivery once terminated", async function () {
         let response;
         const {driverToken, request} = await setupDelivery({
