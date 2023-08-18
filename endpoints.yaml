@@ -180,7 +180,6 @@ auth-endpoints:
       action: get the price of a delivery
       type: get
       body:
-        id: string
       response:
         price: number
 

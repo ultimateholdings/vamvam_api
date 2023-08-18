@@ -177,9 +177,9 @@ describe("delivery side effects test", function () {
                     socket: driver
                 })
             ]);
-            assert.isTrue(data.every((item) => item.value?.roomId !== undefined));
-            assert.equal(data[0].value.roomId, data[1].value.roomId);
-            data = await Room.findOne({where: {id: data[0].value.roomId}});
+            assert.isTrue(data.every((item) => item.value?.id !== undefined));
+            assert.deepEqual(data[0].value, data[1].value);
+            data = await Room.findOne({where: {id: data[0].value.id}});
             assert.isNotNull(data);
         });
     

@@ -233,18 +233,18 @@ function deliveryMessageHandler(emitter) {
         }
         
         function handleRoomJoin(data) {
-            const {roomId, users} = data;
+            const {room, users} = data;
             const eventName = "room-created";
             users.forEach(function (id) {
                 if (connectedUsers[id] !== undefined) {
-                    connectedUsers[id].join(roomId);
-                    connectedUsers[id].emit(eventName, {roomId});
+                    connectedUsers[id].join(room.id);
+                    connectedUsers[id].emit(eventName, room);
                 } else {
                     emitter.emitEvent(
                         "cloud-message-fallback-requested",
                         {
                             message: eventMessages.newRoom,
-                            meta: {eventName, roomId},
+                            meta: {eventName, room},
                             recieverId: id
                         }
                     );

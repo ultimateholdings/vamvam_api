@@ -31,6 +31,12 @@ function getChatRouter(module) {
         chatModule.ensureUserInRoom,
         errorHandler(chatModule.getRoomMessages)
     );
+    router.get(
+        "/all",
+        protectRoute,
+        allowRoles([roles.clientRole, roles.driverRole]),
+        errorHandler(chatModule.getRooms)
+    );
     return router;
 }
 

@@ -138,8 +138,9 @@ describe("user interactions tests", function () {
             const password = "23209J@fklsd";
             const driver = subscriber;
             let response;
-            driver.carInfos = carInfosPath;
-            await registerDriver(app, driver);
+            driver.status = User.statuses.inactive;
+            driver.phone = driver.phoneNumber;
+            await User.create(driver)
             response = await app.post("/auth/login").send({
                 password,
                 phoneNumber: driver.phoneNumber

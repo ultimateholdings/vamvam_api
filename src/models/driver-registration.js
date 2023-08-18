@@ -9,6 +9,7 @@ const {
 const {
     CustomEmitter,
     hashPassword,
+    pathToURL,
     propertiesPicker
 } = require("../utils/helpers");
 
@@ -81,7 +82,7 @@ function defineDriverRegistration(connection) {
         props.push("status", "id", "createdAt");
         result = propertiesPicker(result)(props);
         result.registrationDate = result.createdAt.toISOString();
-        result.carInfos = registrationsRoot + path.basename(result.carInfos);
+        result.carInfos = pathToURL(result.carInfos);
         delete result.createdAt;
         delete result.password;
         return result;

@@ -125,10 +125,10 @@ function getDeliveryModule({associatedModels, model}) {
         });
     }
 
-    async function createChatRoom(destination, users) {
+    async function createChatRoom(delivery, users) {
         let name = await generateCode(6);
-        name += " -> " + destination;
-        deliveryModel.emitEvent("room-creation-requested", {name, users});
+        name = "Delivery " + name
+        deliveryModel.emitEvent("room-creation-requested", {delivery, name, users});
     }
     async function updateDriverPosition(driverMessage) {
         const {data, driverId} = driverMessage;
@@ -301,6 +301,7 @@ function getDeliveryModule({associatedModels, model}) {
     async function acceptDelivery(req, res) {
         let driver;
         let client;
+        let others;
         const {
             phone,
             id: userId
@@ -330,9 +331,12 @@ function getDeliveryModule({associatedModels, model}) {
             deliveryId: delivery.id,
             driver: driver.toResponse()
         });
+        others = await associations.User.getAllByPhones(
+            delivery.getRecipientPhones()
+        );
         await createChatRoom(
-            delivery.deliveryMeta.destinationAddress,
-            [client, driver]
+            delivery,
+            [client, driver, ...others]
         );
     }
 

@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
+const path = require("path");
 const {errors, getFirebaseConfig, getOTPConfig} = require("../utils/config");
 const {ValidationError} = require("sequelize");
 const {
@@ -369,8 +370,19 @@ function sendCloudMessage({body, meta, title, to}) {
             },
             to
         },
+        headers: config.headers,
         url: config.url
     });
+}
+
+function pathToURL(filePath) {
+    let rootDir;
+    if (typeof filePath === "string" && filePath.length > 0) {
+        rootDir = path.normalize(
+            path.dirname(filePath)
+        ).split(path.sep).at(-1);
+        return "/" + rootDir + "/" + path.basename(filePath);
+    }
 }
 
 module.exports = Object.freeze({
@@ -405,6 +417,7 @@ module.exports = Object.freeze({
     jwtWrapper,
     methodAdder,
     otpManager,
+    pathToURL,
     propertiesPicker,
     ressourcePaginator,
     sendCloudMessage,

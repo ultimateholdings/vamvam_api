@@ -78,6 +78,17 @@ function defineDeliveryModel(connection) {
         delete result.code;
         return propertiesPicker(result)(allowedProps);
     }
+    delivery.prototype.getRecipientPhones = function () {
+        let {
+            phone,
+            otherPhones
+        } = this.dataValues.recipientInfos;
+        const result = [phone];
+        if (Array.isArray(otherPhones)) {
+            result.push(...otherPhones);
+        }
+        return result;
+    }
     delivery.addEventListener = function (eventName, func) {
         emitter.on(eventName, func);
     }

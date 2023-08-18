@@ -2,18 +2,17 @@
 node, nomen, this
 */
 const fs = require("fs");
-const path = require("path");
 const {DataTypes, Op, col, fn, where} = require("sequelize");
 const {
     fileExists,
     formatDbPoint,
     hashPassword,
+    pathToURL,
     propertiesPicker
 } = require("../utils/helpers");
 const {
     ages,
     availableRoles,
-    uploadsRoot,
     userStatuses
 } = require("../utils/config");
 
@@ -77,7 +76,13 @@ function defineUserModel(connection) {
     };
     const excludedProps = ["password", "deviceToken"];
     const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
-    const shortDescriptionProps = ["id", "avatar", "firstName", "lastName"];
+    const shortDescriptionProps = [
+        "id",
+        "avatar",
+        "firstName",
+        "lastName",
+        "phone"
+    ];
     const allowedProps = Object.keys(schema).filter(
         (key) => !excludedProps.includes(key)
     );
@@ -128,10 +133,10 @@ function defineUserModel(connection) {
         let result = this.dataValues;
         result.position = formatDbPoint(result.position);
         if (result.avatar !== null && result.avatar !== undefined) {
-            result.avatar = uploadsRoot + path.basename(result.avatar);
+            result.avatar = pathToURL(result.avatar);
         }
         if (result.carInfos !== null && result.carInfos !== undefined) {
-            result.carInfos = uploadsRoot + path.basename(result.carInfos);
+            result.carInfos = pathToURL(result.carInfos);
         }
         if (result.role !== availableRoles.driverRole) {
             delete result.carInfos;
@@ -182,6 +187,13 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
     };
     user.genericProps = genericProps;
     user.statuses = userStatuses;
+    user.getAllByPhones = function (phoneList) {
+        return this.findAll({
+            where: {
+                phone: {[Op.in]: phoneList}
+            }
+        });
+    }
     return user;
 }
 

@@ -132,4 +132,32 @@ describe("Message test", function () {
       assert.isTrue(data[1].value?.id === undefined);
     }
   );
+  it("should return user rooms with last message", async function () {
+    let lastMessage;
+    await Message.bulkCreate([
+      {
+        content: messages[0].content,
+        senderId: dbUsers.firstDriver.id,
+        roomId: room.id,
+      },
+      {
+        content: messages[1].content,
+        senderId: dbUsers.goodUser.id,
+        roomId: room.id,
+      }
+    ]);
+    lastMessage = await new Promise(function (res) {
+      setTimeout(function () {
+        res(Message.create({
+          content: messages[2].content,
+          senderId: dbUsers.firstDriver.id,
+          roomId: room.id,
+        }));
+      }, 1000);
+    })
+    let response = await app
+      .get("/discussion/all")
+      .set("authorization", "Bearer " + tokens[0]);
+    assert.equal(response.body.rooms[0].lastMessage.id, lastMessage.id);
+  });
 });

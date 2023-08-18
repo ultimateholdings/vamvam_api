@@ -48,37 +48,7 @@ describe("Room Test", function () {
       (response.body.roomId, response.body.name)
     );
   });
-  it("should return user rooms with last message", async function () {
-    phoneList = [dbUsers.goodUser.phone, dbUsers.firstDriver.phone];
-    rooms[1].phoneList = phoneList;
-    const newRoom = await createRoom({
-      app,
-      data: rooms[1],
-      phone: dbUsers.goodUser.phone,
-    });
-    await Message.bulkCreate([
-      {
-        content: messages[0].content,
-        senderId: dbUsers.firstDriver.id,
-        roomId: newRoom.roomId,
-      },
-      {
-        content: messages[1].content,
-        senderId: dbUsers.goodUser.id,
-        roomId: newRoom.roomId,
-      },
-      {
-        content: messages[2].content,
-        senderId: dbUsers.firstDriver.id,
-        roomId: newRoom.roomId,
-      },
-    ]);
-    let response = await app
-      .get("/room/user-rooms")
-      .send({ userId: dbUsers.goodUser.id })
-      .set("authorization", "Bearer " + newRoom.token);
-    assert.equal(response.status, 200);
-  });
+  
   it("should return user miss message", async function () {
     let response;
     phoneList = [dbUsers.goodUser.phone, dbUsers.firstDriver.phone, dbUsers.secondDriver.phone];

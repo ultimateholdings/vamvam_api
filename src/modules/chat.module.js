@@ -10,13 +10,7 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
     const messagesModel = messageModel || Message;
     const roomsModel = roomModel || Room;
     
-    deliveriesModel.addEventListener(
-        "room-creation-requested",
-        async function (data) {
-            const {name, users} = data;
-            await createRoom(name, users);
-        }
-    );
+    deliveriesModel.addEventListener("room-creation-requested", createRoom);
 
     deliveriesModel.addEventListener(
         "missed-messages-requested",
@@ -41,12 +35,23 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
         }
     )
     
-    async function createRoom(name, userList) {
-        let result = await roomsModel.create({name});
-        result.setUsers(userList);
+    async function createRoom(data) {
+        const {delivery, name, users} = data;
+        let room = await roomsModel.create({name});
+        await room.setUsers(users);
+        await room.setDelivery(delivery);
         deliveriesModel.emitEvent("room-created", {
-            roomId: result.id,
-            users: userList.map((user) => user.id)
+            room: {
+                delivery: {
+                    departure: delivery.deliveryMeta.departureAddress,
+                    destination: delivery.deliveryMeta.destinationAddress,
+                    id: delivery.id
+                },
+                id: room.id,
+                members: users.map((user) => user.toShortResponse()),
+                name: room.name
+            },
+            users: users.map((user) => user.id)
         });
     }
 
@@ -126,10 +131,17 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
         });
     }
 
+    async function getRooms(req, res) {
+        const {id} = req.user.token;
+        const response = await roomsModel.getUserRooms(id);
+        res.status(200).json({rooms: response});
+    }
+
     return Object.freeze({
         ensureRoomExists,
         ensureUserInRoom,
         getRoomMessages,
+        getRooms,
         sendMessage
     });
 }

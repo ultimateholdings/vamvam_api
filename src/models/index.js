@@ -76,7 +76,8 @@ Message.belongsTo(User, {
     foreignKey: "senderId"
 });
 Room.belongsTo(Delivery, {
-    constraints: false
+    constraints: false,
+    foreignKey: "deliveryId"
 });
 Room.belongsToMany(User, {through: UserRoom});
 User.belongsToMany(Room, {through: UserRoom});
@@ -147,6 +148,75 @@ Message.getMissedMessages = async function (userId) {
         return acc;
     }, Object.create(null));
     return result;
+}
+
+Room.getUserRooms = async function (userId) {
+    let result = await User.findOne({
+        include: {
+            attributes: ["id", "name"],
+            model: Room,
+            include: [
+                {
+                    model: Message,
+                    required: true,
+                    order: [["createdAt", "DESC"]],
+                    attributes: ["id", "content", "createdAt", "senderId"],
+                    limit: 1,
+                    include: [
+                      {
+                          as: "sender",
+                          model: User,
+                          required: false,
+                      },
+                    ],
+                },
+                {
+                    model: User,
+                    required: true
+                }
+            ]
+        },
+        where: {id: userId}
+    });
+    return result.rooms.map(function (room) {
+        const result = {
+            id: room.id,
+            members: room.users.map((user) => user.toShortResponse()),
+            name: room.name
+        };
+        debugger;
+        const messages = room.Messages.map(
+            (msg) => Object.freeze({
+                content: msg.content,
+                date: msg.createdAt.toISOString(),
+                id: msg.id,
+                sender: msg.sender.toShortResponse()
+            })
+        );
+        if (messages.length > 0) {
+            result.lastMessage = messages[0];
+        }
+        return result;
+    });
+}
+
+Delivery.getAllWithStatus = function (userId, status) {
+    const clause = [
+        {clientId: {[Op.eq]: userId}},
+        {driverId: {[Op.eq]: userId}}
+    ];
+    return this.findAll({
+        include: [
+            {as: "Client", model: User, required: true},
+            {as: "Driver", model: User, required: true}
+        ],
+        where: {
+            [Op.and]: {
+                [Op.or]: clause,
+                status
+            }
+        }
+    });
 }
 
 module.exports = Object.freeze({

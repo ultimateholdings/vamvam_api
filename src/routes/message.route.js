@@ -15,11 +15,6 @@ function getMessageRoutes (messageModule) {
         errorHandler(routerModule.createMessage)
     );
     router.get(
-        "/infos",
-        protectRoute,
-        errorHandler(routerModule.getMessageInfos)
-    );
-    router.get(
         "/room-messages",
         protectRoute,
         errorHandler(routerModule.getRoomMessages)
