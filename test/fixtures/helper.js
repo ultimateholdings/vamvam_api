@@ -235,6 +235,16 @@ function postData({app, data, token, url}) {
     }
     return request;
 }
+function getDatas({app, data, token, url}) {
+    const request = app.get(url);
+    if (data) {
+        request.send(data);
+    }
+    if (typeof token === "string") {
+        request.set("authorization", "Bearer " + token);
+    }
+    return request;
+}
 function listenEvent({
     name,
     socket,
@@ -253,6 +263,7 @@ function listenEvent({
 }
 module.exports = Object.freeze({
     clientSocketCreator,
+    getDatas,
     getToken,
     listenEvent,
     loginUser,

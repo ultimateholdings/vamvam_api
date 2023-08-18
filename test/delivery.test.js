@@ -19,6 +19,7 @@ const {
 } = require("../src/models");
 const {
     loginUser,
+    getDatas,
     getToken,
     otpHandler,
     syncUsers,
@@ -267,7 +268,7 @@ describe("delivery CRUD test", function () {
         response = await app.get("/user/drivers").send({
             from: deliveries[0].departure
         }).set("authorization", "Bearer " + token);
-        assert.deepEqual(response.body.result?.length, 1);
+        assert.equal(response.body.result[0].id, dbUsers.secondDriver.id);
     });
 
     describe("delivery state mutation tests", function () {
@@ -351,6 +352,60 @@ describe("delivery CRUD test", function () {
             response = await Delivery.findOne({where: {id: request.id}});
             assert.equal(response.status, deliveryStatuses.started);
             assert.isNotNull(response.begin);
+        });
+    });
+    describe("delivery listing tests", function () {
+        function setDelivery({clientId, delivery, driverId, status}) {
+            const meta = {};
+            meta.destinationAddress = delivery.destination.address;
+            meta.departureAddress = delivery.departure.address;
+            delivery.clientId = clientId;
+            delivery.driverId = driverId;
+            delivery.status = status;
+            delivery.deliveryMeta = meta;
+            delivery.departure = toDbPoint(delivery.departure);
+            delivery.destination = toDbPoint(delivery.destination);
+            delivery.begin = new Date();
+            delivery.end = new Date();
+            delivery.price = 1000;
+            delivery.code = "woieowieri323424";
+            return delivery;
+        }
+        let settedDeliveries;
+        let clientToken
+        beforeEach(async function () {
+            settedDeliveries = deliveries.map(function (delivery, index) {
+                let result = setDelivery({
+                    clientId: dbUsers.goodUser.id,
+                    delivery,
+                    driverId: dbUsers.firstDriver.id,
+                    status: deliveryStatuses.terminated
+                });
+                if (index % 2 === 0) {
+                    result.driverId = dbUsers.secondDriver.id;
+                } else {
+                    result.status = deliveryStatuses.started
+                }
+                return result;
+            });
+            settedDeliveries = await Delivery.bulkCreate(settedDeliveries);
+            clientToken = await getToken(app, dbUsers.goodUser.phone);
+        });
+        it("should provide all started deliveries", async function () {
+            let response = await getDatas({
+                app,
+                token: clientToken,
+                url: "/delivery/started"
+            });
+            assert.equal(response.body.deliveries.length, 1);
+        });
+        it("should provide all terminated deliveries", async function () {
+            let response = await getDatas({
+                app,
+                token: clientToken,
+                url: "/delivery/terminated"
+            });
+            assert.equal(response.body.deliveries.length, 2);
         });
     });
 

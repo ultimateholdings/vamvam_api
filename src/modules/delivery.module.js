@@ -576,6 +576,40 @@ calculation of at delivery */
         });
     }
 
+    async function getOngoingDeliveries(req, res) {
+        let {id, role} = req.user.token;
+        let deliveries = await deliveryModel.getAllWithStatus(
+            id,
+            deliveryStatuses.started
+        );
+        deliveries = deliveries.map(
+            (delivery) => toDeliveryResponse(delivery, role)
+        );
+        res.status(200).json({deliveries});
+    }
+
+    async function getTerminatedDeliveries(req, res) {
+        let {id, role} = req.user.token;
+        let deliveries = await deliveryModel.getAllWithStatus(
+            id,
+            deliveryStatuses.terminated
+        );
+        deliveries = deliveries.map(
+            (delivery) => toDeliveryResponse(delivery, role)
+        );
+        res.status(200).json({deliveries});
+    }
+
+    function toDeliveryResponse(delivery, role) {
+        const result = delivery.toResponse();
+        if (role === roles.clientRole) {
+            result.driver = delivery.Driver.toShortResponse();
+            result.code = delivery.code;
+        } else {
+            result.client = delivery.Client.toShortResponse();
+        }
+        return result;
+    }
 
     return Object.freeze({
         acceptDelivery,
@@ -592,6 +626,8 @@ calculation of at delivery */
         ensureDriverExists,
         getAllPaginated,
         getInfos,
+        getOngoingDeliveries,
+        getTerminatedDeliveries,
 /*jslint-disable*/
         getPrice,
 /*jslint-enable*/

@@ -34,6 +34,18 @@ function getDeliveryRouter(module) {
         protectRoute,
         errorHandler(deliveryModule.getPrice)
     );
+    router.get(
+        "/started",
+        protectRoute,
+        allowRoles([roles.clientRole, roles.driverRole]),
+        errorHandler(deliveryModule.getOngoingDeliveries)
+    );
+    router.get(
+        "/terminated",
+        protectRoute,
+        allowRoles([roles.clientRole, roles.driverRole]),
+        errorHandler(deliveryModule.getTerminatedDeliveries)
+    );
     router.post(
         "/verify-code",
         protectRoute,
