@@ -1,24 +1,25 @@
-/*jslint
-node, nomen, this
-*/
-const fs = require("fs");
 const {DataTypes} = require("sequelize");
 
-function defineSubscriptionModel(connection) {
+function defineTransaction (connection) {
     const schema = {
-        title: {
-            type: DataTypes.STRING,
+        type: {
+            type: DataTypes.ENUM,
+            defaultValue: "recharge",
+            values: ["recharge", "withdrawal"]
+        },
+        point: {
+            type: DataTypes.DOUBLE,
             allowNull: false
         },
         bonus: {
             type: DataTypes.DOUBLE,
             allowNull: false
         },
-        point: {
-            type: DataTypes.DOUBLE,
+        userId: {
+            type: DataTypes.STRING,
             allowNull: false
         },
-        unitPrice: {
+        amount: {
             type: DataTypes.DOUBLE,
             allowNull: false
         },
@@ -28,8 +29,8 @@ function defineSubscriptionModel(connection) {
             type: DataTypes.UUID
         }
     };
-    const subscription = connection.define("subscription", schema)
-    return subscription;
+    const transaction = connection.define("transaction", schema );
+    return transaction;
 }
 
-module.exports = defineSubscriptionModel;
+module.exports = defineTransaction;

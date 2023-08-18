@@ -45,9 +45,7 @@ function getSubscriptionModule({ model }) {
           title: propertiesCreate.title,
           bonus: propertiesCreate.bonus,
           point: propertiesCreate.point,
-          unitPrice: propertiesCreate.unitPrice,
-          price: price,
-          gainMin: gainMin,
+          unitPrice: propertiesCreate.unitPrice
         });
         const data = {
           subscriptionId: subscription.id,
@@ -55,8 +53,8 @@ function getSubscriptionModule({ model }) {
           bonus: subscription.bonus,
           point: subscription.point,
           unitPrice: subscription.unitPrice,
-          price: subscription.price,
-          gainMin: subscription.gainMin,
+          price: price,
+          gainMin: gainMin,
         };
         res.status(200).json({
           succes: true,
@@ -70,6 +68,8 @@ function getSubscriptionModule({ model }) {
     }
   }
   async function getSubscriptionInfos(req, res) {
+    let price;
+    let gainMin;
     const { subscriptionId } = req.body;
     try {
       const subscription = await SubscriptionModel.findOne({
@@ -78,14 +78,19 @@ function getSubscriptionModule({ model }) {
         },
       });
       if (subscription != null) {
+        price = calculatePrice(
+          subscription.point,
+          subscription.unitPrice
+        );
+        gainMin = calculateGainMin(subscription.point);
         res.status(200).json({
           subscriptionId: subscription.id,
           title: subscription.title,
           bonus: subscription.bonus,
           point: subscription.point,
           unitPrice: subscription.unitPrice,
-          price: subscription.price,
-          gainMin: subscription.gainMin,
+          price: price,
+          gainMin: gainMin,
         });
       }
     } catch (error) {
@@ -104,8 +109,11 @@ function getSubscriptionModule({ model }) {
           bonus: bunch.bonus,
           point: bunch.point,
           unitPrice: bunch.unitPrice,
-          price: bunch.price,
-          gainMin: bunch.gainMin,
+          price: calculatePrice(
+            bunch.point,
+            bunch.unitPrice
+          ),
+          gainMin: calculateGainMin(bunch.point),
         }));
         res.status(200).json({
           succes: true,
