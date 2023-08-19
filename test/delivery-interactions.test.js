@@ -42,6 +42,13 @@ function updatePosition(socket, position) {
         socket.on("position-updated", res);
     });
 }
+function updateItinerary({deliveryId, points, socket}) {
+    return new Promise(function (res, rej) {
+        socket.emit("itinerary-changed", {deliveryId, points});
+        socket.on("itinerary-updated", res);
+        setTimeout(() => rej("Timeout Exceeded !!!"), 1500);
+    });
+}
 
 describe("delivery side effects test", function () {
     let server;
@@ -287,9 +294,29 @@ describe("delivery side effects test", function () {
                 [delivery.toResponse(), undefined]
             );
         });
+    it("should enable a driver to update the itinerary", async function () {
+        let data;
+        const route = [
+            {latitude: 4.045288, longitude: 9.713716},
+            {latitude: 4.045502, longitude: 9.714724},
+            {latitude: 4.046626, longitude: 9.716999}
+        ];
+        const {driverToken, request} = setupDatas;
+        const [client, driver] = await Promise.all([
+            connectUser(request.token),
+            connectUser(driverToken)
+        ]);
+        await updateItinerary({
+            deliveryId: request.id,
+            points: route,
+            socket: driver
+        });
+        data = await listenEvent({name: "itinerary-updated", socket: client});
+        assert.deepEqual(data, {deliveryId: request.id, points: route});
+    });
         
     it(
-        "should terminate a delivery when a verification code is correct",
+        "should notify the client on delivery closed",
         async function () {
             let data;
             const driverToken = await getToken(app, dbUsers.firstDriver.phone);

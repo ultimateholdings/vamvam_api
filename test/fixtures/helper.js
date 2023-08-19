@@ -73,6 +73,36 @@ const subscriber = {
     role: "admin"
 };
 const pinIds = ["aewrjafk;9539", "121-dhjds-2330"];
+const rooms = [
+    {
+      name: "livraison pour bonandjo."
+    },
+    {
+      name: "Livraison pour Bali"
+    },
+    {
+      name: "Livraison pour djebale"
+    },
+    {
+      name: "Livraison pour Mambanda"
+    },
+];
+const messages = [
+    {
+      content:
+        "Bonjour Mr Tankoua, Je m'appelle christian livreur vamvam, j'ai reçu" +
+        "une demande de livraison pour bonandjo."
+    },
+    {
+      content: "Merci bonjour, je suis situe a litto labo, vallee bessingue"
+    },
+    {
+      content: "Je suis point de recption du coli!"
+    },
+    {
+      content: "J'arrive dans une minute."
+    },
+  ];
 const otpHandler = {
     sendCode: () => Promise.resolve({verified: true}),
     verifyCode: () => Promise.resolve({verified: true})
@@ -270,10 +300,12 @@ module.exports = Object.freeze({
     getToken,
     listenEvent,
     loginUser,
+    messages,
     otpHandler,
     pinIds,
     postData,
     registerDriver,
+    rooms,
     setupAuthServer,
     setupDriverServer,
     setupInterceptor,

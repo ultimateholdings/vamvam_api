@@ -108,6 +108,32 @@ function toDbPoint(point) {
     };
 }
 
+function toDbLineString(points) {
+    let lineString;
+    if (Array.isArray(points)) {
+        lineString = {
+            type: "LineString",
+        };
+        lineString.coordinates = points.map(function (point) {
+            if (isValidLocation(point)) {
+                return [point.latitude, point.longitude];
+            }
+            throw new Error("Invalid location !!!");
+        })
+    }
+    return lineString;
+}
+
+function formatDbLineString(lineString) {
+    let result = null;
+    if (lineString !== null && lineString !== undefined) {
+        result = lineString.coordinates?.map?.(
+            ([latitude, longitude]) => {latitude, longitude}
+        );
+    }
+    return result;
+}
+
 function formatDbPoint(dbPoint) {
     let result = null;
     if (dbPoint !== null && dbPoint !== undefined) {
@@ -401,6 +427,7 @@ module.exports = Object.freeze({
     errorHandler,
     fileExists,
     formatDbPoint,
+    formatDbLineString,
     getFileHash,
     getOTPService,
     hashPassword(password) {
@@ -422,5 +449,6 @@ module.exports = Object.freeze({
     ressourcePaginator,
     sendCloudMessage,
     sendResponse,
-    toDbPoint
+    toDbPoint,
+    toDbLineString
 });

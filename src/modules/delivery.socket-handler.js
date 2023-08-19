@@ -25,6 +25,9 @@ function deliveryMessageHandler(emitter) {
                     {messagesId: data, userId: socket.user.id}
                 );
             });
+            socket.on("itinerary-changed", function (data) {
+                itineraryUpdateHandler(socket, data);
+            });
             emitter.emitEvent(
                 "missed-messages-requested",
                 {userId: socket.user.id}
@@ -39,11 +42,43 @@ function deliveryMessageHandler(emitter) {
             );
         }
 
+        function itineraryUpdateHandler(socket, data) {
+            const {id} = socket.user;
+            const message = Object.create(null);
+            Object.assign(message, data);
+            message.driverId = id;
+            emitter.emitEvent(
+                "delivery-itinerary-update-requested",
+                message
+            );
+        }
+
         function onPositionUpdateCompleted({clients, data, driverId}) {
-            connectedUsers[driverId]?.emit("position-updated", true);
+            connectedUsers[driverId]?.emit?.("position-updated", true);
             clients.forEach(function (clientId) {
-                connectedUsers[clientId]?.emit("new-driver-position", data);
+                connectedUsers[clientId]?.emit?.("new-driver-position", data);
             });
+        }
+
+        function handleRejectedItinerary({driverId, error, points, id}) {
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit(
+                    "itinerary-update-failed",
+                    {error, id, points}
+                );
+            }
+        }
+
+        function handleFulfilledItinerary(data) {
+            const {clientId, driverId, deliveryId, points} = data;
+            connectedUsers[driverId]?.emit?.(
+                "itinerary-updated",
+                {deliveryId}
+            );
+            connectedUsers[clientId]?.emit?.(
+                "itinerary-updated",
+                {deliveryId, points}
+            )
         }
 
         function handleAcceptation(data) {
@@ -296,6 +331,14 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener("messages-read-fulfill", handleReadMessages);
         emitter.addEventListener("new-message-sent", handleNewMessage);
         emitter.addEventListener("room-deleted", handleRoomDeleted);
+        emitter.addEventListener(
+            "itinerary-update-fulfilled",
+            handleFulfilledItinerary
+        );
+        emitter.addEventListener(
+            "itinerary-update-rejected",
+            handleRejectedItinerary
+        );
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

@@ -15,6 +15,7 @@ const {
     ressourcePaginator,
     sendCloudMessage,
     sendResponse,
+    toDbLineString,
     toDbPoint
 } = require("../utils/helpers");
 
@@ -140,15 +141,12 @@ function getDeliveryModule({associatedModels, model}) {
             } else {
                 position = data;
             }
-            position = {
-                coordinates: [position.latitude, position.longitude],
-                type: "Point"
-            };
-            await associations?.User.update(
+            position = toDbPoint(position);
+            await associations.User.update(
                 {position},
                 {where: {id: driverId}}
             );
-            clients = await deliveryModel?.findAll({where: {
+            clients = await deliveryModel.findAll({where: {
                 driverId,
                 status: "started"
             }});
@@ -158,6 +156,39 @@ function getDeliveryModule({associatedModels, model}) {
                 data,
                 driverId
             });
+        }
+    }
+
+    async function updateDeliveryItinerary(data) {
+        const {deliveryId, driverId, points} = data;
+        const delivery = await deliveryModel.findOne({
+            where: {id: deliveryId, driverId}
+        });
+        if (delivery === null) {
+            data.error = errors.notFound;
+            return deliveryModel.emitEvent(
+                "itinerary-update-rejected",
+                data
+            );
+        }
+        if (Array.isArray(points) && points.every(isValidLocation)) {
+            delivery.route = toDbLineString(points);
+            await delivery.save();
+            deliveryModel.emitEvent(
+                "itinerary-update-fulfilled",
+                {
+                    clientId: delivery.clientId,
+                    deliveryId,
+                    driverId,
+                    points
+                }
+            );
+        } else {
+            data.error = errors.invalidValues;
+            return deliveryModel.emitEvent(
+                "itinerary-update-rejected",
+                data
+            );
         }
     }
 
@@ -180,6 +211,10 @@ function getDeliveryModule({associatedModels, model}) {
     deliveryModel.addEventListener(
         "driver-position-update-requested",
         updateDriverPosition
+    );
+    deliveryModel.addEventListener(
+        "delivery-itinerary-update-requested",
+        updateDeliveryItinerary
     );
     deliveryModel.addEventListener(
         "cloud-message-fallback-requested",

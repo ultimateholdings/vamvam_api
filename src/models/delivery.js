@@ -47,6 +47,7 @@ function defineDeliveryModel(connection) {
             allowNull: false,
             type: DataTypes.JSON
         },
+        route: new DataTypes.GEOMETRY("LINESTRING"),
         status: {
             defaultValue: deliveryStatuses.initial,
             type: DataTypes.ENUM,

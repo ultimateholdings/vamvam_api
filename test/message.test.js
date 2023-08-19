@@ -12,6 +12,7 @@ const {Delivery, Message, Room, User, connection} = require("../src/models");
 const {
   clientSocketCreator,
   listenEvent,
+  messages,
   getToken,
   otpHandler,
   postData,
@@ -21,8 +22,6 @@ const {
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
-const {errors} = require("../src/utils/config");
-const {messages} = require("./fixtures/message.data");
 const connectedUser = clientSocketCreator("delivery");
 
 describe("Message test", function () {
