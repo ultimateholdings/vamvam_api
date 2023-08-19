@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
+const path = require("path");
 const {errors, getFirebaseConfig, getOTPConfig} = require("../utils/config");
 const {ValidationError} = require("sequelize");
 const {
@@ -43,8 +44,8 @@ function deleteFile(path) {
                     res(false);
                 }
                 res(true);
-            })
-        })
+            });
+        });
     }
     return Promise.resolve(false);
 }
@@ -90,19 +91,64 @@ function sendResponse(res, content, data = {}) {
     });
 }
 
-function isValidPoint({latitude, longitude}) {
-    return Number.isFinite(latitude) && Number.isFinite(longitude);
+function isValidPoint(point) {
+    if (point !== null && point !== undefined) {
+        return (
+            Number.isFinite(point.latitude) &&
+            Number.isFinite(point.longitude)
+        );
+    }
+    return false;
+}
+
+function toDbPoint(point) {
+    return {
+        coordinates: [point?.latitude, point?.longitude],
+        type: "Point"
+    };
+}
+
+function toDbLineString(points) {
+    let lineString;
+    if (Array.isArray(points)) {
+        lineString = {
+            type: "LineString",
+        };
+        lineString.coordinates = points.map(function (point) {
+            if (isValidLocation(point)) {
+                return [point.latitude, point.longitude];
+            }
+            throw new Error("Invalid location !!!");
+        })
+    }
+    return lineString;
+}
+
+function formatDbLineString(lineString) {
+    let result = null;
+    if (lineString !== null && lineString !== undefined) {
+        result = lineString.coordinates?.map?.(
+            ([latitude, longitude]) => {latitude, longitude}
+        );
+    }
+    return result;
+}
+
+function formatDbPoint(dbPoint) {
+    let result = null;
+    if (dbPoint !== null && dbPoint !== undefined) {
+        result = {
+            latitude: dbPoint.coordinates[0],
+            longitude: dbPoint.coordinates[1]
+        };
+    }
+    return result;
 }
 
 function isValidLocation(location) {
     let result;
     if (Array.isArray(location)) {
-        result = location.every(function (point) {
-            if (point !== null && point !== undefined) {
-                return isValidPoint(point);
-            }
-            return false;
-        });
+        result = location.every(isValidPoint);
     } else if (location !== null && location !== undefined) {
         result = isValidPoint(location);
     }
@@ -350,8 +396,19 @@ function sendCloudMessage({body, meta, title, to}) {
             },
             to
         },
+        headers: config.headers,
         url: config.url
     });
+}
+
+function pathToURL(filePath) {
+    let rootDir;
+    if (typeof filePath === "string" && filePath.length > 0) {
+        rootDir = path.normalize(
+            path.dirname(filePath)
+        ).split(path.sep).at(-1);
+        return "/" + rootDir + "/" + path.basename(filePath);
+    }
 }
 
 module.exports = Object.freeze({
@@ -369,6 +426,8 @@ module.exports = Object.freeze({
     deleteFile,
     errorHandler,
     fileExists,
+    formatDbPoint,
+    formatDbLineString,
     getFileHash,
     getOTPService,
     hashPassword(password) {
@@ -385,8 +444,11 @@ module.exports = Object.freeze({
     jwtWrapper,
     methodAdder,
     otpManager,
+    pathToURL,
     propertiesPicker,
     ressourcePaginator,
     sendCloudMessage,
-    sendResponse
+    sendResponse,
+    toDbPoint,
+    toDbLineString
 });

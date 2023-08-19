@@ -3,17 +3,10 @@ node
 */
 const {DataTypes} = require("sequelize");
 const {CustomEmitter, propertiesPicker} = require("../utils/helpers");
+const {deliveryStatuses} = require("../utils/config");
 
 function defineDeliveryModel(connection) {
     const emitter = new CustomEmitter();
-    const availableStatus = Object.freeze({
-        cancelled: "cancelled",
-        initial: "pending-driver-approval",
-        pendingReception: "pending-driver-reception",
-        toBeConfirmed: "pending-client-approval",
-        started: "started",
-        terminated: "terminated",
-    });
     const schema = {
         begin: DataTypes.DATE,
         code: DataTypes.STRING,
@@ -54,10 +47,11 @@ function defineDeliveryModel(connection) {
             allowNull: false,
             type: DataTypes.JSON
         },
+        route: new DataTypes.GEOMETRY("LINESTRING"),
         status: {
-            defaultValue: "pending-driver-approval",
+            defaultValue: deliveryStatuses.initial,
             type: DataTypes.ENUM,
-            values: Object.values(availableStatus)
+            values: Object.values(deliveryStatuses)
         }
     };
     const updatableProps = [
@@ -82,7 +76,19 @@ function defineDeliveryModel(connection) {
                 longitude: result.departure.coordinates[1]
             };
         }
+        delete result.code;
         return propertiesPicker(result)(allowedProps);
+    }
+    delivery.prototype.getRecipientPhones = function () {
+        let {
+            phone,
+            otherPhones
+        } = this.dataValues.recipientInfos;
+        const result = [phone];
+        if (Array.isArray(otherPhones)) {
+            result.push(...otherPhones);
+        }
+        return result;
     }
     delivery.addEventListener = function (eventName, func) {
         emitter.on(eventName, func);
@@ -90,7 +96,6 @@ function defineDeliveryModel(connection) {
     delivery.emitEvent = function (eventName, data) {
         emitter.emit(eventName, data);
     }
-    delivery.statuses = availableStatus;
     delivery.updatableProps = updatableProps;
     return delivery;
 }

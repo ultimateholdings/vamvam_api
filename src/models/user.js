@@ -2,37 +2,31 @@
 node, nomen, this
 */
 const fs = require("fs");
-const path = require("path");
-const {DataTypes, QueryTypes} = require("sequelize");
+const {DataTypes, Op, col, fn, where} = require("sequelize");
 const {
     fileExists,
+    formatDbPoint,
     hashPassword,
+    pathToURL,
     propertiesPicker
 } = require("../utils/helpers");
-const {uploadsRoot} = require("../utils/config");
+const {
+    ages,
+    availableRoles,
+    userStatuses
+} = require("../utils/config");
 
 function defineUserModel(connection) {
-    
-    const statuses = {
-        activated: "active",
-        pendingValidation: "pending",
-        inactive: "desactivated"
-    };
-    const roles = {
-        adminRole: "admin",
-        clientRole: "client",
-        driverRole: "driver"
-    };
     const schema = {
         age: {
             type: DataTypes.ENUM,
-            values: ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"]
+            values: ages
         },
-        avatar: DataTypes.STRING,
         available: {
             defaultValue: true,
             type: DataTypes.BOOLEAN
         },
+        avatar: DataTypes.STRING,
         carInfos: DataTypes.STRING,
         deviceToken: DataTypes.STRING,
         email: {
@@ -53,11 +47,15 @@ function defineUserModel(connection) {
             primaryKey: true,
             type: DataTypes.UUID
         },
-        lastName: DataTypes.STRING,
+        internal: {
+            defaultValue: false,
+            type: DataTypes.BOOLEAN
+        },
         lang: {
             defaultValue: "en",
             type: DataTypes.STRING
         },
+        lastName: DataTypes.STRING,
         password: DataTypes.STRING,
         phone: {
             allowNull: false,
@@ -66,28 +64,25 @@ function defineUserModel(connection) {
         },
         position: new DataTypes.GEOMETRY("POINT"),
         role: {
-            defaultValue: roles.clientRole,
+            defaultValue: availableRoles.clientRole,
             type: DataTypes.ENUM,
-            values: Object.values(roles)
+            values: Object.values(availableRoles)
         },
         status: {
-            defaultValue: statuses.pendingValidation,
+            defaultValue: userStatuses.activated,
             type: DataTypes.ENUM,
-            values: Object.values(statuses)
+            values: Object.values(userStatuses)
         }
     };
-    const driverRegistrationDatas = [
-        "phone",
-        "firstName",
-        "lastName",
-        "password",
-        "carInfos",
-        "gender",
-        "age",
-        "email"
-    ];
     const excludedProps = ["password", "deviceToken"];
     const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
+    const shortDescriptionProps = [
+        "id",
+        "avatar",
+        "firstName",
+        "lastName",
+        "phone"
+    ];
     const allowedProps = Object.keys(schema).filter(
         (key) => !excludedProps.includes(key)
     );
@@ -114,8 +109,8 @@ function defineUserModel(connection) {
                 let hash;
                 let previousAvatarExists;
                 let previousInfoExists;
-                previousAvatarExists = await fileExists(uploadsRoot + previous.avatar);
-                previousInfoExists = await fileExists(uploadsRoot + previous.carInfos);
+                previousAvatarExists = await fileExists(previous.avatar);
+                previousInfoExists = await fileExists(previous.carInfos);
                 if (updates.has("password")) {
                     hash = await hashPassword(password);
                     current.password = hash;
@@ -136,20 +131,25 @@ function defineUserModel(connection) {
     });
     user.prototype.toResponse = function () {
         let result = this.dataValues;
-        if (result.position !== null && result.position !== undefined) {
-            result.postion = {
-                latitude: result.position.coordinates[0],
-                longitude: result.position.coordinates[1]
-            };
+        result.position = formatDbPoint(result.position);
+        if (result.avatar !== null && result.avatar !== undefined) {
+            result.avatar = pathToURL(result.avatar);
         }
-        if (result.avatar !== null) {
-            result.avatar = uploadsRoot +  path.basename(result.avatar);
+        if (result.carInfos !== null && result.carInfos !== undefined) {
+            result.carInfos = pathToURL(result.carInfos);
         }
-        if (result.carInfos !== null) {
-            result.carInfos = uploadsRoot +  path.basename(result.carInfos);
+        if (result.role !== availableRoles.driverRole) {
+            delete result.carInfos;
+            delete result.available;
+            delete result.position;
         }
         return propertiesPicker(result)(allowedProps);
     };
+
+    user.prototype.toShortResponse = function () {
+        let result = this.dataValues;
+        return propertiesPicker(result)(shortDescriptionProps);
+    }
 
 /*
 Please note that these GIS functions are only supported on
@@ -157,31 +157,43 @@ PostgreSql, Mysql and MariaDB so if your DB doesn't support it
 it better to use the haversine formula to get the distance between 2 points
 link: https://en.wikipedia.org/wiki/Haversine_formula
 */
-    user.nearTo = async function (point, by, role) {
+    user.nearTo = async function ({point, by, params}) {
         let result = [];
-        let sql = ["deviceToken", ...allowedProps];
         let coordinates = point?.coordinates;
         let distanceQuery;
-        sql = sql.join(" , ")
+        let clause = [];
         if (Array.isArray(coordinates)) {
-            coordinates = "'POINT(" + coordinates[0] + " " +
-            coordinates[1] + ")'";
-            distanceQuery = "ST_Distance_Sphere(ST_GeomFromText(";
-            distanceQuery += "ST_AsText(position), 4326), ST_GeomFromText(";
-            distanceQuery += coordinates + ", 4326))";
-            sql = "select " + sql + " , " + distanceQuery + " as distance from ";
-            sql += this.getTableName() + " where " + distanceQuery + " <= " + by;
-            sql += " and `role` = '" + role + "';";
-            result = await connection.query(sql, {
-                type: QueryTypes.SELECT
+            coordinates =
+            "POINT(" + coordinates[0] + " " + coordinates[1] + ")";
+            distanceQuery = () => fn("ST_Distance_Sphere", fn(
+                "ST_GeomFromText",
+                fn("ST_AsText", col("position")),
+                4326
+            ),fn("ST_GeomFromText", coordinates, 4326));
+            clause.push(where(distanceQuery(), {[Op.lte]: by}));
+            if (params !== null && typeof params === "object") {
+                clause.push(params)
+            }
+            result = await user.findAll({
+                attributes: {
+                    includes: [[distanceQuery(), "distance"]]
+                },
+                where: {
+                    [Op.and]: clause
+                }
             });
         }
         return result ?? [];
     };
     user.genericProps = genericProps;
-    user.registrationDatas = driverRegistrationDatas;
-    user.roles = roles;
-    user.statuses = statuses;
+    user.statuses = userStatuses;
+    user.getAllByPhones = function (phoneList) {
+        return this.findAll({
+            where: {
+                phone: {[Op.in]: phoneList}
+            }
+        });
+    }
     return user;
 }
 

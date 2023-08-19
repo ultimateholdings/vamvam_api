@@ -1,4 +1,4 @@
-const { DataTypes } = require("sequelize");
+const {DataTypes} = require("sequelize");
 
 function defineUserRoomModel(connection) {
   const userRoom = connection.define(

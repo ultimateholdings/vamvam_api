@@ -2,7 +2,12 @@
 node
 */
 const {User} = require("../models");
-const {propertiesPicker, sendResponse} = require("../utils/helpers");
+const {
+    isValidLocation,
+    propertiesPicker,
+    sendResponse,
+    toDbPoint
+} = require("../utils/helpers");
 const {errors, uploadsRoot} = require("../utils/config");
 
 
@@ -51,6 +56,32 @@ function getUserModule({
     function getInformations(req, res) {
         res.status(200).json(req.userData.toResponse());
     }
+    async function getNearByDrivers(req, res) {
+        let {from, by, internal = true} = req.body;
+        let drivers;
+        if (!isValidLocation(from)) {
+            return sendResponse(res, errors.invalidLocation);
+        }
+        if (!Number.isFinite(by)) {
+            by = 55000;
+        }
+        drivers = await userModel.nearTo?.({
+            by,
+            params: {
+                available: true,
+                internal: new Boolean(internal).valueOf(),
+                role: "driver",
+            },
+            point: toDbPoint(from)
+        }) ?? [];
+        res.status(200).send({
+            result: drivers.map(function (driver) {
+                const result = driver.toResponse();
+                result.distance = driver.distance;
+                return result;
+            })
+        });
+    }
 
     async function updateProfile(req, res) {
         let {id, phone} = req.user.token;
@@ -93,6 +124,7 @@ function getUserModule({
         deleteAvatar,
         ensureUserExists,
         getInformations,
+        getNearByDrivers,
         updateProfile
     });
 }

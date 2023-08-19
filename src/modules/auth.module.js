@@ -3,7 +3,7 @@ node
 */
 "use strict";
 const {User, otpRequest} = require("../models");
-const {defaultValues,errors} = require("../utils/config");
+const {availableRoles, defaultValues,errors} = require("../utils/config");
 const {
     comparePassword,
     deleteFile,
@@ -26,8 +26,8 @@ function getAuthModule({
     const authTokenService = tokenService || jwtWrapper;
     const otpAllowedRoles = ["client", "driver"];
     const otpResetRoles = [
-        authModel.roles.driverRole,
-        authModel.roles.adminRole
+        availableRoles.driverRole,
+        availableRoles.adminRole
     ];
 
     function handleAuthSuccess(res, user, userExists) {
@@ -45,7 +45,7 @@ function getAuthModule({
     }
 
     function sendResetSuccess(res, user) {
-        const tokenFactory = authTokenService(600000)
+        const tokenFactory = authTokenService(600000) //expires in 5min
         const resetToken = tokenFactory.sign({
             phone: user.phone
         });
@@ -199,7 +199,7 @@ function getAuthModule({
         if (currentUser === null) {
             currentUser = await authModel.create({
                 phone,
-                role: authModel.roles?.clientRole,
+                role: availableRoles.clientRole,
                 status: authModel.statuses?.activated
             });
             userExists = false;
@@ -215,7 +215,7 @@ function getAuthModule({
         let currentUser = await authModel.findOne({where: {phone}});
         let isVerified;
         if (currentUser !== null) {
-            if (currentUser.status === authModel.statuses?.pendingValidation) {
+            if (currentUser.status !== authModel.statuses?.activated) {
                 return sendResponse(res, errors.inactiveAccount);
             }
             isVerified = await comparePassword(password, currentUser.password);

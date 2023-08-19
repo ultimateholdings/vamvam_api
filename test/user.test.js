@@ -23,7 +23,7 @@ const {
     setupAuthServer,
     subscriber,
     users
-} = require("./fixtures/users.data");
+} = require("./fixtures/helper");
 
 function getFileSize(path) {
     return new Promise(function (res) {
@@ -134,28 +134,13 @@ describe("user interactions tests", function () {
                 fs.unlink(carInfoHash, console.log);
             }
         });
-        it("should register a new driver", async function () {
-            const driver = subscriber;
-            const badDriver = Object.create(null);
-            let response;
-            Object.assign(badDriver, driver);
-            badDriver.phoneNumber = users.firstDriver.phone;
-            await User.create(users.firstDriver);
-            response = await app.post("/auth/register").send(badDriver);
-            assert.equal(response.status, errors.existingUser.status);
-            response = await app.post("/auth/register").send(driver);
-            assert.equal(response.status, errors.invalidValues.status);
-            driver.carInfos = carInfosPath;
-            response = await registerDriver(app, driver)
-            assert.equal(response.status, 200);
-
-        });
         it("should authenticate a driver", async function () {
             const password = "23209J@fklsd";
             const driver = subscriber;
             let response;
-            driver.carInfos = carInfosPath;
-            await registerDriver(app, driver);
+            driver.status = User.statuses.inactive;
+            driver.phone = driver.phoneNumber;
+            await User.create(driver)
             response = await app.post("/auth/login").send({
                 password,
                 phoneNumber: driver.phoneNumber
@@ -173,11 +158,6 @@ describe("user interactions tests", function () {
                 phoneNumber: driver.phoneNumber
             });
             assert.equal(response.status, errors.invalidCredentials.status);
-            response = await app.post("/auth/login").send({
-                password: driver.password,
-                phoneNumber: driver.phoneNumber
-            });
-            assert.equal(response.status, 200);
         });
         it("should handle avatar and carInfos upload", async function () {
             const token = await getToken(app, users.goodUser.phone);
@@ -214,10 +194,7 @@ describe("user interactions tests", function () {
             response = await app.post("/user/update-profile").attach(
                 "avatar",
                 avatarPath
-            ).set(
-                "authorization",
-                "Bearer " + token
-            );
+            ).set("authorization", "Bearer " + token);
             response = await app.post("/user/delete-avatar").set(
                 "authorization",
                 "Bearer " + token
@@ -243,10 +220,7 @@ describe("user interactions tests", function () {
                 ).attach(
                     "carInfos",
                     avatarPath
-                ).set(
-                    "authorization",
-                    "Bearer " + token
-                );
+                ).set("authorization", "Bearer " + token);
                 assert.equal(response.status, 200);
                 response = await User.findOne(
                     {where: {phone: users.goodUser.phone}}

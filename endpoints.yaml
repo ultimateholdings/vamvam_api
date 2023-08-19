@@ -180,7 +180,6 @@ auth-endpoints:
       action: get the price of a delivery
       type: get
       body:
-        id: string
       response:
         price: number
 
@@ -251,7 +250,7 @@ auth-endpoints:
           succes: boolean
           roomId: string
           name: string
-          users: array
+          users:
             userId: strint
             firtName: string
             lastName: string

@@ -114,7 +114,13 @@ function deliveryResquestor(tokenGetter, model) {
         return response.body;
     }
 
-    async function setupDelivery({app, clientPhone, delivery, driverData}) {
+    async function setupDelivery({
+        app,
+        clientPhone,
+        delivery,
+        driverData,
+        initialState
+    }) {
         const request = await requestDelivery({
             app,
             phone: clientPhone,
@@ -123,7 +129,7 @@ function deliveryResquestor(tokenGetter, model) {
         let token = await tokenGetter(app, driverData.phone);
         await model.update({
             driverId: driverData.id,
-            status: model.statuses.started
+            status: initialState
         }, {
             where: {id: request.id}
         });
@@ -138,8 +144,7 @@ function setupDeliveryServer(otpHandler) {
     let app;
     let server;
     const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));
-    deliveryRoutes = buildDeliveryRoutes(deliveryModule({}));
-    server = buildServer(buildRouter({authRoutes, deliveryRoutes}));
+    server = buildServer(buildRouter({authRoutes}));
     app = supertest.agent(server);
     return Object.freeze({app, server});
 }
