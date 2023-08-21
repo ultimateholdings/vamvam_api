@@ -398,24 +398,29 @@ describe("delivery side effects test", function () {
         it("should notify the manager and client on conflict", async function () {
             let data;
             let client;
-            let conflictManager = await clientSocketCreator("conflict", managerToken);
+            let conflictManager = await loginUser(
+                app,
+                dbUsers.conflictManager.phone,
+                "aSimplePass"
+            );
             const {
                 request: delivery,
-                driverToken: secondDriverToken,
-            } = await setupDelivery({
-                app,
-                clientPhone: dbUsers.goodUser.phone,
-                delivery: deliveries[2],
-                driverData: dbUsers.secondDriver,
-                initialState: deliveryStatuses.started
-            });
-            assert.isTrue(managerToken !== delivery.token);
-            client = await clientSocketCreator("delivery", delivery.token);
+                driverToken
+            } = setupDatas;
+            await Delivery.update(
+                {status: deliveryStatuses.started},
+                {where: {id: delivery.id}}
+            );
+            [client, conflictManager] = await Promise.all([
+                await clientSocketCreator("delivery", delivery.token),
+                await clientSocketCreator("delivery", conflictManager)
+
+            ])
             await app.post("/delivery/conflict/report").send({
                 conflictType: message.type,
                 id: delivery.id,
                 lastPosition: missoke
-            }).set("authorization", "Bearer " + secondDriverToken);
+            }).set("authorization", "Bearer " + driverToken);
             data = await Promise.all([
                 listenEvent({name: "new-conflict", socket: conflictManager}),
                 listenEvent({name: "new-conflict", socket: client})

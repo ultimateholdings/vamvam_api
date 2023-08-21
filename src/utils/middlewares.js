@@ -24,11 +24,11 @@ async function protectRoute(req, res, next) {
 }
 /*jslint-enable*/
 function socketAuthenticator(allowedRoles = ["driver", "client"]) {
+    const jwtHandler = jwtWrapper();
+    const err = new Error("Forbidden Access");
+    err.data = errors.notAuthorized.message;
     return async function authenticateSocket(socket, next) {
         const [, token] = (socket.handshake.headers.authorization ?? "").split(" ");
-        const jwtHandler = jwtWrapper();
-        const err = new Error("Forbidden Access");
-        err.data = errors.notAuthorized.message;
         let payload;
         if (token === undefined || token === null) {
             next(err);
