@@ -230,78 +230,55 @@ auth-endpoints:
         note: double
       response:
         rated: boolean
-
-    room:
-      /room/new-room:
-        action: create new room chanel
+    chat:
+      /discussion/new-message:
+        action: send new message
         type: post
         body:
-          name: string
-          phoneList: array
+          content: string
         response:
-          success: boolean
-          message: string
-      /room/infos:
-        action: get room details
+          id: string
+      /discussion/messages:
+        action: get room messages
         type: get
         body:
+          limit: double 
           roomId: string
         response:
           succes: boolean
-          roomId: string
-          name: string
-          users:
-            userId: strint
-            firtName: string
-            lastName: string
-            avatar: string
-      /room/user-rooms:
+          totalmessage: double
+          totalPage: double
+          messages:
+            content: string
+            createdAt: date
+            id: string
+            sender:
+              id: string
+              firstName: string
+              lastName: string
+              avatar: string
+      /discussion/all:
         action: get user rooms
         type: get
         body:
-          roomId: string
         response:
-          succes: boolean
-          data:
-            roomId: string
-            name: string,
-            senderId: string
-            date: string
-            messageId: string
-            content: string
-            avatar: string
-            lastName: string
-            firstName: string
-      /room/miss-message:
-        action: get missed messages
-        type: get
-        body:
-          userId: string
-        response:
-          data:
-            missegCount: number
-            roomId: string
-    
-    message:
-      /message/new-message:
-        content: string
-        messageId: string
-        roomId: string
-      /message/infos:
-        content: string
-        messageId: string
-        roomId: string
-      /message/room-messages:
-        succes: boolean
-        totalmessage: number
-        totalPage: number
-        messages: 
-          messageId: string
-          roomId: string
-          content: string
-          date: string
-          userId: string
-          avatar: string
-          firstName: string
-          lastName: string
-      /message/update-reader:
+          rooms:
+            id: string
+            name: string
+            members:
+              id: string
+              avatar: string
+              firstName: string
+              lastName: string
+              phone: string
+            messages:
+              id: string
+              content: string
+              date: date
+              sender:
+                id: string
+                avatar: string
+                firstName: string
+                lastName: string
+                phone: string
+            
