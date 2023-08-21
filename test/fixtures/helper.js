@@ -158,29 +158,29 @@ function setupInterceptor() {
     }).persist();
 }
 
-function clientSocketCreator(room) {
+function clientSocketCreator(room, token) {
     const {
         API_PORT: port
     } = process.env;
-    return function (token) {
-        return new Promise(function (res, rej) {
-            let client;
-            let options = {};
-            if (token !== null && token !== undefined) {
-                options.auth = {token};
-            }
-            client = new Client(
-                "ws://localhost:" + port + "/" + room,
-                options
-            );
-            client.on("connect", function () {
-                res(client);
-            });
-            client.on("connect_error", function (err) {
-                rej(err);
-            });
+    return new Promise(function (res, rej) {
+        let client;
+        let options = {};
+        if (token !== null && token !== undefined) {
+            options.extraHeaders = {
+                authorization: "Bearer " + token
+            };
+        }
+        client = new Client(
+            "http://localhost:" + port + "/" + room,
+            options
+        );
+        client.on("connect", function () {
+            res(client);
         });
-    };
+        client.on("connect_error", function (err) {
+            rej(err);
+        });
+    });
 }
 
 async function getToken(app, phone, role) {

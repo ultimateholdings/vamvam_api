@@ -184,7 +184,6 @@ Room.getUserRooms = async function (userId) {
             members: room.users.map((user) => user.toShortResponse()),
             name: room.name
         };
-        debugger;
         const messages = room.Messages.map(
             (msg) => Object.freeze({
                 content: msg.content,

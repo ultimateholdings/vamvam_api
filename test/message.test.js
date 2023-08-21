@@ -22,7 +22,6 @@ const {
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
-const connectedUser = clientSocketCreator("delivery");
 
 describe("Message test", function () {
   let server;
@@ -90,7 +89,7 @@ describe("Message test", function () {
     Object.assign(driverMessage, messages[0]);
     driverMessage.senderId = dbUsers.firstDriver.id;
     await Message.create(driverMessage);
-    client = await connectedUser(tokens[0]);
+    client = await clientSocketCreator("delivery", tokens[0]);
     data = await listenEvent({name: "new-missed-messages", socket: client});
 /*this assertion is made this way to avoid false negative introduced by date comparison*/
     assert.isTrue(data.roomId === room.id && data.messages.length === 1);
@@ -102,7 +101,7 @@ describe("Message test", function () {
     Object.assign(message, messages[0]);
     message.senderId = dbUsers.firstDriver.id;
     message = await Message.create(message);
-    client = await connectedUser(tokens[0]);
+    client = await clientSocketCreator("delivery", tokens[0]);
     client.emit("messages-read", [message.id]);
     await listenEvent({name: "messages-marked-as-read", socket: client});
     data = await Message.findOne({where: {id: message.id}});
@@ -114,8 +113,8 @@ describe("Message test", function () {
       let data;
       let response;
       let [client, driver] = await Promise.all([
-        connectedUser(tokens[0]),
-        connectedUser(tokens[1])
+        clientSocketCreator("delivery", tokens[0]),
+        clientSocketCreator("delivery", tokens[1])
       ]);
       response = await postData({
         app,

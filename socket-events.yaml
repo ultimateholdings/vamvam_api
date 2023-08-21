@@ -1,2 +1,15 @@
 delivery:
-  
+  server-sent:
+    new-driver-position:
+      purpose: "notify the client of the driver's positions"
+      data:
+        deliveryId: string
+        positions: "{longitude: double, latitude: double}[]"
+    position-updated:
+      purpose: "notify the driver that his positions has been updated"
+      data: boolean
+    itinerary-updated:
+      purpose: ""
+      data:
+        deliveryId: string
+        positions: "{longitude: double, latitude: double}[]"

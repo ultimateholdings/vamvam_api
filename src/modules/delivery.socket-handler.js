@@ -72,7 +72,7 @@ function deliveryMessageHandler(emitter) {
         function handleFulfilledItinerary(data) {
             const {clientId, driverId, deliveryId, points} = data;
             connectedUsers[driverId]?.emit?.(
-                "itinerary-updated",
+                "itinerary-update-fulfilled",
                 {deliveryId}
             );
             connectedUsers[clientId]?.emit?.(

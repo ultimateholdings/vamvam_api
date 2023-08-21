@@ -45,7 +45,7 @@ function updatePosition(socket, position) {
 function updateItinerary({deliveryId, points, socket}) {
     return new Promise(function (res, rej) {
         socket.emit("itinerary-changed", {deliveryId, points});
-        socket.on("itinerary-updated", res);
+        socket.on("itinerary-update-fulfilled", res);
         setTimeout(() => rej("Timeout Exceeded !!!"), 1500);
     });
 }
@@ -56,8 +56,6 @@ describe("delivery side effects test", function () {
     let dbUsers;
     let socketServer;
     let setupDatas;
-    const connectUser = clientSocketCreator("delivery");
-    const connectConflictManager = clientSocketCreator("conflict");
 
     before(function () {
         const tmp = setupDeliveryServer(otpHandler);
@@ -86,14 +84,14 @@ describe("delivery side effects test", function () {
         await connection.drop();
     });
 
-    after(async function () {
+    after(function () {
         socketServer.close();
-        await server.close();
+        server.close();
     });
 
     it("should reject if a user is not authenticated", async function () {
         try {
-            await connectUser();
+            await clientSocketCreator("delivery");
         } catch (error) {
             assert.deepEqual(error.data, errors.notAuthorized.message);
         }
@@ -102,7 +100,7 @@ describe("delivery side effects test", function () {
     it("should notify the client on delivery's ending", async function () {
         let data;
         const {driverToken, request} = setupDatas;
-        const client = await connectUser(request.token);
+        const client = await clientSocketCreator("delivery", request.token);
         await app.post("/delivery/verify-code").send(request).set(
             "authorization", "Bearer " + driverToken
             );
@@ -121,8 +119,8 @@ describe("delivery side effects test", function () {
             let data;
             const {driverToken, request} = setupDatas;
             const [{value: client}] = await Promise.allSettled([
-                connectUser(request.token),
-                connectUser(driverToken).then(function (driver) {
+                clientSocketCreator("delivery", request.token),
+                clientSocketCreator("delivery", driverToken).then(function (driver) {
                     driver.emit("new-position", missoke);
                 })
             ]);
@@ -160,8 +158,8 @@ describe("delivery side effects test", function () {
             let data;
             const {driverToken} = setupDatas;
             const [client, driver] = await Promise.all([
-                connectUser(request.token),
-                connectUser(driverToken)
+                clientSocketCreator("delivery", request.token),
+                clientSocketCreator("delivery", driverToken)
             ]);
             await app.post("/delivery/accept").send(request).set(
                 "authorization", "Bearer " + driverToken
@@ -194,7 +192,7 @@ describe("delivery side effects test", function () {
         it("should notify a driver on client cancellation", async function () {
             let data;
             const {driverToken} = setupDatas;
-            const driverSocket = await connectUser(driverToken);
+            const driverSocket = await clientSocketCreator("delivery", driverToken);
             dbUsers.firstDriver.position = toDbPoint(nearByPoint);
             await dbUsers.firstDriver.save();
             await app.post("/delivery/cancel").send(request).set(
@@ -209,7 +207,7 @@ describe("delivery side effects test", function () {
         it("should notify the client on driver reception", async function () {
             let data;
             const {driverToken} = setupDatas;
-            const client = await connectUser(request.token);
+            const client = await clientSocketCreator("delivery", request.token);
             await Delivery.update({
                 status: deliveryStatuses.pendingReception,
                 driverId: dbUsers.firstDriver.id
@@ -230,8 +228,8 @@ describe("delivery side effects test", function () {
             async function () {
                 let data;
                 const {driverToken} = setupDatas;
-                const client = await connectUser(request.token);
-                const driverSocket = await connectUser(driverToken);
+                const client = await clientSocketCreator("delivery", request.token);
+                const driverSocket = await clientSocketCreator("delivery", driverToken);
                 await Delivery.update({
                     driverId: dbUsers.firstDriver.id,
                     status: deliveryStatuses.toBeConfirmed
@@ -266,8 +264,8 @@ describe("delivery side effects test", function () {
                getToken(app, dbUsers.secondDriver.phone)
             ]);
            [firstDriver, secondDriver] = await Promise.all([
-            connectUser(firstDriver),
-            connectUser(secondDriver)
+            clientSocketCreator("delivery", firstDriver),
+            clientSocketCreator("delivery", secondDriver)
            ]);
            await Promise.all([
                updatePosition(firstDriver, nearByPoint),
@@ -303,8 +301,8 @@ describe("delivery side effects test", function () {
         ];
         const {driverToken, request} = setupDatas;
         const [client, driver] = await Promise.all([
-            connectUser(request.token),
-            connectUser(driverToken)
+            clientSocketCreator("delivery", request.token),
+            clientSocketCreator("delivery", driverToken)
         ]);
         await updateItinerary({
             deliveryId: request.id,
@@ -326,8 +324,8 @@ describe("delivery side effects test", function () {
                 phone: dbUsers.goodUser.phone
             });
             const [client, driver] = await Promise.all([
-                connectUser(request.token),
-                connectUser(driverToken)
+                clientSocketCreator("delivery", request.token),
+                clientSocketCreator("delivery", driverToken)
             ]);
             const delivery = await Delivery.findOne({where: {id: request.id}});
             const room = await Room.create({name: "hello world"});
@@ -400,18 +398,19 @@ describe("delivery side effects test", function () {
         it("should notify the manager and client on conflict", async function () {
             let data;
             let client;
-            let conflictManager = await connectConflictManager(managerToken);
+            let conflictManager = await clientSocketCreator("conflict", managerToken);
             const {
                 request: delivery,
                 driverToken: secondDriverToken,
             } = await setupDelivery({
                 app,
                 clientPhone: dbUsers.goodUser.phone,
-                delivery: deliveries[0],
+                delivery: deliveries[2],
                 driverData: dbUsers.secondDriver,
                 initialState: deliveryStatuses.started
             });
-            client = await connectUser(delivery.token);
+            assert.isTrue(managerToken !== delivery.token);
+            client = await clientSocketCreator("delivery", delivery.token);
             await app.post("/delivery/conflict/report").send({
                 conflictType: message.type,
                 id: delivery.id,
@@ -437,7 +436,7 @@ describe("delivery side effects test", function () {
                 id: conflict.id,
                 driverId: dbUsers.secondDriver.id
             };
-            secondDriver = await connectUser(secondDriver);
+            secondDriver = await clientSocketCreator("delivery", secondDriver);
             response = await app.post(endPoint).send(payload).set(
                 "authorization", "Bearer " + driverToken
             );
@@ -458,7 +457,7 @@ describe("delivery side effects test", function () {
             "should notify the manager when a backup finish a delivery",
             async function () {
                 let response;
-                let manager = await connectConflictManager(managerToken);
+                let manager = await clientSocketCreator("conflict", managerToken);
                 let secondDriver = await getToken(
                     app,
                     dbUsers.secondDriver.phone

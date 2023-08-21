@@ -31,7 +31,6 @@ const getSocketManager = require("../src/utils/socket-manager");
 const registrationHandler = require("../src/modules/driver.socket-handler");
 const {errors} = require("../src/utils/config");
 const {fileExists, getFileHash} = require("../src/utils/helpers");
-const connectManager = clientSocketCreator("registration");
 
 describe("registration tests", function () {
     const carInfosPath = "test/fixtures/specs.pdf";
@@ -96,7 +95,7 @@ describe("registration tests", function () {
         let socket;
         Object.assign(driver, subscriber);
         driver.carInfos = carInfosPath;
-        socket = await connectManager(managerToken);
+        socket = await clientSocketCreator("registration", managerToken);
         await registerDriver({app, driver});
         response = await listenEvent({name: "new-registration", socket});
         driver = await Registration.findOne(
