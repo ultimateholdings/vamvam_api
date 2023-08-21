@@ -24,11 +24,11 @@ async function up() {
     await createTable(connection, otpRequest);
     await createTable(connection, User);
     await createTable(connection, Delivery);
-    await createTable(connection, DeliveryConflict);
-    await createTable(connection, Message);
-    await createTable(connection, Registration);
     await createTable(connection, Room);
+    await createTable(connection, Message);
     await createTable(connection, UserRoom);
+    await createTable(connection, DeliveryConflict);
+    await createTable(connection, Registration);
 }
 
 async function down() {

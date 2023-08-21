@@ -24,7 +24,8 @@ const socketServer = getSocketManager({
     await umzug.up();
 })();
 
-process.on("uncaughtException", function () {
+process.on("uncaughtException", function (error) {
+    console.dir(error);
     socketServer.close();
     httpServer.close();
     //TODO: notify via email
