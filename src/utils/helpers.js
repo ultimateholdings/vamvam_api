@@ -7,16 +7,12 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
-const Flutterwave = require("flutterwave-node-v3");
-const flw = new Flutterwave(
-  process.env.TEST_FLW_PUBLIC_KEY,
-  process.env.TEST_FLW_SECRET_KEY
-);
 const { errors, getFirebaseConfig, getOTPConfig } = require("../utils/config");
 const { ValidationError } = require("sequelize");
 const {
   TOKEN_EXP: expiration = 3600,
   JWT_SECRET: secret = "test1234butdefault",
+  FLW_SECRET_KEY
 } = process.env;
 
 const CustomEmitter = function () {
@@ -336,11 +332,42 @@ function sendCloudMessage({ body, meta, title, to }) {
     url: config.url,
   });
 }
-
 function getPaymentService() {
-  async function initTrans(payload){
-    const response = await flw.MobileMoney.franco_phone(payload);
-    return response
+  async function initTrans(payload) {
+    let response;
+    try {
+      response = await fetch(
+        "https://api.flutterwave.com/v3/charges?type=mobile_money_franco",
+        {
+          method: "post",
+          body: JSON.stringify(payload),
+          headers: {
+            Authorization: `Bearer ${FLW_SECRET_KEY}`,
+            "Content-Type": "application/json"
+          },
+        }
+      );
+    } catch (error) {
+      response = errors.internalError;
+      console.error(error);
+      return {
+        code: response.status,
+        message: response.message,
+        sent: false,
+      };
+    }
+    if (response.ok) {
+      response = await response.json();
+      return response
+    } else {
+      response = await response.json();
+      return {
+        code: errors.paymentSendingFail.status,
+        content: response.message,
+        message: errors.paymentSendingFail.message,
+        sent: false,
+      };
+    }
   }
 
   async function verifyTrans(transactionId) {

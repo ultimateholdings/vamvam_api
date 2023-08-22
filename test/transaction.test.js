@@ -33,8 +33,8 @@ describe("Transaction test", function () {
       getToken(app, dbUsers.firstDriver.phone),
     ]);
     const payload = {
-      phone_number: '237697259231',
-      amount: 500,
+      phone_number: '+237683411151',
+      amount: 200,
       email: "support@ultimateholdingsinc.com",
       fullname: dbUsers.firstDriver.firstName
     }

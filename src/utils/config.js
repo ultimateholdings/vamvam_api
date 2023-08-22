@@ -121,6 +121,13 @@ const errors = {
             fr: "Votre accès a expiré, veuillez vous connecter à nouveau."
         },
         status: 402
+    },
+    paymentSendingFail: {
+        message: {
+            en: "Could not initalize payment",
+            fr: "Impossible d'initialiser le payment"
+        },
+        status: 440
     }
 };
 
