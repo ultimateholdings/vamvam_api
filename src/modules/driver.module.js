@@ -72,8 +72,16 @@ function getRegistrationModule({associatedModels, model}) {
 
     async function ensureUnregistered(req, res, next) {
         const {phoneNumber} = req.body;
-        const user = await registrationModel.findOne({where: {phoneNumber}});
+        const registration = await registrationModel.findOne(
+            {where: {phoneNumber}}
+        );
+        const user = await associations.User.findOne({
+            where: {phone: phoneNumber}
+        });
         if (user !== null) {
+            return sendResponse(res, errors.existingUser);
+        }
+        if (registration !== null) {
             sendResponse(res, errors.alreadyRegistered);
         } else {
             next();

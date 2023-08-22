@@ -5,7 +5,7 @@ node
 require("dotenv").config();
 const nock = require("nock");
 const {
-    io: Client
+    io
 } = require("socket.io-client");
 const supertest = require("supertest");
 const {buildServer} = require("../../src");
@@ -17,6 +17,8 @@ const buildUserRoutes = require("../../src/routes/user.route");
 const driverRoutes = require("../../src/routes/driver.route");
 const buildRouter = require("../../src/routes");
 const {availableRoles, userStatuses} = require("../../src/utils/config");
+const {jwtWrapper} = require("../../src/utils/helpers");
+const jwt = jwtWrapper();
 const users = {
     badUser: {
         firstName: "NKANG NGWET",
@@ -107,6 +109,13 @@ const otpHandler = {
     sendCode: () => Promise.resolve({verified: true}),
     verifyCode: () => Promise.resolve({verified: true})
 };
+function generateToken(user) {
+    return jwt.sign({
+        id: user.id,
+        phone: user.phone,
+        role: user.role
+    });
+}
 
 
 function setupInterceptor() {
@@ -158,22 +167,20 @@ function setupInterceptor() {
     }).persist();
 }
 
-function clientSocketCreator(room, token) {
+function clientSocketCreator(namespace, token) {
     const {
         API_PORT: port
     } = process.env;
     return new Promise(function (res, rej) {
         let client;
-        let options = {};
+        let options = {forceNew: true};
+        const url = "ws://localhost:" + port + "/" + namespace;
         if (token !== null && token !== undefined) {
             options.extraHeaders = {
                 authorization: "Bearer " + token
             };
         }
-        client = new Client(
-            "http://localhost:" + port + "/" + room,
-            options
-        );
+        client = io(url, options);
         client.on("connect", function () {
             res(client);
         });
@@ -296,6 +303,7 @@ function listenEvent({
 }
 module.exports = Object.freeze({
     clientSocketCreator,
+    generateToken,
     getDatas,
     getToken,
     listenEvent,

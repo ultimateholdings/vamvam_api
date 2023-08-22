@@ -1,3 +1,44 @@
+locationData:
+  address: string
+  longitude: double
+  latitude: double
+registrationData:
+  phoneNumber: string
+  firstName: string
+  lastName: string
+  password: string
+  email: string
+  gender: M | F
+  age: string
+  carInfos: File
+errorData: 
+  en: string
+  fr: string
+userData:
+  age: string
+  available: boolean
+  avatar: string
+  email: string
+  firstName: string
+  gender: string
+  id: string
+  lastName: string
+  position: locationData
+  role: string
+deliveryData:
+  begin: Date
+  departure: locationData
+  destination: locationData
+  end: Date
+  id: string
+  note: double
+  packageType: string
+  recipientInfos: JSON
+roomData:
+  id: string
+  lastMessage: messageData
+  members: shortUserData[]
+  name: string
 non-auth-endpoints:
   /auth/login : 
       action: connect with password
@@ -9,9 +50,7 @@ non-auth-endpoints:
         valid: boolean
         token: string
         userExists: boolean
-        message: 
-          en: string
-          fr: string
+        message: errorData
 
   /auth/send-otp :
       action: send the OTP code
@@ -30,26 +69,17 @@ non-auth-endpoints:
         valid: boolean
         token: string
         userExists: boolean
-        message: 
-          en: string
-          fr: string
+        message: errorData
 
-  /auth/register :
+  /driver/register :
     action: register a new driver
     type: post
     body:
-      required:
-        phone: string
-        firstName: string
-        lastName: string
-        password: string
-        email: string
-        carInfos: File
+      data: registrationData
+      required: true
     response:
         registered: boolean
-        message: 
-          en: string
-          fr: string
+        message: errorData
 
   /auth/verify-reset :
     action: verify the OTP code for password reset
@@ -59,9 +89,7 @@ non-auth-endpoints:
       phoneNumber: string
     response:
         resetToken: string
-        message: 
-          en: string
-          fr: string
+        message: errorData
 
   /auth/reset-password :
     action: reset a user's password
@@ -71,9 +99,7 @@ non-auth-endpoints:
       password: string
     response:
         updated: boolean
-        message: 
-          en: string
-          fr: string
+        message: errorData
 
           
 auth-endpoints:
@@ -82,19 +108,8 @@ auth-endpoints:
       action: get user informations
       type: get
       response:
-          message: 
-            en: string
-            fr: string
-          age: string
-          avatar: string
-          carInfos: string
-          firstName: string
-          lastName: string
-          gender: string
-          email: string
-          role: string
-          phone: string
-          id: string
+          message: errorData
+          data: userData
 
     /user/update-profile :
       action: update user informations
@@ -128,20 +143,23 @@ auth-endpoints:
       response:
         updated: boolean
 
+  users:
+    /users/drivers:
+      action: get drivers close to a location
+      type: get
+      body:
+        from: locationData
+        by: double
+        internal: boolean
+      response: userData[]
+
   delivery:
-    /delivery/request :
+    /delivery/request:
       action: request a new delivery
       type: post
       body:
-        departure:
-          address: string
-          latitude: number
-          longitude: number
-        destination:
-          address: string
-          latitude: number
-          longitude: number
-        packageType: string
+        departure: locationData
+        destination: locationData
         recipientInfos: 
           name: string
           phone: string
@@ -151,30 +169,26 @@ auth-endpoints:
         id: string
         price: string
 
-    /delivery/infos :
+    /delivery/infos:
       action: get delivery informations
       type: get
       body:
         id: string
-      response:
-        begin: date
-        code: string
-        end: date
-        price: string
-        status: string
-        departure:
-          address: string
-          latitude: number
-          longitude: number
-        destination:
-          address: string
-          latitude: number
-          longitude: number
-        packageType: string
-        recipientInfos: 
-          name: string
-          phone: string
-          otherPhones: [string]
+      response: deliveryData
+
+    /delivery/started:
+      action: get started deliveries informations
+      type: get
+      body:
+        id: string
+      response: deliveryData[]
+
+    /delivery/terminated:
+      action: get ended deliveries informations
+      type: get
+      body:
+        id: string
+      response: deliveryData[]
 
     /delivery/price :
       action: get the price of a delivery
@@ -199,8 +213,8 @@ auth-endpoints:
       response:
         canceled: boolean
 
-    /delivery/signal-reception:
-      action: signal the reception a delivery
+    /delivery/signal-on-site:
+      action: enable the driver to signal that he's on the package location
       type: post
       body:
         id: string
@@ -222,6 +236,15 @@ auth-endpoints:
         id: string
       response:
         terminated: boolean
+    
+    /delivery/report:
+      action: verify the code of a delivery package
+      type: post
+      body:
+        id: string
+      response:
+        terminated: boolean
+
     /delivery/rate:
       action: rate a delivery
       type: post
@@ -230,6 +253,43 @@ auth-endpoints:
         note: double
       response:
         rated: boolean
+
+    /delivery/conflict/report:
+      action: report a delivery as conflicting
+      type: post
+      body:
+        conflictType: string
+        id: string
+        lastLocation: locationData
+      response:
+        reported: boolean
+
+    /delivery/conflict/archive:
+      action: archive a conflicting delivery
+      type: post
+      body:
+        id: string representing the conflict Id
+      response:
+        archived: boolean
+
+    /delivery/conflict/verify-code:
+      action: verify the code of a conflicting delivery
+      type: post
+      body:
+        id: string representing the conflict Id
+        code: string
+      response:
+        terminated: boolean
+
+    /delivery/conflict/assign-driver:
+      action: assign an internal driver to a conflicting delivery
+      type: post
+      body:
+        id: string representing the conflict Id
+        driverId: string
+      response:
+        assigned: boolean
+
     chat:
       /discussion/new-message:
         action: send new message
@@ -238,6 +298,7 @@ auth-endpoints:
           content: string
         response:
           id: string
+
       /discussion/messages:
         action: get room messages
         type: get
@@ -248,37 +309,12 @@ auth-endpoints:
           succes: boolean
           totalmessage: double
           totalPage: double
-          messages:
-            content: string
-            createdAt: date
-            id: string
-            sender:
-              id: string
-              firstName: string
-              lastName: string
-              avatar: string
+          messages: messageData[]
+
       /discussion/all:
         action: get user rooms
         type: get
         body:
         response:
-          rooms:
-            id: string
-            name: string
-            members:
-              id: string
-              avatar: string
-              firstName: string
-              lastName: string
-              phone: string
-            messages:
-              id: string
-              content: string
-              date: date
-              sender:
-                id: string
-                avatar: string
-                firstName: string
-                lastName: string
-                phone: string
+          rooms: roomData[]
             

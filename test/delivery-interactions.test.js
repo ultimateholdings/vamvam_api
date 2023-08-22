@@ -13,6 +13,7 @@ const {
     clientSocketCreator,
     listenEvent,
     loginUser,
+    generateToken,
     getToken,
     otpHandler,
     postData,
@@ -128,7 +129,7 @@ describe("delivery side effects test", function () {
                 name: "new-driver-position",
                 socket: client
             });
-            assert.deepEqual(data, missoke);
+            assert.deepEqual(data, {deliveryId: request.id, positions: missoke});
             data = await User.findOne({where: {id: dbUsers.firstDriver.id}});
             assert.deepEqual(data.position, {
                 type: "Point",
@@ -212,14 +213,12 @@ describe("delivery side effects test", function () {
                 status: deliveryStatuses.pendingReception,
                 driverId: dbUsers.firstDriver.id
             }, {where: {id: request.id}});
-            await app.post("/delivery/signal-reception").send(request).set(
+            await app.post("/delivery/signal-on-site").send(request).set(
                 "authorization", "Bearer " + driverToken
             );
-            data = await new Promise(function (res) {
-                client.on("delivery-recieved", function (data) {
-                    client.close();
-                    res(data);
-                });
+            data = await listenEvent({
+                name: "driver-on-site",
+                socket: client
             });
             assert.equal(data, request.id);
         });
@@ -228,8 +227,15 @@ describe("delivery side effects test", function () {
             async function () {
                 let data;
                 const {driverToken} = setupDatas;
-                const client = await clientSocketCreator("delivery", request.token);
-                const driverSocket = await clientSocketCreator("delivery", driverToken);
+                const client = await clientSocketCreator(
+                    "delivery",
+                    request.token
+                );
+                const driverSocket =
+                await clientSocketCreator(
+                    "delivery",
+                    driverToken
+                );
                 await Delivery.update({
                     driverId: dbUsers.firstDriver.id,
                     status: deliveryStatuses.toBeConfirmed
@@ -238,17 +244,13 @@ describe("delivery side effects test", function () {
                     "authorization", "Bearer " + request.token
                 );
                 data = await Promise.all([
-                    new Promise(function(res) {
-                        client.on("delivery-started", function (data) {
-                            client.close();
-                            res(data);
-                        });
+                    listenEvent({
+                        name: "delivery-started",
+                        socket: client
                     }),
-                    new Promise(function (res) {
-                        driverSocket.on("delivery-started", function (data) {
-                            driverSocket.close();
-                            res(data);
-                        });
+                    listenEvent({
+                        name: "delivery-started",
+                        socket: driverSocket
                     })
                 ]);
                 assert.deepEqual(data, new Array(2).fill(request.id));
@@ -351,7 +353,7 @@ describe("delivery side effects test", function () {
                 name: "delivery-end",
                 socket: client
             });
-            assert.equal(data.deliveryId, request.id)
+            assert.equal(data, request.id)
             data = await Promise.allSettled([
                 listenEvent({name: "room-deleted", socket: client}),
                 listenEvent({name: "room-deleted", socket: driver})
@@ -398,10 +400,8 @@ describe("delivery side effects test", function () {
         it("should notify the manager and client on conflict", async function () {
             let data;
             let client;
-            let conflictManager = await loginUser(
-                app,
-                dbUsers.conflictManager.phone,
-                "aSimplePass"
+            let conflictManager = generateToken(
+                dbUsers.conflictManager
             );
             const {
                 request: delivery,
@@ -412,8 +412,8 @@ describe("delivery side effects test", function () {
                 {where: {id: delivery.id}}
             );
             [client, conflictManager] = await Promise.all([
-                await clientSocketCreator("delivery", delivery.token),
-                await clientSocketCreator("delivery", conflictManager)
+                await clientSocketCreator("delivery", generateToken(dbUsers.goodUser)),
+                await clientSocketCreator("conflict", conflictManager)
 
             ])
             await app.post("/delivery/conflict/report").send({
@@ -429,7 +429,7 @@ describe("delivery side effects test", function () {
                 {where: {id: delivery.id}}
             );
             message.delivery = message.delivery.toResponse();
-            message.reporter = dbUsers.secondDriver.toResponse();
+            message.reporter = dbUsers.firstDriver.toResponse();
             assert.deepEqual(data, [message, delivery.id]);
         });
         

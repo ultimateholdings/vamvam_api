@@ -152,8 +152,13 @@ function getDeliveryModule({associatedModels, model}) {
             }});
             clients = clients ?? [];
             deliveryModel.emitEvent("driver-position-update-completed", {
-                clients: clients.map((delivery) => delivery.clientId),
-                data,
+                clients: clients.map(function (delivery) {
+                    const result = Object.create(null);
+                    result.positions = data;
+                    result.id = delivery.clientId;
+                    result.deliveryId = delivery.id;
+                    return result;
+                }),
                 driverId
             });
         }

@@ -68,7 +68,7 @@ function getDeliveryRouter(module) {
         errorHandler(deliveryModule.cancelDelivery)
     );
     router.post(
-        "/signal-reception",
+        "/signal-on-site",
         protectRoute,
         allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,

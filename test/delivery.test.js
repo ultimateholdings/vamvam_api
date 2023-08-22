@@ -287,7 +287,7 @@ describe("delivery CRUD test", function () {
             await Delivery.update({driverId: dbUsers.firstDriver.id}, {
                 where: {id: request.id}
             });
-            response = await app.post("/delivery/signal-reception").send({
+            response = await app.post("/delivery/signal-on-site").send({
                 id: request.id
             }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, errors.cannotPerformAction.status);
@@ -295,7 +295,7 @@ describe("delivery CRUD test", function () {
                 {status: deliveryStatuses.pendingReception},
                 {where: {id: request.id}}
             );
-            response = await app.post("/delivery/signal-reception").send({
+            response = await app.post("/delivery/signal-on-site").send({
                 id: request.id
             }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, 200);
@@ -313,7 +313,7 @@ describe("delivery CRUD test", function () {
                 id: request.id
             }).set("authorization", "Bearer " + request.token);
             assert.equal(response.status, errors.cannotPerformAction.status);
-            await app.post("/delivery/signal-reception").send({
+            await app.post("/delivery/signal-on-site").send({
                 id: request.id
             }).set("authorization", "Bearer " + driverToken);
             response = await app.post("/delivery/confirm-deposit").send({

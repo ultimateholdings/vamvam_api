@@ -5,6 +5,8 @@ const {DataTypes} = require("sequelize");
 const {CustomEmitter, propertiesPicker} = require("../utils/helpers");
 const {deliveryStatuses} = require("../utils/config");
 
+const hiddenProps = ["code", "deliveryMeta"];
+
 function defineDeliveryModel(connection) {
     const emitter = new CustomEmitter();
     const schema = {
@@ -62,7 +64,9 @@ function defineDeliveryModel(connection) {
     ];
     const delivery = connection.define("delivery", schema);
     delivery.prototype.toResponse = function () {
-        const allowedProps = Object.keys(schema).filter((key) => key !== "deliveryMeta");
+        const allowedProps = Object.keys(schema).filter(
+            (key) => !hiddenProps.includes(key)
+        );
         let result = this.dataValues;
         if (typeof result.deliveryMeta === "object") {
             result.destination = {
@@ -76,7 +80,6 @@ function defineDeliveryModel(connection) {
                 longitude: result.departure.coordinates[1]
             };
         }
-        delete result.code;
         return propertiesPicker(result)(allowedProps);
     }
     delivery.prototype.getRecipientPhones = function () {

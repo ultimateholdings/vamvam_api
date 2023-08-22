@@ -53,10 +53,10 @@ function deliveryMessageHandler(emitter) {
             );
         }
 
-        function onPositionUpdateCompleted({clients, data, driverId}) {
+        function onPositionUpdateCompleted({clients, driverId}) {
             connectedUsers[driverId]?.emit?.("position-updated", true);
-            clients.forEach(function (clientId) {
-                connectedUsers[clientId]?.emit?.("new-driver-position", data);
+            clients.forEach(function ({id, ...data}) {
+                connectedUsers[id]?.emit?.("new-driver-position", data);
             });
         }
 
@@ -122,7 +122,7 @@ function deliveryMessageHandler(emitter) {
             const {clientId, deliveryId} = data;
             const eventName = "delivery-end";
             if (connectedUsers[clientId] !== undefined) {
-                connectedUsers[clientId].emit(eventName, {deliveryId});
+                connectedUsers[clientId].emit(eventName, deliveryId);
             } else {
                 emitter.emitEvent(
                     "cloud-message-fallback-requested",
@@ -156,7 +156,7 @@ function deliveryMessageHandler(emitter) {
 
         function handleReception(data) {
             const {clientId, deliveryId} = data;
-            const eventName = "delivery-recieved";
+            const eventName = "driver-on-site";
             if (connectedUsers[clientId] !== undefined) {
                 connectedUsers[clientId]?.emit(eventName, deliveryId);
             } else {

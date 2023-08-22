@@ -218,6 +218,9 @@ function getAuthModule({
             if (currentUser.status !== authModel.statuses?.activated) {
                 return sendResponse(res, errors.inactiveAccount);
             }
+            if (currentUser.password === null) {
+                return sendResponse(res, errors.forbiddenAccess);
+            }
             isVerified = await comparePassword(password, currentUser.password);
             if (isVerified) {
                 return handleAuthSuccess(res, currentUser);
