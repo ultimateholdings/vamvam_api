@@ -242,8 +242,10 @@ auth-endpoints:
         action: get room messages
         type: get
         body:
-          limit: double 
           roomId: string
+        query:
+          page: double
+          limit: double 
         response:
           succes: boolean
           totalmessage: double
