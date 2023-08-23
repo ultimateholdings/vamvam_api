@@ -125,6 +125,16 @@ chat:
     room-deleted:
       action: "notify a user that a room he is part of has been deleted"
       data: string representing the message Id
+    room-created:
+      action: "notify a user that he is now part of a new discusssion"
+      data:
+        id: string representing the room Id
+        name: string representing the room name
+        members: shortUserData[]
+        delivery:
+          departure: string
+          destination: string
+          id: string
     new-missed-messages:
       action: "notify a user of the messages he has missed on a room"
       data: missedMessageData[]

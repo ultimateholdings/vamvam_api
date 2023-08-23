@@ -18,14 +18,14 @@ function buildAuthRoutes (authModule) {
     router.post("/verify-otp", errorHandler(routeModule.verifyOTP));
     router.post("/login", errorHandler(routeModule.loginUser));
     router.post(
-        "/register",
-        hashedUploadHandler(fieldsOptions).single("carInfos"),
-        routeModule.ensureUnregistered,
-        routeModule.ensureValidDatas,
-        errorHandler(routeModule.registerDriver)
+        "/send-reset-otp",
+        routeModule.ensureExistingAccount,
+        errorHandler(routeModule.sendResetOTP)
     );
     router.post(
         "/verify-reset",
+        routeModule.ensureExistingAccount,
+        routeModule.ensureHasReset,
         errorHandler(routeModule.verifyReset)
     );
     router.post(

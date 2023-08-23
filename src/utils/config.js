@@ -185,6 +185,14 @@ const errors = {
             "Votre clé d'accès est Invalide, veuillez vous connecter à nouveau"
         },
         status: 402
+    },
+    ttlNotExpired: {
+        message: {
+            en: "your previous request has not yet expired please wait",
+            fr:
+            "votre demande précédente n'a pas encore expiré veuillez patienter"
+        },
+        status: 422
     }
 };
 
@@ -334,6 +342,10 @@ const userStatuses = {
     rejected: "rejected"
 };
 const ages = ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"];
+const otpTypes = {
+    authentication: "auth",
+    reset: "reset",
+};
 
 const config = Object.freeze({
     ages,
@@ -421,6 +433,7 @@ const config = Object.freeze({
         };
         return configs[env];
     },
+    otpTypes,
     registrationsRoot: "/registrations/",
     uploadsRoot: "/uploads/",
     userStatuses

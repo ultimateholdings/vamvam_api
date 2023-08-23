@@ -8,7 +8,12 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const {errors, getFirebaseConfig, getOTPConfig} = require("../utils/config");
+const {
+    defaultValues,
+    errors,
+    getFirebaseConfig,
+    getOTPConfig
+} = require("../utils/config");
 const {ValidationError} = require("sequelize");
 const {
     TOKEN_EXP: expiration = 3600,
@@ -19,6 +24,12 @@ const CustomEmitter = function (name) {
     this.name = name;
 };
 CustomEmitter.prototype = EventEmitter.prototype;
+
+function cloneObject(object) {
+    const tmp = Object.create(null);
+    Object.assign(tmp, object);
+    return tmp;
+}
 
 function fileExists(path) {
     if (typeof path === "string") {
@@ -202,20 +213,11 @@ function errorHandler(func) {
                 content = error.errors.map(function ({message}) {
                     return message.replace(/^\w*\./, "");
                 }, {}).join(" and ");
-                res.status(err.status).json({
-                    content,
-                    message: err.message
-                });
-
+                return sendResponse(res, err, content);
             } else {
                 err = errors.internalError;
-                res.status(err.status).json({
-                    code: error.original?.errno,
-                    content: error.original,
-                    message: err.message
-                });
+                return sendResponse(res, err);
             }
-            res.end();
         }
     };
 }
@@ -243,46 +245,50 @@ function propertiesPicker(object) {
 
 function getOTPService(model) {
     const config = getOTPConfig();
-    async function sendOTP(phone, signature) {
+    async function sendCode({phone, signature, type = "auth"}) {
         let response;
+        let content;
+        const ttlInSeconds = defaultValues.ttl;
+        response = await model.canRequest({phone, ttlInSeconds, type});
+        if (!response) {
+            response = cloneObject(errors.ttlNotExpired);
+            response.sent = false;
+            return response;
+        }
         try {
             response = await fetchUrl({
                 body: config.getSendingBody(phone, signature),
                 url: config.sent_url
             });
         } catch (error) {
-            response = errors.internalError;
-            console.error(error);
-            return {
-                code: response.status,
-                message: response.message,
-                sent: false
-            };
+            response = cloneObject(errors.internalError);
+            response.sent = false;
+            response.content = error.toString();
+            return response;
         }
         if (response.ok) {
             response = await response.json();
-            await model.upsert({phone, pinId: response.pinId}, {where: phone});
-            return {sent: true};
+            await model.upsert({
+                pinId: response.pinId,
+                phone,
+                type
+            }, {where: {phone, type}});
+            return {pinId: response.pinId, sent: true};
         } else {
             response = await response.json();
-            return {
-                code: errors.otpSendingFail.status,
-                content: response.message,
-                message: errors.otpSendingFail.message,
-                sent: false
-            };
+            content = cloneObject(errors.otpSendingFail);
+            content.sent = false;
+            content.content = response.message;
+            return content;
         }
-
     }
 
-    async function verifyOTP(phone, code) {
-        let response = await model.findOne({where: {phone}});
+    async function verifyCode({code, phone, type = "auth"}) {
+        let response = await model.findOne({where: {phone, type}});
         if (response === null) {
-            return {
-                errorCode: errors.requestOTP.status,
-                message: errors.requestOTP.message,
-                verified: false
-            };
+            response = cloneObject(errors.requestOTP);
+            response.verified = false;
+            return response;
         }
         try {
             response = await fetchUrl({
@@ -292,43 +298,28 @@ function getOTPService(model) {
             if (response.ok) {
                 response = await response.json();
                 if (response.verified && response.msisdn === phone) {
-                    await model.destroy({where: {phone}});
+                    await model.destroy({where: {phone, type}});
                     return {verified: true};
                 }
-                return {
-                    errorCode: errors.notAuthorized.status,
-                    message: errors.notAuthorized.message
-                };
+                response = cloneObject(errors.forbiddenAccess);
+                response.verified = false;
+                return response;
             } else {
-                return {
-                    errorCode: errors.invalidCredentials.status,
-                    message: errors.invalidCredentials.message,
-                    verified: false
-                };
+                response = cloneObject(errors.invalidCredentials);
+                response.verified = false;
+                return response;
             }
         } catch (error) {
-            return {
-                errorCode: errors.internalError.status,
-                message: errors.internalError.message,
-                sysCode: error.code,
-                verified: false
-            };
+            response = cloneObject(errors.internalError);
+            response.content = error.toString();
+            response.verified = false;
+            return response;
         }
     }
 
-    return Object.freeze({sendOTP, verifyOTP});
+    return Object.freeze({sendCode, verifyCode});
 }
 
-function otpManager(otpService) {
-    return {
-        sendCode: function (phoneNumber, signature) {
-            return otpService.sendOTP(phoneNumber, signature);
-        },
-        verifyCode: function (phoneNumber, code) {
-            return otpService.verifyOTP(phoneNumber, code);
-        }
-    };
-}
 
 function ressourcePaginator(getRessources, expiration = 3600000) {
     const tokenManager = jwtWrapper(expiration);
@@ -443,7 +434,6 @@ module.exports = Object.freeze({
     isValidLocation,
     jwtWrapper,
     methodAdder,
-    otpManager,
     pathToURL,
     propertiesPicker,
     ressourcePaginator,

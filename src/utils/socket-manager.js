@@ -12,7 +12,14 @@ function getSocketManager({
     httpServer,
     registrationHandler
 }) {
-    const io = new Server(httpServer);
+    const io = new Server(httpServer, {
+        cors: {
+            origin: function (req, callback) {
+                callback(null, true);
+            },
+            credentials: true
+        }
+    });
     const connectedUsers = Object.create(null);
 
     function handleConnection(socket) {

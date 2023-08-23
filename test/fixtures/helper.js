@@ -174,7 +174,7 @@ function clientSocketCreator(namespace, token) {
     return new Promise(function (res, rej) {
         let client;
         let options = {forceNew: true};
-        const url = "ws://localhost:" + port + "/" + namespace;
+        const url = "http://localhost:" + port + "/" + namespace;
         if (token !== null && token !== undefined) {
             options.extraHeaders = {
                 authorization: "Bearer " + token

@@ -94,7 +94,7 @@ function deliveryMessageHandler(emitter) {
                     "cloud-message-fallback-requested",
                     {
                         message: eventMessages.deliveryEnd,
-                        meta: {deliveryId, driver, eventName},
+                        meta: {eventName, payload: {deliveryId, driver}},
                         recieverId: clientId
                     }
                 );
@@ -111,7 +111,7 @@ function deliveryMessageHandler(emitter) {
                     "cloud-message-fallback-requested",
                     {
                         message: eventMessages.newAssignment,
-                        meta: {assignment, eventName},
+                        meta: {eventName, payload: assignment},
                         recieverId: driverId
                     }
                 );
@@ -128,7 +128,7 @@ function deliveryMessageHandler(emitter) {
                     "cloud-message-fallback-requested",
                     {
                         message: eventMessages.deliveryEnd,
-                        meta: {deliveryId, eventName},
+                        meta: {eventName, payload: deliveryId},
                         recieverId: clientId
                     }
                 );
@@ -144,7 +144,7 @@ function deliveryMessageHandler(emitter) {
                     connectedUsers[id].emit(eventName, delivery.id);
                 } else if (deviceToken !== null) {
                     message = eventMessages.deliveryCancelled[lang ?? "en"];
-                    message.meta = {deliveryId: delivery.id, eventName};
+                    message.meta = {eventName, payload: delivery.id};
                     message.to = deviceToken;
                     emitter.emitEvent(
                         "cloud-message-sending-requested",
@@ -164,7 +164,7 @@ function deliveryMessageHandler(emitter) {
                     "cloud-message-fallback-requested",
                     {
                         message: eventMessages.newDelivery,
-                        meta: {deliveryId, eventName},
+                        meta: {eventName, payload: deliveryId},
                         recieverId: clientId
                     }
                 );
@@ -185,7 +185,7 @@ function deliveryMessageHandler(emitter) {
                         "cloud-message-fallback-requested",
                         {
                             message: eventMessages.deliveryStarted,
-                            meta: {deliveryId, eventName},
+                            meta: {eventName, payload: deliveryId},
                             recieverId: id
                         }
                     );
@@ -202,7 +202,7 @@ function deliveryMessageHandler(emitter) {
                     connectedUsers[id].emit(eventName, delivery);
                 } else if (deviceToken !== null) {
                     message = eventMessages.newDelivery[lang ?? "en"];
-                    message.meta = {delivery, eventName};
+                    message.meta = {eventName, payload: delivery};
                     message.to = deviceToken;
                     emitter.emitEvent(
                         "cloud-message-sending-requested",
@@ -222,7 +222,7 @@ function deliveryMessageHandler(emitter) {
                     "cloud-message-fallback-requested",
                     {
                         message: eventMessages.newConflict,
-                        meta: {deliveryId, eventName},
+                        meta: {eventName, payload: deliveryId},
                         recieverId: clientId
                     }
                     );
@@ -260,7 +260,7 @@ function deliveryMessageHandler(emitter) {
                             message.room.name,
                             message.sender.firstName + ": " + message.content
                         ),
-                        meta: {eventName, message},
+                        meta: {eventName, payload: message},
                         recieverId: userId
                     }
                 );
@@ -284,7 +284,7 @@ function deliveryMessageHandler(emitter) {
                                     name,
                                     eventMessages.roomDeletedBody
                                 ),
-                                meta: {eventName, room},
+                                meta: {eventName, payload: room},
                                 recieverId: userId
                             }
                         );
@@ -305,7 +305,7 @@ function deliveryMessageHandler(emitter) {
                         "cloud-message-fallback-requested",
                         {
                             message: eventMessages.newRoom,
-                            meta: {eventName, room},
+                            meta: {eventName, payload: room},
                             recieverId: id
                         }
                     );

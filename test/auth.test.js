@@ -64,6 +64,24 @@ describe("authentication tests", function () {
         }
     );
 
+    it(
+        "should not send an otp request before ttl expired",
+        async function () {
+            let response;
+            await otpRequest.truncate();
+            response = await app.post("/auth/send-otp").send({
+                phoneNumber: users.goodUser.phone,
+                signature
+            });
+            assert.equal(response.status, 200);
+            response = await app.post("/auth/send-otp").send({
+                phoneNumber: users.goodUser.phone,
+                signature
+            });
+            assert.deepEqual(response.status, errors.ttlNotExpired.status);
+        }
+    );
+
     it("should not verify a code if it the OTP wasn't sent", async function () {
         let response = await app.post("/auth/verify-otp").send({
             code: "123456",
@@ -105,7 +123,7 @@ describe("authentication tests", function () {
         response = {status: User.statuses.activated};
         Object.assign(response, driver);
         await User.create(response);
-        await app.post("/auth/send-otp").send({
+        await app.post("/auth/send-reset-otp").send({
             phoneNumber: driver.phone
         });
         response = await app.post("/auth/verify-reset").send({
