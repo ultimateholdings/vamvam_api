@@ -153,7 +153,6 @@ Message.getMissedMessages = async function (userId) {
 Room.getUserRooms = async function (userId) {
     let result = await User.findOne({
         include: {
-            attributes: ["id", "name"],
             model: Room,
             include: [
                 {
@@ -181,6 +180,7 @@ Room.getUserRooms = async function (userId) {
     return result.rooms.map(function (room) {
         const result = {
             id: room.id,
+            deliveryId: room.deliveryId,
             members: room.users.map((user) => user.toShortResponse()),
             name: room.name
         };

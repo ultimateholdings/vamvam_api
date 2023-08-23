@@ -20,6 +20,8 @@ const {
   syncUsers,
   users
 } = require("./fixtures/helper");
+const {toDbPoint} = require("../src/utils/helpers");
+const {deliveries} = require("./fixtures/deliveries.data");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
 
@@ -41,10 +43,17 @@ describe("Message test", function () {
   });
 
   beforeEach(async function () {
+    let delivery = deliveries[0];
     await connection.sync({ force: true });
     dbUsers = await syncUsers(users, User);
+    delivery.clientId = dbUsers.goodUser.id;
+    delivery.driverId = dbUsers.firstDriver.id;
+    delivery.departure = toDbPoint(delivery.departure);
+    delivery.destination = toDbPoint(delivery.destination);
+    delivery = await Delivery.create(delivery);
     room = await Room.create({
-      name: "Livraison pour bonandjo",
+      deliveryId: delivery.id,
+      name: "Livraison pour bonandjo"
     });
     await room.setUsers([dbUsers.firstDriver, dbUsers.goodUser]);
     tokens = await Promise.all([
