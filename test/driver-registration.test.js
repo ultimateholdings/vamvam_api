@@ -81,7 +81,7 @@ describe("registration tests", function () {
         response = await registerDriver({app, driver});
         assert.equal(response.status, errors.alreadyRegistered.status);
         driver.email = "driver@test.com";
-        driver.phoneNumber = users.goodUser.phone;
+        driver.phoneNumber = "2302930290032";
         response = await registerDriver({app, driver});
         assert.equal(response.status, errors.invalidValues.status);
         driver.carInfos = carInfosPath;

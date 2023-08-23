@@ -127,7 +127,6 @@ auth-endpoints:
         email: string
       response: value of updated informations
 
-
     /user/delete-avatar:
       action: delete a user avatar
       type: post
@@ -143,6 +142,12 @@ auth-endpoints:
         newPassword: string
       response:
         updated: boolean
+    /auth/send-reset-otp:
+      action: send a one time password for resetting an account
+      type: post
+      body:
+        phoneNumber: "ex: +237xxxxxx"
+        signature: string
 
   users:
     /users/drivers:

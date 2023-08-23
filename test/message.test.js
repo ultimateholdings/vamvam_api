@@ -43,16 +43,9 @@ describe("Message test", function () {
   });
 
   beforeEach(async function () {
-    let delivery = deliveries[0];
     await connection.sync({ force: true });
     dbUsers = await syncUsers(users, User);
-    delivery.clientId = dbUsers.goodUser.id;
-    delivery.driverId = dbUsers.firstDriver.id;
-    delivery.departure = toDbPoint(delivery.departure);
-    delivery.destination = toDbPoint(delivery.destination);
-    delivery = await Delivery.create(delivery);
     room = await Room.create({
-      deliveryId: delivery.id,
       name: "Livraison pour bonandjo"
     });
     await room.setUsers([dbUsers.firstDriver, dbUsers.goodUser]);
