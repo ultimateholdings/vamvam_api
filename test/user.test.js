@@ -19,8 +19,7 @@ const {getFileHash} = require("../src/utils/helpers");
 const {
     getToken,
     otpHandler,
-    registerDriver,
-    setupAuthServer,
+    setupServer,
     subscriber,
     users
 } = require("./fixtures/helper");
@@ -49,7 +48,7 @@ describe("user interactions tests", function () {
     };
 
     before(function () {
-        let tmp = setupAuthServer(otpHandler);
+        let tmp = setupServer(otpHandler);
         server = tmp.server;
         app = tmp.app;
     });

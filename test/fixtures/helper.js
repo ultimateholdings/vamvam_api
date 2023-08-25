@@ -20,6 +20,12 @@ const {availableRoles, userStatuses} = require("../../src/utils/config");
 const {jwtWrapper} = require("../../src/utils/helpers");
 const jwt = jwtWrapper();
 const users = {
+    admin: {
+        firstName: "Dima",
+        lastName: "Padilla",
+        phone: "+34489398439338434943",
+        role: availableRoles.adminRole
+    },
     badUser: {
         firstName: "NKANG NGWET",
         lastName: "Presnel",
@@ -207,7 +213,28 @@ async function loginUser(app, phone, password) {
     });
     return response.body.token;
 }
-
+async function syncInstances(instances, model, primaryKey) {
+    let dbInstances;
+    let keyMap;
+    if (Array.isArray(instances)) {
+        return await model.bulkCreate(instances);
+    }
+    keyMap = Object.entries(instances).reduce(
+        function (acc, [key, val]) {
+            acc[val[primaryKey]] = key;
+            return acc;
+        },
+        Object.create(null)
+    );
+    dbInstances = await model.bulkCreate(Object.values(instances), {
+        individualHooks: true
+    });
+    dbInstances = dbInstances.reduce(function (acc, instance) {
+        acc[keyMap[instance[primaryKey]]] = instance;
+        return acc;
+    }, Object.create(null));
+    return dbInstances;
+}
 async function syncUsers(users, model) {
     let dbUsers;
     const phoneMap = Object.entries(users).reduce(
@@ -227,18 +254,10 @@ async function syncUsers(users, model) {
     return dbUsers;
 }
 
-function setupAuthServer(otpHandler) {
+function setupServer(otpHandler) {
     const authRoutes = buildAuthRoutes(authModule({otpHandler}));
     const userRoutes = buildUserRoutes(userModule({}));
     const server = buildServer(buildRouter({authRoutes, userRoutes}));
-    const app = supertest.agent(server);
-    return Object.freeze({app, server});
-}
-
-function setupDriverServer(otpHandler) {
-    const authRoutes = buildAuthRoutes(authModule({otpHandler}));
-    const registrationRoutes = driverRoutes(driverModule({}));
-    const server = buildServer(buildRouter({authRoutes, registrationRoutes}));
     const app = supertest.agent(server);
     return Object.freeze({app, server});
 }
@@ -314,10 +333,10 @@ module.exports = Object.freeze({
     postData,
     registerDriver,
     rooms,
-    setupAuthServer,
-    setupDriverServer,
     setupInterceptor,
+    setupServer,
     subscriber,
+    syncInstances,
     syncUsers,
     users
 });

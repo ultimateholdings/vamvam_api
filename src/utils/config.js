@@ -435,6 +435,7 @@ const config = Object.freeze({
     },
     otpTypes,
     registrationsRoot: "/registrations/",
+    tokenTtl: process.env.TOKEN_EXP,
     uploadsRoot: "/uploads/",
     userStatuses
 });

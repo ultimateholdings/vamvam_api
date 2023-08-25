@@ -16,7 +16,7 @@ const {
   getToken,
   otpHandler,
   postData,
-  setupAuthServer,
+  setupServer,
   syncUsers,
   users
 } = require("./fixtures/helper");
@@ -33,7 +33,7 @@ describe("Message test", function () {
   let room;
 
   before(async function () {
-    const tmp = setupAuthServer(otpHandler);
+    const tmp = setupServer(otpHandler);
     server = tmp.server;
     app = tmp.app;
     socketServer = getSocketManager({

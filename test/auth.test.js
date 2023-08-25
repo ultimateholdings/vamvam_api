@@ -15,7 +15,7 @@ const {User, connection, otpRequest} = require("../src/models");
 const {availableRoles, errors} = require("../src/utils/config");
 const {
     pinIds,
-    setupAuthServer,
+    setupServer,
     setupInterceptor,
     subscriber,
     users
@@ -28,7 +28,7 @@ describe("authentication tests", function () {
     const signature = "1234567890";
     before(function () {
         driver = subscriber;
-        let tmp = setupAuthServer();
+        let tmp = setupServer();
         server = tmp.server;
         app = tmp.app;
         driver.phone = users.goodUser.phone;

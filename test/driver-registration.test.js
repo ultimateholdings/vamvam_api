@@ -22,7 +22,7 @@ const {
     loginUser,
     otpHandler,
     registerDriver,
-    setupDriverServer,
+    setupServer,
     subscriber,
     syncUsers,
     users
@@ -41,7 +41,7 @@ describe("registration tests", function () {
     let managerToken;
     let socketServer;
     before(async function () {
-        const tmp = setupDriverServer(otpHandler);
+        const tmp = setupServer(otpHandler);
         server = tmp.server;
         app = tmp.app;
         socketServer = getSocketManager({

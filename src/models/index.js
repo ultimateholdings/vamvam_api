@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {Op, fn, where} = require("sequelize");
+const {Op, Transaction, fn, where} = require("sequelize");
 const defineUserModel = require("./user.js");
 const otpModel = require("./otp_request.js");
 const defineDeliveryModel = require("./delivery.js");
@@ -10,7 +10,9 @@ const defineRegistration = require("./driver-registration.js");
 const defineRoomModel = require("./room.model");
 const defineMessageModel = require("./message.model.js");
 const defineUserRoomModel = require("./user_room.model.js");
+const defineBlackListModel = require("./blacklist.js");
 const {sequelizeConnection} = require("../utils/db-connector.js");
+const {tokenTtl} = require("../utils/config.js");
 const connection = sequelizeConnection();
 const User = defineUserModel(connection);
 const otpRequest = otpModel(connection);
@@ -20,7 +22,7 @@ const Registration = defineRegistration(connection);
 const Message = defineMessageModel(connection);
 const Room = defineRoomModel(connection);
 const UserRoom = defineUserRoomModel(connection);
-
+const Blacklist = defineBlackListModel(connection);
 Delivery.belongsTo(User, {
     as: "Driver",
     constraints: false,
@@ -218,7 +220,30 @@ Delivery.getAllWithStatus = function (userId, status) {
     });
 }
 
+Blacklist.invalidateAll = async function () {
+    const {globalId} = this;
+    const transaction = new Transaction(connection, {
+        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE
+    });
+    try {
+        await this.truncate({transaction});
+        await this.upsert({
+            minimumIat: new Date(),
+            userId: globalId
+        }, {
+            fields: ["minimumIat"],
+            transaction
+        });
+        await transaction.commit();
+        return {success: true};
+    } catch (error) {
+        await transaction.rollback();
+        return {error, success: false};
+    }
+}
+
 module.exports = Object.freeze({
+    Blacklist,
     Delivery,
     DeliveryConflict,
     Message,

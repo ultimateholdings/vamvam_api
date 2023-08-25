@@ -101,6 +101,13 @@ non-auth-endpoints:
     response:
         updated: boolean
         message: errorData
+        
+  /auth/send-reset-otp:
+      action: send a one time password for resetting an account
+      type: post
+      body:
+        phoneNumber: "ex: +237xxxxxx"
+        signature: string
 
           
 auth-endpoints:
@@ -142,12 +149,6 @@ auth-endpoints:
         newPassword: string
       response:
         updated: boolean
-    /auth/send-reset-otp:
-      action: send a one time password for resetting an account
-      type: post
-      body:
-        phoneNumber: "ex: +237xxxxxx"
-        signature: string
 
   users:
     /users/drivers:
@@ -236,14 +237,6 @@ auth-endpoints:
         started: boolean
     
     /delivery/verify-code:
-      action: verify the code of a delivery package
-      type: post
-      body:
-        id: string
-      response:
-        terminated: boolean
-    
-    /delivery/report:
       action: verify the code of a delivery package
       type: post
       body:
