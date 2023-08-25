@@ -6,5 +6,11 @@
 /admin/revoke-all:
   action: "invalidate all users token"
   type: post
+/admin/new-admin:
+  action: "create a new administrator"
+  type: post
   body:
-    id: string
+    type: string
+    phoneNumber: string
+    password: string
+    email: string

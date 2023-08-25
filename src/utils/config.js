@@ -193,6 +193,13 @@ const errors = {
             "votre demande précédente n'a pas encore expiré veuillez patienter"
         },
         status: 422
+    },
+    unsupportedType: {
+        message: {
+            en: "the type you provided is not yet supported",
+            fr: "le type que vous avez fourni n'est pas encore pris en charge"
+        },
+        status: 414
     }
 };
 

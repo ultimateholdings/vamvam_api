@@ -21,7 +21,18 @@ const {
     users,
     syncInstances
 } = require("./fixtures/helper");
-
+const newAdmins = [
+    {
+        phoneNumber: "+234093059540955",
+        email: "aMail@vamvamlogistics.com",
+        password: "heyneverthinkofit"
+    },
+    {
+        phoneNumber: "+342098403984398439579398",
+        email: "foobar@vamvamlogistics.com",
+        password: "justguesswhat"
+    },
+]
 describe("admin features tests", function () {
     let app;
     let server;
@@ -48,5 +59,16 @@ describe("admin features tests", function () {
     afterEach(async function () {
         await connection.drop();
     });
-    
+    it("should create a registration", async function () {
+        let response;
+        let data = newAdmins[0];
+        data.type = "registration";
+        response = await postData({
+            app,
+            data,
+            token: dbUsers.admin.token,
+            url: "/admin/new-admin"
+        });
+        assert.equal(response.status, 200);
+    });
 });
