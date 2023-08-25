@@ -26,7 +26,7 @@ function getDeliveryRouter(module) {
         "/infos",
         protectRoute,
         deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery,
+        deliveryModule.canAccessDelivery([roles.adminRole, roles.conflictManager]),
         errorHandler(deliveryModule.getInfos)
     );
     router.get(
@@ -86,7 +86,7 @@ function getDeliveryRouter(module) {
         protectRoute,
         allowRoles([roles.clientRole]),
         deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery,
+        deliveryModule.canAccessDelivery(),
         errorHandler(deliveryModule.rateDelivery)
     );
     conflictRouter.post(
@@ -99,9 +99,9 @@ function getDeliveryRouter(module) {
     conflictRouter.post(
         "/report",
         protectRoute,
-        allowRoles([roles.driverRole]),
+        allowRoles([roles.driverRole, roles.adminRole]),
         deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery,
+        deliveryModule.canAccessDelivery([roles.adminRole]),
         deliveryModule.ensureCanReport,
         errorHandler(deliveryModule.reportDelivery)
     );

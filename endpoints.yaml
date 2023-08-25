@@ -150,16 +150,6 @@ auth-endpoints:
       response:
         updated: boolean
 
-  users:
-    /users/drivers:
-      action: get drivers close to a location
-      type: get
-      body:
-        from: locationData
-        by: double
-        internal: boolean
-      response: userData[]
-
   delivery:
     /delivery/request:
       action: request a new delivery
@@ -280,14 +270,6 @@ auth-endpoints:
       response:
         terminated: boolean
 
-    /delivery/conflict/assign-driver:
-      action: assign an internal driver to a conflicting delivery
-      type: post
-      body:
-        id: string representing the conflict Id
-        driverId: string
-      response:
-        assigned: boolean
 
     chat:
       /discussion/new-message:

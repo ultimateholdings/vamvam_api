@@ -1,16 +1,37 @@
-/admin/revoke-user:
-  action: "invalidate a user token"
-  type: post
+/users/drivers:
+  action: get drivers close to a location
+  type: get
   body:
-    id: string
-/admin/revoke-all:
-  action: "invalidate all users token"
-  type: post
-/admin/new-admin:
-  action: "create a new administrator"
-  type: post
-  body:
-    type: string
-    phoneNumber: string
-    password: string
-    email: string
+    from: locationData
+    by: double
+    internal: boolean
+  response: userData[]
+conflict-manager:
+  /delivery/conflict/assign-driver:
+    action: assign an internal driver to a conflicting delivery
+    type: post
+    body:
+      id: string representing the conflict Id
+      driverId: string
+    response:
+      assigned: boolean
+  
+
+
+admin-manager:
+  /admin/revoke-user:
+    action: "invalidate a user token"
+    type: post
+    body:
+      id: string
+  /admin/revoke-all:
+    action: "invalidate all users token"
+    type: post
+  /admin/new-admin:
+    action: "create a new administrator"
+    type: post
+    body:
+      type: string
+      phoneNumber: string
+      password: string
+      email: string

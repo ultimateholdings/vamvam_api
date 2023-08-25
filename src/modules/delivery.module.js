@@ -10,6 +10,7 @@ const {
     availableRoles: roles
 } = require("../utils/config");
 const {
+    formatDbPoint,
     isValidLocation,
     propertiesPicker,
     ressourcePaginator,
@@ -230,25 +231,27 @@ function getDeliveryModule({associatedModels, model}) {
         sendCloudMessage
     );
 
-
-    function canAccessDelivery(req, res, next) {
-        const {id, role} = req.user.token;
-        const {delivery} = req;
-        const isAdmin = role === roles.admin;
-        let isInvolved = (delivery.clientId === id) || (
-            delivery.driverId === id
-        );
-        isInvolved = isInvolved && (id !== null || id !== undefined);
-        if (isAdmin || isInvolved) {
-            next();
-        } else {
-            sendResponse(res, errors.forbiddenAccess);
+    function canAccessDelivery(allowedExternals = []) {
+        return function verifyAccess(req, res, next) {
+            const {id, role} = req.user.token;
+            const {delivery} = req;
+            let isInvolved = (delivery.clientId === id) || (
+                delivery.driverId === id
+            );
+            isInvolved = isInvolved && (id !== null || id !== undefined);
+            if (allowedExternals.includes(role) || isInvolved) {
+                next();
+            } else {
+                sendResponse(res, errors.forbiddenAccess);
+            }
         }
     }
 
     async function ensureCanReport(req, res, next) {
         let conflict;
+        let {lastPosition} = req.body;
         const {delivery} = req;
+        const {role} = req.user.token;
         const allowedStatus = [
             deliveryStatuses.pendingReception,
             deliveryStatuses.toBeConfirmed,
@@ -262,6 +265,16 @@ function getDeliveryModule({associatedModels, model}) {
         });
         if (conflict !== null) {
             return sendResponse(res, errors.alreadyReported);
+        }
+        if (!isValidLocation(lastPosition) && role !== roles.adminRole) {
+            return sendResponse(res, errors.invalidLocation);
+        }
+        if (!isValidLocation(lastPosition)) {
+            conflict = await delivery.getDriver();
+            if (conflict.position === null) {
+                return sendResponse(res, errors.invalidLocation);
+            }
+            req.body.lastPosition = formatDbPoint(conflict.position);
         }
         next();
     }
@@ -535,9 +548,6 @@ calculation of at delivery */
         conflict.reporter = await associations.User.findOne({where: {id}});
         conflict.reporter = conflict.reporter.toResponse();
 
-        if (!isValidLocation(lastPosition)) {
-            return sendResponse(res, errors.invalidLocation);
-        }
         delivery.status = deliveryStatuses.inConflict;
         await delivery.save();
         await associations.DeliveryConflict.create({
