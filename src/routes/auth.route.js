@@ -1,7 +1,15 @@
 const express = require("express");
 const getAuthModule = require("../modules/auth.module");
 const { errorHandler } = require("../utils/helpers");
+const {carInfosValidator, hashedUploadHandler} = require("../utils/upload");
+const {protectRoute} = require("../utils/middlewares");
 
+const fieldsOptions = {
+    "carInfos": {
+        folderPath: "public/uploads/",
+        validator: carInfosValidator
+    }
+}
 
 function buildAuthRoutes (authModule) {
     const routeModule = authModule || getAuthModule({});
@@ -9,6 +17,27 @@ function buildAuthRoutes (authModule) {
     router.post("/send-otp", errorHandler(routeModule.sendOTP));
     router.post("/verify-otp", errorHandler(routeModule.verifyOTP));
     router.post("/login", errorHandler(routeModule.loginUser));
+    router.post(
+        "/send-reset-otp",
+        routeModule.ensureExistingAccount,
+        errorHandler(routeModule.sendResetOTP)
+    );
+    router.post(
+        "/verify-reset",
+        routeModule.ensureExistingAccount,
+        routeModule.ensureHasReset,
+        errorHandler(routeModule.verifyReset)
+    );
+    router.post(
+        "/reset-password",
+        routeModule.validateResetKey,
+        errorHandler(routeModule.resetPassword)
+    );
+    router.post(
+        "/change-password",
+        protectRoute,
+        errorHandler(routeModule.changePassword)
+    );
     return router;
 }
 

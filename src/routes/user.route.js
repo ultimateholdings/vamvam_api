@@ -3,8 +3,9 @@ node
 */
 const express = require("express");
 const getUserModule = require("../modules/user.module");
-const {protectRoute} = require("../utils/middlewares");
+const {allowRoles, protectRoute} = require("../utils/middlewares");
 const {errorHandler} = require("../utils/helpers");
+const {availableRoles: roles} = require("../utils/config");
 const {
     avatarValidator,
     carInfosValidator,
@@ -30,7 +31,12 @@ function getUserRouter(userModule) {
         routerModule.ensureUserExists,
         errorHandler(routerModule.getInformations)
     );
-
+    router.get(
+        "/drivers",
+        protectRoute,
+        allowRoles([roles.conflictManager]),
+        errorHandler(routerModule.getNearByDrivers)
+    );
 
     router.post(
         "/delete-avatar",

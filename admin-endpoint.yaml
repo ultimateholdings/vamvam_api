@@ -1,0 +1,10 @@
+/admin/revoke-user:
+  action: "invalidate a user token"
+  type: post
+  body:
+    id: string
+/admin/revoke-all:
+  action: "invalidate all users token"
+  type: post
+  body:
+    id: string

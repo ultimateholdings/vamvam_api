@@ -49,6 +49,14 @@ function getDestination({cb, file, folderPath}) {
             hash.digest("hex") +
             extension
         );
+        await new Promise(function (res, rej) {
+            fs.mkdir(folderPath, {recursive: true}, function (err, path) {
+                if (err) {
+                    return rej(err);
+                }
+                res(path);
+            });
+        });
         exists = await fileExists(finalPath);
         if (!exists) {
             await copyAsync(tempPath, finalPath);

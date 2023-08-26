@@ -1,0 +1,146 @@
+locationData:
+  address: string
+  longitude: double
+  latitude: double
+userData:
+  age: string
+  available: boolean
+  avatar: string
+  email: string
+  firstName: string
+  gender: string
+  id: string
+  lastName: string
+  position: locationData
+  role: string
+deliveryData:
+  begin: Date
+  departure: locationData
+  destination: locationData
+  end: Date
+  id: string
+  note: double
+  packageType: string
+  recipientInfos: JSON
+conflictData:
+  cancelationDate: Date
+  delivery: deliveryData
+  reporter: userData
+  date: date
+  id: string
+  lastLocation: locationData
+  status: string
+  type: string
+shortUserData:
+  avatar: string
+  firstName: string
+  id: string
+  lastName: string
+  phone: string
+messageData:
+  content: string
+  date: Date
+  id: string
+  room:
+    id: string
+    name: string
+  sender: shortUserData
+missedMessageData:
+  count: number
+  messages: messageData[]
+  roomId: string
+  roomName: string
+
+
+delivery:
+  server-sent:
+    new-driver-position:
+      action: "notify the client of the driver's positions"
+      data:
+        deliveryId: string
+        positions: locationData[]
+    position-updated:
+      action: "notify the driver that his positions has been updated"
+      data: boolean
+    itinerary-update-fulfilled:
+      action: "notify the driver that his itinerary update is done"
+      data:
+        deliveryId: string
+    itinerary-update-failed:
+      action: "notify the driver that something went wrong in his itinerary update"
+      data:
+        deliveryId: string
+    itinerary-updated:
+      action: "notify the client that the driver has updated itinerary"
+      data:
+        deliveryId: string
+        points: locationData[]
+    delivery-accepted:
+      action: "notify the client that the driver has accepted his delivery"
+      data:
+        deliveryId: string
+        driver: userData
+    delivery-cancelled:
+      action: "notify the driver that the client has cancelled a delivery"
+      data: string representing the delivery Id
+    driver-on-site:
+      action: "notify the client that the driver is on site"
+      data: string representing the delivery Id
+    delivery-started:
+      action: "notify the client and the driver that the delivery has started"
+      data: string representing the delivery Id
+    delivery-end:
+      action: "notify the client that the delivery has ended"
+      data: string representing the delivery Id
+    new-delivery:
+      action: "notify the driver that a client close to him has requested for a delivery"
+      data: deliveryData
+    new-conflict:
+      action: "notify the conflict manager and the client that a delivery is conflicting"
+      data: ConflictData || string
+      note: when the reciever is a client data is string otherwise its conflictData
+    new-assignment:
+      action: "notify a selected internal driver of a new assignment"
+      data: ConflictData
+    conflict-solved:
+      action: "notify the manager who assigned the conflict that its solved"
+      data: string representing the conflict Id
+
+  client-sent:
+    new-position:
+      action: "update the driver geolocation and notify the client"
+      data: "{longitude: double, latitude: double}[]"
+    itinerary-changed:
+      action: "update a delivery itinerary and notify the client"
+      data:
+        deliveryId: string
+        points: "{longitude: double, latitude: double}[]"
+
+chat:
+  client-sent:
+    messages-read:
+      action: "mark a list of message identifier as read"
+      data: string[]
+  server-sent:
+    room-deleted:
+      action: "notify a user that a room he is part of has been deleted"
+      data: string representing the message Id
+    room-created:
+      action: "notify a user that he is now part of a new discusssion"
+      data:
+        id: string representing the room Id
+        name: string representing the room name
+        members: shortUserData[]
+        delivery:
+          departure: string
+          destination: string
+          id: string
+    new-missed-messages:
+      action: "notify a user of the messages he has missed on a room"
+      data: missedMessageData[]
+    messages-marked-as-read:
+      action: "notify a user that his request to mark messages as read is successfull"
+      data: missedMessageData[]
+    new-message:
+      action: "notify a user that a new message was sent in a discusssion he's part of"
+      data: messageData
