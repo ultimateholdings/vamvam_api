@@ -3,9 +3,11 @@ node
 */
 "use strict";
 const availableRoles = {
-    admin: "admin",
-    client: "client",
-    driver: "driver"
+    adminRole: "admin",
+    clientRole: "client",
+    conflictManager: "conflict-manager",
+    driverRole: "driver",
+    registrationManager: "registration-manager"
 };
 const errors = {
     alreadyAssigned: {
@@ -15,6 +17,13 @@ const errors = {
         },
         status: 451
     },
+    alreadyCancelled: {
+        message: {
+            en: "Sorry this resource has already been cancelled",
+            fr: "Désolé, cette ressource a déjà été annulée"
+        },
+        status: 450
+    },
     alreadyRated: {
         message: {
             en: "Sorry this delivery has already been rated",
@@ -22,12 +31,20 @@ const errors = {
         },
         status: 452
     },
-    alreadyCancelled: {
+    alreadyRegistered: {
         message: {
-            en: "Sorry this resource has already been cancelled",
-            fr: "Désolé, cette ressource a déjà été annulée"
+            en: "Sorry but you've already made apply for a registration",
+            fr:
+            "Désolé, mais vous avez déjà fait une demande d'enregistrement."
         },
-        status: 450
+        status: 452
+    },
+    alreadyReported: {
+        message: {
+            en: "Sorry this delivery already has conflicts",
+            fr: "Désolé, cette livraison a déjà des conflits"
+        },
+        status: 452
     },
     cannotPerformAction: {
         message: {
@@ -36,12 +53,65 @@ const errors = {
         },
         status: 454
     },
+    conflictNotFound: {
+        message: {
+            en: "you're looking for a non-existing conflict",
+            fr: "vous recherchez un conflit inexistant"
+        },
+        status: 404
+    },
+    deliveryNotConflicted: {
+        message: {
+            en: "This delivery has no conflicts",
+            fr: "Cette livraison n'est pas conflictuelle"
+        },
+        status: 454
+    },
+    driverNotFound: {
+        message: {
+            en: "The driver you're looking for does not exists",
+            fr: "Le transporteur que vous recherchez n'existe pas"
+        },
+        status: 404
+    },
+    existingUser: {
+        message: {
+            en: "This user already exists consider loggin in",
+            fr: "Cet utilisateur existe déjà, pensez à vous connecter"
+        },
+        status: 453
+    },
+    forbiddenAccess: {
+        message: {
+            en: "You are forbidden from accessing this resource",
+            fr: "L'accès à cette ressource vous est interdit"
+        },
+        status: 403
+    },
+    inactiveAccount: {
+        message: {
+            en:
+            "Your account is not yet active please contact the support" +
+            " for any issue",
+            fr:
+            "Votre compte n'est pas encore actif, veuillez contacter le" +
+            " support pour tout problème."
+        },
+        status: 401
+    },
     internalError: {
         message: {
             en: "Something went wrong while processing your request",
             fr: "Un problème s'est produit lors du traitement de votre demande"
         },
         status: 501
+    },
+    invalidCode: {
+        message: {
+            en: "you provided an invalid verification code",
+            fr: "vous avez fourni un code de vérification non valide"
+        },
+        status: 441
     },
     invalidCredentials: {
         message: {
@@ -51,13 +121,6 @@ const errors = {
         },
         status: 400
     },
-    invalidCode: {
-        message: {
-            en: "you provided an invalid verification code",
-            fr: "vous avez fourni un code de vérification non valide"
-        },
-        status: 441
-    },
     invalidLocation: {
         message: {
             en: "The latitude and longitude must be a valid number",
@@ -65,18 +128,18 @@ const errors = {
         },
         status: 440
     },
-    invalidValues: {
-        message: {
-            en: "you provided one or many invalid informations",
-            fr: "Vous avez fourni une ou plusieurs informations invalide"
-        },
-        status: 400
-    },
     invalidUploadValues: {
         message: {
             en: "you should provide informations you want to update",
             fr: "vous devez fournir les informations que vous " +
             "souhaitez mettre à jour"
+        },
+        status: 400
+    },
+    invalidValues: {
+        message: {
+            en: "you provided one or many invalid informations",
+            fr: "Vous avez fourni une ou plusieurs informations invalide"
         },
         status: 400
     },
@@ -115,10 +178,11 @@ const errors = {
         },
         status: 448
     },
-    tokenExpired: {
+    tokenInvalid: {
         message: {
-            en: "Your access Token has expired, please login again",
-            fr: "Votre accès a expiré, veuillez vous connecter à nouveau."
+            en: "Your access key is invalid, please login again",
+            fr:
+            "Votre clé d'accès est Invalide, veuillez vous connecter à nouveau"
         },
         status: 402
     },
@@ -135,6 +199,14 @@ const errors = {
             fr: "Paiement non approuvé!"
         },
         status: 401
+    },
+    ttlNotExpired: {
+        message: {
+            en: "your previous request has not yet expired please wait",
+            fr:
+            "votre demande précédente n'a pas encore expiré veuillez patienter"
+        },
+        status: 422
     }
 };
 
@@ -175,7 +247,8 @@ const eventMessages = {
             title: "Delivery started"
         },
         fr: {
-            body: "Votre livraison a commencée, vous pouvez suivre son évolution",
+            body:
+            "Votre livraison a commencée, vous pouvez suivre son évolution",
             title: "Début de la livraison"
         }
     },
@@ -185,8 +258,35 @@ const eventMessages = {
             title: "The driver has arrived"
         },
         fr: {
-            body: "Une fois que vous lui aurez remis le paquet, veuillez le confirmer ici.",
+            body:
+            "Une fois que vous lui aurez remis le paquet," +
+            " veuillez le confirmer ici.",
             title: "Le chauffeur est arrivé"
+        }
+    },
+    newAssignment: {
+        en: {
+            body: "You have been tasked to complete a conflicting delivery",
+            title: "Emergency Alert"
+        },
+        fr: {
+            body: "Vous avez été chargé(e) de mener à bien une" +
+            " livraison conflictuelle",
+            title: "Alerte d'urgence"
+        }
+    },
+    newConflict: {
+        en: {
+            body:
+            "A conflict has been reported during your delivery, please contact" +
+            " the support for further information",
+            title: "Conflict reported"
+        },
+        fr: {
+            body:
+            "Un conflit a été signalé lors de votre livraison, veuillez contacter" +
+            " le service d'assistance pour plus d'informations",
+            title: "Conflit signalé"
         }
     },
     newDelivery: {
@@ -195,20 +295,93 @@ const eventMessages = {
             title: "New delivery"
         },
         fr: {
-            body: "Vous avez une nouvelle demande de livraison près de vous, consultez-la",
-            title: "New delivery"
+            body:
+            "Vous avez une nouvelle demande de livraison près" +
+            " de vous, consultez-la",
+            title: "Nouvelle livraison"
         }
     },
+    newRoom: {
+        en: {
+            body: "Now you can talk to your delivery contact.",
+            title: "New discussion"
+        },
+        fr: {
+            body:
+            "Vous pouvez désormais dialoguer avec votre interlocuteur" +
+            "  pour la livraison",
+            title: "Nouvelle discussion"
+        }
+    },
+    roomDeletedBody: {
+        en: "This discussion is now archived due to the end of the delivery",
+        fr: "Cette discussion est désormais archivée suite à la fin" +
+        " de la livraison."
+    },
+    withSameTitle(title, body) {
+        return {
+            en: {body: body?.en, title},
+            fr: {body: body?.fr, title},
+        };
+    },
+    withSameContent(title, body) {
+        return {
+            en: {body, title},
+            fr: {body, title},
+        };
+    }
 };
 
 const defaultValues = {
     ttl: 180
 };
+const conflictStatuses = Object.freeze({
+    cancelled: "cancelled",
+    closed: "close",
+    opened: "open",
+});
+const deliveryStatuses = Object.freeze({
+    cancelled: "cancelled",
+    inConflict: "conflicting",
+    initial: "pending-driver-approval",
+    pendingReception: "pending-driver-reception",
+    toBeConfirmed: "pending-client-approval",
+    started: "started",
+    terminated: "terminated",
+});
+const userStatuses = {
+    activated: "active",
+    inactive: "desactivated",
+    pendingValidation: "pending",
+    rejected: "rejected"
+};
+const ages = ["18-24", "25-34", "35-44", "45-54", "55-64", "64+"];
+const otpTypes = {
+    authentication: "auth",
+    reset: "reset",
+};
+
 const config = Object.freeze({
+    ages,
     availableRoles: Object.freeze(availableRoles),
+    conflictStatuses,
     defaultValues: Object.freeze(defaultValues),
+    deliveryStatuses,
     errors: Object.freeze(errors),
     eventMessages: Object.freeze(eventMessages),
+    getFirebaseConfig() {
+        const {
+            fb_serverKey: key,
+            msg_url: url
+        } = process.env;
+        return Object.freeze({
+            headers: {
+                "Authorization": "key=" + key,
+                "content-type": "application/json"
+            },
+            url
+        });
+    },
     getOTPConfig() {
         const {
             otp_key,
@@ -274,19 +447,11 @@ const config = Object.freeze({
         };
         return configs[env];
     },
-    getFirebaseConfig() {
-        const {
-            msg_url: url,
-            fb_serverKey: key
-        } = process.env;
-        return Object.freeze({
-            headers: {
-                "content-type": "application/json",
-                "Authorization": "key=" + key
-            },
-            url
-        });
-    }
+    otpTypes,
+    registrationsRoot: "/registrations/",
+    tokenTtl: process.env.TOKEN_EXP,
+    uploadsRoot: "/uploads/",
+    userStatuses
 });
 
 module.exports = config;

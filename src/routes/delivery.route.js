@@ -14,6 +14,7 @@ const {
 function getDeliveryRouter(module) {
     const deliveryModule = module || getDeliveryModule({});
     const router = new express.Router();
+    const conflictRouter = new express.Router();
 
     router.post(
         "/request",
@@ -33,6 +34,18 @@ function getDeliveryRouter(module) {
         protectRoute,
         errorHandler(deliveryModule.getPrice)
     );
+    router.get(
+        "/started",
+        protectRoute,
+        allowRoles([roles.clientRole, roles.driverRole]),
+        errorHandler(deliveryModule.getOngoingDeliveries)
+    );
+    router.get(
+        "/terminated",
+        protectRoute,
+        allowRoles([roles.clientRole, roles.driverRole]),
+        errorHandler(deliveryModule.getTerminatedDeliveries)
+    );
     router.post(
         "/verify-code",
         protectRoute,
@@ -43,39 +56,72 @@ function getDeliveryRouter(module) {
     router.post(
         "/accept",
         protectRoute,
-        allowRoles([roles.driver]),
+        allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.acceptDelivery)
     );
     router.post(
         "/cancel",
         protectRoute,
-        allowRoles([roles.client]),
+        allowRoles([roles.clientRole]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.cancelDelivery)
     );
     router.post(
-        "/signal-reception",
+        "/signal-on-site",
         protectRoute,
-        allowRoles([roles.driver]),
+        allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.signalReception)
     );
     router.post(
         "/confirm-deposit",
         protectRoute,
-        allowRoles([roles.client]),
+        allowRoles([roles.clientRole]),
         deliveryModule.ensureDeliveryExists,
         errorHandler(deliveryModule.confirmDeposit)
     );
     router.post(
         "/rate",
         protectRoute,
-        allowRoles([roles.client]),
+        allowRoles([roles.clientRole]),
         deliveryModule.ensureDeliveryExists,
         deliveryModule.canAccessDelivery,
         errorHandler(deliveryModule.rateDelivery)
     );
+    conflictRouter.post(
+        "/verify-code",
+        protectRoute,
+        allowRoles([roles.driverRole]),
+        deliveryModule.ensureConflictingDelivery,
+        errorHandler(deliveryModule.verifyConflictingDelivery)
+    )
+    conflictRouter.post(
+        "/report",
+        protectRoute,
+        allowRoles([roles.driverRole]),
+        deliveryModule.ensureDeliveryExists,
+        deliveryModule.canAccessDelivery,
+        deliveryModule.ensureCanReport,
+        errorHandler(deliveryModule.reportDelivery)
+    );
+    conflictRouter.post(
+        "/assign-driver",
+        protectRoute,
+        allowRoles([roles.conflictManager]),
+        deliveryModule.ensureConflictOpened,
+        deliveryModule.ensureDriverExists,
+        errorHandler(deliveryModule.assignDriver)
+    );
+    conflictRouter.post(
+        "/archive",
+        protectRoute,
+        allowRoles([roles.conflictManager]),
+        deliveryModule.ensureConflictOpened,
+        errorHandler(deliveryModule.archiveConflict)
+    );
+    router.use("/conflict", conflictRouter);
+    
     return router;
 }
 

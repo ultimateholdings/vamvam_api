@@ -2,8 +2,13 @@
 node
 */
 const {User} = require("../models");
-const {propertiesPicker, sendResponse} = require("../utils/helpers");
-const {errors} = require("../utils/config");
+const {
+    isValidLocation,
+    propertiesPicker,
+    sendResponse,
+    toDbPoint
+} = require("../utils/helpers");
+const {errors, uploadsRoot} = require("../utils/config");
 
 
 function getUserModule({
@@ -40,16 +45,42 @@ function getUserModule({
         response = responsePicker(responseFields) || {};
         response.updated = updated;
         if (avatar.length > 0) {
-            response.avatar = "/uploads/" + avatar[0].basename;
+            response.avatar = uploadsRoot + avatar[0].basename;
         }
         if (carInfos.length > 0) {
-            response.carInfos = "/uploads/" + carInfos[0].basename;
+            response.carInfos = uploadsRoot + carInfos[0].basename;
         }
         return response;
     }
 
     function getInformations(req, res) {
         res.status(200).json(req.userData.toResponse());
+    }
+    async function getNearByDrivers(req, res) {
+        let {from, by, internal = true} = req.body;
+        let drivers;
+        if (!isValidLocation(from)) {
+            return sendResponse(res, errors.invalidLocation);
+        }
+        if (!Number.isFinite(by)) {
+            by = 55000;
+        }
+        drivers = await userModel.nearTo?.({
+            by,
+            params: {
+                available: true,
+                internal: new Boolean(internal).valueOf(),
+                role: "driver",
+            },
+            point: toDbPoint(from)
+        }) ?? [];
+        res.status(200).send({
+            result: drivers.map(function (driver) {
+                const result = driver.toResponse();
+                result.distance = driver.distance;
+                return result;
+            })
+        });
     }
 
     async function updateProfile(req, res) {
@@ -93,6 +124,7 @@ function getUserModule({
         deleteAvatar,
         ensureUserExists,
         getInformations,
+        getNearByDrivers,
         updateProfile
     });
 }
