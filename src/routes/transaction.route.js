@@ -9,9 +9,9 @@ function getTransactionRouter(module){
     const transactonModule = module || getTransactionModule({});
     const router = new express.Router();
     router.post(
-        "/make-recharge",
+        "/init-transaction",
         protectRoute,
-        errorHandler(transactonModule.reloadBalance)
+        errorHandler(transactonModule.initTrans)
     );
     router.get(
         "/history",

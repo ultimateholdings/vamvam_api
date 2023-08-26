@@ -12,7 +12,8 @@ const { ValidationError } = require("sequelize");
 const {
   TOKEN_EXP: expiration = 3600,
   JWT_SECRET: secret = "test1234butdefault",
-  FLW_SECRET_KEY
+  FLW_SECRET_KEY,
+  TEST_FLW_SECRET_KEY,
 } = process.env;
 
 const CustomEmitter = function () {
@@ -20,6 +21,9 @@ const CustomEmitter = function () {
 };
 CustomEmitter.prototype = EventEmitter.prototype;
 
+function calculPackAmount(point, unitPrice) {
+  return point * unitPrice;
+}
 function fileExists(path) {
   if (typeof path === "string") {
     return new Promise(function (res) {
@@ -332,8 +336,8 @@ function sendCloudMessage({ body, meta, title, to }) {
     url: config.url,
   });
 }
-function getPaymentService() {
-  async function initTrans(payload) {
+function getPaymentService(paymentModel, subscriptionModel) {
+  async function initTrans(payload, customerId, packId) {
     let response;
     try {
       response = await fetch(
@@ -342,8 +346,8 @@ function getPaymentService() {
           method: "post",
           body: JSON.stringify(payload),
           headers: {
-            Authorization: `Bearer ${FLW_SECRET_KEY}`,
-            "Content-Type": "application/json"
+            Authorization: `Bearer ${TEST_FLW_SECRET_KEY}`,
+            "Content-Type": "application/json",
           },
         }
       );
@@ -353,48 +357,111 @@ function getPaymentService() {
       return {
         code: response.status,
         message: response.message,
-        sent: false,
+        init: false,
       };
     }
     if (response.ok) {
       response = await response.json();
-      return response
+      await paymentModel.create({
+        transId: response.data.id,
+        customerId: customerId,
+        packId: packId,
+      });
+      return { init: true };
     } else {
       response = await response.json();
       return {
         code: errors.paymentSendingFail.status,
         content: response.message,
         message: errors.paymentSendingFail.message,
-        sent: false,
+        init: false,
       };
     }
   }
 
   async function verifyTrans(transactionId) {
-    const id = transactionId.toString();
+    let response;
+    let payment;
+    let pack;
+    let expectedAmount;
     try {
-      const response = await flw.Transaction.verify({ id: id });
-      if (
-        response.data.status === "successful" &&
-        response.data.amount === expectedAmount &&
-        response.data.currency === expectedCurrency
-      ) {
-        return true;
+      payment = await paymentModel.findOne({
+        where: {
+          transId: transactionId,
+          isVerify: false,
+        },
+      });
+      if (!payment) {
+        return {
+          code: errors.paymentApproveFail.status,
+          message: errors.paymentApproveFail.message,
+          verifiedTrans: false,
+        };
+      }
+      pack = await subscriptionModel.findOne({
+        where: {
+          id: payment.packId,
+        },
+      });
+      expectedAmount = calculPackAmount(pack.point, pack.unitPrice);
+      response = await fetch(
+        `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
+        {
+          method: "get",
+          headers: {
+            Authorization: `Bearer ${TEST_FLW_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.ok) {
+        response = await response.json();
+        if (
+          response.data.status === 'successful' &&
+          response.data.amount === expectedAmount &&
+          response.data.currency === "XAF"
+        ) {
+          payment.isVerify = true;
+          await payment.save();
+          return {
+            data: {
+              point: pack.point,
+              bonus: pack.bonus,
+              unitPrice: pack.unitPrice,
+              userId: payment.customerId,
+            },
+            verifiedTrans: true,
+          };
+        } else {
+          return {
+            code: errors.paymentApproveFail.status,
+            message: errors.paymentApproveFail.message,
+            verifiedTrans: false,
+          };
+        }
       } else {
-        return false;
+        response = await response.json();
+        return {
+          code: errors.paymentApproveFail.status,
+          message: errors.paymentApproveFail.message,
+          verifiedTrans: false,
+        };
       }
     } catch (error) {
-      console.log(error);
-      return error;
+      return {
+        code: errors.paymentApproveFail.status,
+        message: errors.paymentApproveFail.message,
+        verifiedTrans: false,
+      };
     }
   }
   return Object.freeze({ initTrans, verifyTrans });
 }
 
-function paymentManager(paymentService = getPaymentService()) {
+function paymentManager(paymentService) {
   return {
-    initTransaction: function (payload) {
-      return paymentService.initTrans(payload);
+    initTransaction: function (payload, customerId, packId) {
+      return paymentService.initTrans(payload, customerId, packId);
     },
     verifyTransaction: async function (transactionId) {
       let isVerified = await paymentService.verifyTrans(transactionId);
@@ -437,5 +504,6 @@ module.exports = Object.freeze({
   ressourcePaginator,
   sendCloudMessage,
   sendResponse,
+  getPaymentService,
   paymentManager,
 });

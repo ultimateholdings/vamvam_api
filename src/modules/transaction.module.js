@@ -1,52 +1,115 @@
-const { Transaction } = require("../models");
+const { where } = require("sequelize");
+const { Transaction, Payment, Subscription, Delivery } = require("../models");
 const { errors, availableRoles: roles } = require("../utils/config");
+const { FLW_SECRET_HASH } = process.env;
 const {
   propertiesPicker,
   sendResponse,
+  getPaymentService,
   paymentManager,
 } = require("../utils/helpers");
 
-function getTransactionModule({ model, payment }) {
-  const transactionModel = model || Transaction;
-  const paymentHandler = payment || paymentManager();
+function calculateSolde(point, unitPrice = 300) {
+  return point * unitPrice;
+}
+function canSubtract(pointSum, bonusSum) {
+  if (pointSum + bonusSum === 0) {
+    return false;
+  } else {
+    return true;
+  }
+}
+function getTransactionModule({
+  modelTrans,
+  modelPay,
+  modelSubs,
+  deliveryModel,
+  paymentHan,
+}) {
+  const transactionModel = modelTrans || Transaction;
+  const paymentModel = modelPay || Payment;
+  const subscriptionModel = modelSubs || Subscription;
+  const deliveriesModel = deliveryModel || Delivery;
+  const paymentHandler =
+    paymentHan ||
+    paymentManager(getPaymentService(paymentModel, subscriptionModel));
   const genericProps = ["bonus", "point", "type"];
-  const transactionProps = ["phone_number", "amount", "email"];
 
   const staticProps = {
     country: "CM",
     currency: "XAF",
-    tx_ref: "transfer-"+Date.now(),
-    debit_amount: 300
-  }
+    tx_ref: "transfer-" + Date.now(),
+    debit_amount: 300,
+  };
 
-  async function initTrans(paymentProps) {
-    const data = {
-      phone_number: paymentProps.phone_number,
-      amount: paymentProps.amount,
-      currency: staticProps.currency,
-      country: staticProps.country,
-      email: paymentProps.email,
-      tx_ref: staticProps.tx_ref
-    };
-    const response = await paymentHandler.initTransaction(data);
-    return response;
-  }
-
-  async function verifyTrans(transactionId) {
-    let isVerified = await paymentHandler.verifyTransaction(transactionId);
-    if (isVerified) {
-      return true;
+  async function canAccess(req, res, next) {
+    let payment;
+    const secretHash = FLW_SECRET_HASH;
+    const signature = req.headers["verif-hash"];
+    const { status, id } = req.body.data;
+    if (!signature || signature !== secretHash) {
+      return sendResponse(res, errors.notAuthorized);
+    }
+    if (status === "successful") {
+      next();
     } else {
-      return false;
+      payment = await paymentModel.findOne({
+        where: {
+          transId: id,
+          isVerify: false,
+        },
+      });
+      deliveriesModel.emitEvent("failure-payment", {
+        userId: payment.customerId,
+      });
     }
   }
 
-  function canSubtract(pointSum, bonusSum) {
-    if (pointSum + bonusSum === 0) {
-      return false;
+  async function initTrans(req, res) {
+    let { payload, packId } = req.body;
+    const { id: customerId } = req.user.token;
+    payload.currency = staticProps.currency;
+    payload.country = staticProps.country;
+    payload.tx_ref = staticProps.tx_ref;
+    const { init, code, message } = await paymentHandler.initTransaction(
+      payload,
+      customerId,
+      packId
+    );
+    if (init === true) {
+      deliveriesModel.emitEvent("payment-initiated", {
+        userId: customerId,
+      });
+      res.status(200).send({});
     } else {
-      return true;
+      res.status(code).send({ message });
     }
+  }
+
+  async function listenWebHook(req, res) {
+    let response;
+    const { id } = req.body.data;
+    try {
+      response = await paymentHandler.verifyTransaction(id);
+      if (response.verifiedTrans) {
+        await reloadBalance(response.data);
+        res.status(200).end({});
+        deliveriesModel.emitEvent("successful-payment", {
+          userId: customerId,
+        });
+      } else {
+        res.status(401).end();
+        deliveriesModel.emitEvent("failure-payment", {
+          userId: customerId,
+        });
+      }
+    } catch (error) {
+      return error;
+    }
+  }
+
+  async function reloadBalance(data) {
+    return await transactionModel.create(data);
   }
 
   async function balenceInfos(userId) {
@@ -54,8 +117,6 @@ function getTransactionModule({ model, payment }) {
     let retraitSum;
     let bonusAdded;
     let bonusWithdraw;
-    let amountAdder;
-    let amountWithdrawal;
     rechargeSum = await transactionModel.sum("point", {
       where: {
         userId: userId,
@@ -80,21 +141,9 @@ function getTransactionModule({ model, payment }) {
         type: "withdrawal",
       },
     });
-    amountAdder = await transactionModel.sum("amount", {
-      where: {
-        userId: userId,
-        type: "recharge",
-      },
-    });
-    amountWithdrawal = await transactionModel.sum("amount", {
-      where: {
-        userId: userId,
-        type: "withdrawal",
-      },
-    });
     const pointSum = rechargeSum - retraitSum;
     const bonusSum = bonusAdded - bonusWithdraw;
-    const solde = amountAdder - amountWithdrawal;
+    const solde = calculateSolde(pointSum);
     const subtract = canSubtract(pointSum, bonusSum);
     return {
       point: pointSum,
@@ -102,44 +151,6 @@ function getTransactionModule({ model, payment }) {
       solde: solde,
       subtract: subtract,
     };
-  }
-
-  async function reloadBalance(req, res) {
-    let createdProps;
-    let paymentProps;
-    let isVerified;
-    let recharge;
-    const { payload } = req.body;
-    const { id: userId } = req.user.token;
-
-    const pickedProperties = propertiesPicker(req.body);
-    createdProps = pickedProperties(genericProps);
-
-    const paymentProperties = propertiesPicker(payload);
-    paymentProps = paymentProperties(transactionProps);
-
-    if (createdProps !== undefined || paymentProps !== undefined) {
-      recharge = await initTrans(paymentProps);
-      isVerified = await verifyTrans(recharge.data.id);
-      if (isVerified) {
-        await transactionModel.create({
-          point: createdProps.point,
-          bonus: createdProps.bonus,
-          amount: paymentProps.amount,
-          userId: userId,
-        });
-        res.status(200).json({
-          succes: true,
-          message: {
-            en: "Recharge add with success!",
-          },
-        });
-      } else {
-        res.status(400).json({ valid: false });
-      }
-    } else {
-      sendResponse(res, errors.invalidValues);
-    }
   }
 
   async function withdrawal(req, res) {
@@ -185,7 +196,7 @@ function getTransactionModule({ model, payment }) {
     const limit = parseInt(req.query.limit) || 8;
     const offset = (page - 1) * limit;
     const { id: userId } = req.user.token;
-
+    let wallet = await balenceInfos(userId);
     let response = await transactionModel.findAndCountAll({
       where: {
         userId: userId,
@@ -196,7 +207,10 @@ function getTransactionModule({ model, payment }) {
     });
     if (response !== null) {
       res.status(200).json({
-        succes: true,
+        point: wallet.point,
+        bonus: wallet.bonus,
+        solde: wallet.solde,
+        canDeliver: wallet.subtract,
         data: response.rows,
       });
     } else {
@@ -220,10 +234,12 @@ function getTransactionModule({ model, payment }) {
   }
 
   return Object.freeze({
-    reloadBalance,
     withdrawal,
     transactionHistory,
     walletInfos,
+    initTrans,
+    listenWebHook,
+    canAccess,
   });
 }
 module.exports = getTransactionModule;

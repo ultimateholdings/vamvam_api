@@ -15,6 +15,7 @@ const {
   withdrawals,
   setupRechargeServer,
 } = require("./fixtures/transaction.data");
+const { subscriptions } = require("./fixtures/subscriptions.data");
 const { errors } = require("../src/utils/config");
 describe("Transaction test", function () {
   let server;
@@ -32,16 +33,18 @@ describe("Transaction test", function () {
     let driverToken = await Promise.all([
       getToken(app, dbUsers.firstDriver.phone),
     ]);
+    let pack = await Subscription.create(subscriptions[0])
     const payload = {
       phone_number: '+237683411151',
-      amount: 200,
+      amount: 3000,
       email: "support@ultimateholdingsinc.com",
       fullname: dbUsers.firstDriver.firstName
     }
     recharges[0].phone_number = dbUsers.firstDriver.phone;
+    recharges[0].packId = pack.id;
     recharges[0].payload = payload;
     response = await app
-      .post("/transaction/make-recharge")
+      .post("/transaction/init-transaction")
       .send(recharges[0])
       .set("authorization", "Bearer " + driverToken);
     assert.equal(response.status, 200);

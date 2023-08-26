@@ -19,7 +19,7 @@ function defineTransaction (connection) {
             type: DataTypes.STRING,
             allowNull: false
         },
-        amount: {
+        unitPrice: {
             type: DataTypes.DOUBLE,
             allowNull: false
         },

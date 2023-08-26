@@ -128,6 +128,13 @@ const errors = {
             fr: "Impossible d'initialiser le payment"
         },
         status: 440
+    },
+    paymentApproveFail: {
+        message: {
+            en: "Unapproved payment!",
+            fr: "Paiement non approuvé!"
+        },
+        status: 401
     }
 };
 
