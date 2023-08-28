@@ -2,7 +2,15 @@
 node, nomen, this
 */
 const fs = require("fs");
-const {DataTypes, Op, col, fn, where} = require("sequelize");
+const {
+/*jslint-disable*/
+    Op,
+    col,
+    fn,
+    where,
+/*jslint-enable*/
+    DataTypes
+} = require("sequelize");
 const {
     fileExists,
     formatDbPoint,
@@ -149,15 +157,16 @@ function defineUserModel(connection) {
     user.prototype.toShortResponse = function () {
         let result = this.dataValues;
         return propertiesPicker(result)(shortDescriptionProps);
-    }
+    };
 
 /*
 Please note that these GIS functions are only supported on
 PostgreSql, Mysql and MariaDB so if your DB doesn't support it
-it better to use the haversine formula to get the distance between 2 points
+its better to use the haversine formula to get the distance between 2 points
 link: https://en.wikipedia.org/wiki/Haversine_formula
 */
-    user.nearTo = async function ({point, by, params}) {
+/*jslint-disable*/
+    user.nearTo = async function ({by, params, point}) {
         let result = [];
         let coordinates = point?.coordinates;
         let distanceQuery;
@@ -172,7 +181,7 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
             ),fn("ST_GeomFromText", coordinates, 4326));
             clause.push(where(distanceQuery(), {[Op.lte]: by}));
             if (params !== null && typeof params === "object") {
-                clause.push(params)
+                clause.push(params);
             }
             result = await user.findAll({
                 attributes: {
@@ -185,15 +194,38 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         }
         return result ?? [];
     };
+/*jslint-enable*/
+    user.getAll = async function ({
+        maxSize = 10,
+        offset = 0,
+        role
+    }) {
+        let query = {
+            limit: maxSize,
+            offset,
+            order: [["createdAt", "DESC"]]
+        };
+        let results;
+        if (typeof role === "string") {
+            query.where = {role};
+        }
+        results = await this.findAll(query);
+        return {
+            lastId: results.at(-1).id,
+            values: results.map((user) => user.toResponse())
+        };
+    };
     user.genericProps = genericProps;
     user.statuses = userStatuses;
+/*jslint-disable*/
     user.getAllByPhones = function (phoneList) {
         return this.findAll({
             where: {
                 phone: {[Op.in]: phoneList}
             }
         });
-    }
+    };
+/*jslint-enable*/
     return user;
 }
 

@@ -9,6 +9,12 @@ const availableRoles = {
     driverRole: "driver",
     registrationManager: "registration-manager"
 };
+const apiRoles = {
+    client: availableRoles.clientRole,
+    conflict: availableRoles.conflictManager,
+    driver: availableRoles.driverRole,
+    registration: availableRoles.registrationManager
+};
 const errors = {
     alreadyAssigned: {
         message: {
@@ -356,6 +362,7 @@ const otpTypes = {
 
 const config = Object.freeze({
     ages,
+    apiRoles: Object.freeze(apiRoles),
     availableRoles: Object.freeze(availableRoles),
     conflictStatuses,
     defaultValues: Object.freeze(defaultValues),

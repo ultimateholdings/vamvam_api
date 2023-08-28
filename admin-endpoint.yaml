@@ -35,3 +35,14 @@ admin-manager:
       phoneNumber: string
       password: string
       email: string
+  /user/all:
+    action: get all users in the platform
+    type: get
+    queryString:
+      role: string
+      maxPageSize: number
+    headers:
+      pageToken: string representing the token of the requested page
+    response:
+      nextPageToken: string
+      results: userData[]

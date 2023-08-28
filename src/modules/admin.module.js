@@ -5,9 +5,7 @@ node
 const {Blacklist, User} = require("../models");
 const {
     availableRoles,
-    defaultValues,
-    errors,
-    tokenTtl
+    errors
 } = require("../utils/config");
 const {
     propertiesPicker,
