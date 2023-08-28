@@ -208,6 +208,10 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         let results;
         if (typeof role === "string") {
             query.where = {role};
+        } else {
+            query.where = {
+                role: {[Op.notIn]: [availableRoles.adminRole]}
+            }
         }
         results = await this.findAll(query);
         return {
