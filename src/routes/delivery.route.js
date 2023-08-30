@@ -22,6 +22,16 @@ function getDeliveryRouter(module) {
         errorHandler(deliveryModule.requestDelivery)
     );
 
+    router.post(
+        "/relaunch",
+        protectRoute,
+        allowRoles([roles.clientRole]),
+        deliveryModule.ensureDeliveryExists,
+        deliveryModule.canAccessDelivery([]),
+        deliveryModule.ensureInitial,
+        errorHandler(deliveryModule.relaunchDelivery)
+    );
+
     router.get(
         "/infos",
         protectRoute,
@@ -58,6 +68,7 @@ function getDeliveryRouter(module) {
         protectRoute,
         allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
+        deliveryModule.ensureInitial,
         errorHandler(deliveryModule.acceptDelivery)
     );
     router.post(

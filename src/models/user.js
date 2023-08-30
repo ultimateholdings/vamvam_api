@@ -156,6 +156,9 @@ function defineUserModel(connection) {
 
     user.prototype.toShortResponse = function () {
         let result = this.dataValues;
+        if (result.avatar !== null && result.avatar !== undefined) {
+            result.avatar = pathToURL(result.avatar);
+        }
         return propertiesPicker(result)(shortDescriptionProps);
     };
 

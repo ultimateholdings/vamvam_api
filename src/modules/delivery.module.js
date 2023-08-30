@@ -114,23 +114,34 @@ function getDeliveryModule({associatedModels, model}) {
         }
     );
 
-    async function notifyNearbyDrivers(delivery, eventName) {
+    async function notifyNearbyDrivers({
+        by = 5500,
+        delivery,
+        eventName,
+        params = {available: true, role: "driver"}
+    }) {
         let drivers = await associations?.User?.nearTo({
-            by: 5500,
-            params: {available: true, role: "driver"},
+            by,
+            params,
             point: delivery.departure
         });
+        const deliveryData = delivery.toResponse();
+        deliveryData.client = await delivery.getClient();
+        deliveryData.client = deliveryData.client.toShortResponse();
         drivers = drivers ?? [];
         deliveryModel.emitEvent(eventName, {
-            delivery: delivery.toResponse(),
+            delivery: deliveryData,
             drivers
         });
     }
 
     async function createChatRoom(delivery, users) {
         let name = await generateCode(6);
-        name = "Delivery " + name
-        deliveryModel.emitEvent("room-creation-requested", {delivery, name, users});
+        name = "Delivery " + name;
+        deliveryModel.emitEvent(
+            "room-creation-requested",
+            {delivery, name, users}
+        );
     }
     async function updateDriverPosition(driverMessage) {
         const {data, driverId} = driverMessage;
@@ -168,7 +179,7 @@ function getDeliveryModule({associatedModels, model}) {
     async function updateDeliveryItinerary(data) {
         const {deliveryId, driverId, points} = data;
         const delivery = await deliveryModel.findOne({
-            where: {id: deliveryId, driverId}
+            where: {driverId, id: deliveryId}
         });
         if (delivery === null) {
             data.error = errors.notFound;
@@ -244,7 +255,7 @@ function getDeliveryModule({associatedModels, model}) {
             } else {
                 sendResponse(res, errors.forbiddenAccess);
             }
-        }
+        };
     }
 
     async function ensureCanReport(req, res, next) {
@@ -338,6 +349,20 @@ function getDeliveryModule({associatedModels, model}) {
         req.delivery = delivery;
         next();
     }
+    
+    async function ensureInitial(req, res, next) {
+        const {delivery} = req;
+        if (delivery.driverId !== null) {
+            return sendResponse(res, errors.alreadyAssigned);
+        }
+        if (delivery.status === deliveryStatuses.cancelled) {
+            return sendResponse(res, errors.alreadyCancelled);
+        }
+        if (delivery.status !== deliveryStatuses.initial) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
+        next();
+    }
 
     async function ensureDriverExists(req, res, next) {
         const {driverId} = req.body;
@@ -360,15 +385,6 @@ function getDeliveryModule({associatedModels, model}) {
             id: userId
         } = req.user.token;
         const {delivery} = req;
-        if (delivery.driverId !== null) {
-            return sendResponse(res, errors.alreadyAssigned);
-        }
-        if (delivery.status === deliveryStatuses.cancelled) {
-            return sendResponse(res, errors.alreadyCancelled);
-        }
-        if (delivery.status !== deliveryStatuses.initial) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
         driver = await associations.User.findOne({
             where: {id: userId, phone}
         });
@@ -434,7 +450,10 @@ function getDeliveryModule({associatedModels, model}) {
         delivery.status = deliveryStatuses.cancelled;
         await delivery.save();
         res.status(200).send({cancelled: true});
-        await notifyNearbyDrivers(delivery, "delivery-cancelled");
+        await notifyNearbyDrivers({
+            delivery,
+            eventName: "delivery-cancelled"
+        });
     }
 
     async function confirmDeposit(req, res) {
@@ -534,7 +553,19 @@ calculation of at delivery */
             id: tmp.id,
             price: body.price
         });
-        await notifyNearbyDrivers(tmp, "new-delivery");
+        await notifyNearbyDrivers({
+            delivery: tmp,
+            eventName: "new-delivery"
+        });
+    }
+
+    async function relaunchDelivery(req, res) {
+        const {delivery} = req;
+        res.status(200).json({relaunched: true});
+        await notifyNearbyDrivers({
+            delivery,
+            eventName: "new-delivery"
+        });
     }
 
     async function reportDelivery(req, res) {
@@ -674,6 +705,7 @@ calculation of at delivery */
         ensureConflictingDelivery,
         ensureDeliveryExists,
         ensureDriverExists,
+        ensureInitial,
         getAllPaginated,
         getInfos,
         getOngoingDeliveries,
@@ -682,6 +714,7 @@ calculation of at delivery */
         getPrice,
 /*jslint-enable*/
         rateDelivery,
+        relaunchDelivery,
         reportDelivery,
         requestDelivery,
         signalReception,
