@@ -20,9 +20,7 @@ function getUserModule({
     model
 }) {
     const userModel = model || User;
-    const userPagination = ressourcePaginator(
-        (params) => userModel.getAll(params)
-    );
+    const userPagination = ressourcePaginator(userModel.getAll);
 
     async function ensureUserExists(req, res, next) {
         let {id, phone} = req.user.token;
@@ -68,7 +66,7 @@ function getUserModule({
     async function getAllUsers(req, res) {
         let results;
         let {role, maxPageSize} = req.query;
-        const {pageToken} = req.headers;
+        const {page_token} = req.headers;
         const getParams = function (params) {
             if (apiRoles[role] !== undefined) {
                 params.role = apiRoles[role];
@@ -79,7 +77,7 @@ function getUserModule({
         if (!Number.isFinite(maxPageSize)) {
             maxPageSize = 8;
         }
-        results = await userPagination(pageToken, maxPageSize, getParams);
+        results = await userPagination(page_token, maxPageSize, getParams);
         res.status(200).json(results);
     }
     async function getNearByDrivers(req, res) {

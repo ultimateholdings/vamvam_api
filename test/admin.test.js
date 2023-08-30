@@ -71,4 +71,15 @@ describe("admin features tests", function () {
         });
         assert.equal(response.status, 200);
     });
+    it("should provide the list of user", async function () {
+        let response = await app.get(
+            "/user/all?maxPageSize=3"
+        ).set("authorization", "Bearer " + dbUsers.admin.token);
+        assert.equal(response.status, 200);
+        response = await app.get(
+            "/user/all?maxPageSize=3"
+        ).set("authorization", "Bearer " + dbUsers.admin.token)
+        .set("page_token", response.body.nextPageToken);
+        assert.deepEqual(response.body.results.length, 3)
+    })
 });

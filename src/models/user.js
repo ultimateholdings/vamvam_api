@@ -197,31 +197,39 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         }
         return result ?? [];
     };
-/*jslint-enable*/
     user.getAll = async function ({
         maxSize = 10,
         offset = 0,
         role
     }) {
-        let query = {
-            limit: maxSize,
-            offset,
+        let query;
+        let results;
+        let formerLastId;
+        query = {
+            limit: (offset > 0 ? maxSize + 1: maxSize),
+            offset: (offset > 0 ? offset - 1: offset),
             order: [["createdAt", "DESC"]]
         };
-        let results;
         if (typeof role === "string") {
             query.where = {role};
         } else {
             query.where = {
                 role: {[Op.notIn]: [availableRoles.adminRole]}
-            }
+            };
         }
-        results = await this.findAll(query);
+        results = await user.findAll(query);
+        if (offset > 0) {
+            debugger;
+            formerLastId = results.shift();
+            formerLastId = formerLastId?.id;
+        }
         return {
-            lastId: results.at(-1).id,
+            lastId: results.at(-1)?.id,
+            formerLastId,
             values: results.map((user) => user.toResponse())
         };
     };
+/*jslint-enable*/
     user.genericProps = genericProps;
     user.statuses = userStatuses;
 /*jslint-disable*/

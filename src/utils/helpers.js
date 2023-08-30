@@ -337,12 +337,13 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
         );
         const nextPageToken = tokenManager.sign({
             lastId,
-            offset: 1
+            offset: maxSize
         });
         return {nextPageToken, results: values};
     }
-
+    
     async function handleValidToken(tokenDatas, maxSize, getParams) {
+        debugger;
         let nextPageToken;
         let results = await getRessources(getParams({
             maxSize,
@@ -353,10 +354,13 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
             ? null
             : tokenManager.sign({
                 lastId: results.lastId,
-                offset: tokenDatas.offset + 1
+                offset: tokenDatas.offset + maxSize
             })
         );
-        if (results.formerLastId !== tokenDatas.lastId) {
+        if (
+            (results.formerLastId !== tokenDatas.lastId) &&
+            (nextPageToken !== null)
+        ) {
             results = await handleInvalidToken(maxSize);
         } else {
             results = {
