@@ -289,9 +289,11 @@ describe("delivery side effects test", function () {
                 })
             ]);
             delivery = await Delivery.findOne({where: {id: request.body.id}});
+            delivery = delivery.toResponse();
+            delivery.client = dbUsers.goodUser.toShortResponse();
             assert.deepEqual(
                 data.map((data) => data.value),
-                [delivery.toResponse(), undefined]
+                [delivery, undefined]
             );
         });
     it("should enable a driver to update the itinerary", async function () {

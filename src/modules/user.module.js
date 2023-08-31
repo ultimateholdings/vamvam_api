@@ -6,15 +6,21 @@ const {
     isValidLocation,
     propertiesPicker,
     sendResponse,
+    ressourcePaginator,
     toDbPoint
 } = require("../utils/helpers");
-const {errors, uploadsRoot} = require("../utils/config");
+const {
+    apiRoles,
+    errors,
+    uploadsRoot
+} = require("../utils/config");
 
 
 function getUserModule({
     model
 }) {
     const userModel = model || User;
+    const userPagination = ressourcePaginator(userModel.getAll);
 
     async function ensureUserExists(req, res, next) {
         let {id, phone} = req.user.token;
@@ -56,8 +62,30 @@ function getUserModule({
     function getInformations(req, res) {
         res.status(200).json(req.userData.toResponse());
     }
+
+    async function getAllUsers(req, res) {
+        let results;
+        let {role, maxPageSize} = req.query;
+        const {page_token} = req.headers;
+        const getParams = function (params) {
+            if (apiRoles[role] !== undefined) {
+                params.role = apiRoles[role];
+            }
+            return params;
+        }
+        maxPageSize = Number.parseInt(maxPageSize, 10);
+        if (!Number.isFinite(maxPageSize)) {
+            maxPageSize = 10;
+        }
+        results = await userPagination(page_token, maxPageSize, getParams);
+        res.status(200).json(results);
+    }
     async function getNearByDrivers(req, res) {
-        let {from, by, internal = true} = req.body;
+        let {
+            by,
+            from,
+            internal = true
+        } = req.body;
         let drivers;
         if (!isValidLocation(from)) {
             return sendResponse(res, errors.invalidLocation);
@@ -65,15 +93,20 @@ function getUserModule({
         if (!Number.isFinite(by)) {
             by = 55000;
         }
-        drivers = await userModel.nearTo?.({
-            by,
-            params: {
-                available: true,
-                internal: new Boolean(internal).valueOf(),
-                role: "driver",
-            },
-            point: toDbPoint(from)
-        }) ?? [];
+        if (typeof userModel.nearTo === "function") {
+            drivers = await userModel.nearTo({
+                by,
+                params: {
+                    available: true,
+                    internal: Boolean(internal).valueOf(),
+                    role: "driver"
+                },
+                point: toDbPoint(from)
+            });
+        } else {
+            drivers = [];
+        }
+
         res.status(200).send({
             result: drivers.map(function (driver) {
                 const result = driver.toResponse();
@@ -123,6 +156,7 @@ function getUserModule({
     return Object.freeze({
         deleteAvatar,
         ensureUserExists,
+        getAllUsers,
         getInformations,
         getNearByDrivers,
         updateProfile

@@ -4,12 +4,14 @@ const {otpTypes} = require("../utils/config")
 function define_OTP_request (connection) {
     
     const schema = {
-        pinId: DataTypes.STRING,
+        pinId: {
+            allowNull: false,
+            type: DataTypes.STRING,
+            primaryKey: true
+        },
         phone: {
             allowNull: false,
-            primaryKey: true,
-            type: DataTypes.STRING,
-            unique: true
+            type: DataTypes.STRING
         },
         type: {
             defaultValue: otpTypes.authentication,

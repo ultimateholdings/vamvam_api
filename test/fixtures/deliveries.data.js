@@ -1,8 +1,7 @@
+/*jslint node*/
 require("dotenv").config();
 const supertest = require("supertest");
 const {buildServer} = require("../../src");
-const deliveryModule = require("../../src/modules/delivery.module");
-const buildDeliveryRoutes = require("../../src/routes/delivery.route");
 const buildRouter = require("../../src/routes");
 const buildAuthRoutes = require("../../src/routes/auth.route");
 const getAuthModule = require("../../src/modules/auth.module");
@@ -22,8 +21,8 @@ const deliveries = [
         packageType: "Fragile",
         recipientInfos: {
             name: "Kamga Nouhou",
-            phone: "+29820923023209932023",
-            otherPhones: ["+4399903940380", "+4309504i900054905"]
+            otherPhones: ["+4399903940380", "+4309504i900054905"],
+            phone: "+29820923023209932023"
         }
     },
     {
@@ -40,8 +39,8 @@ const deliveries = [
         packageType: "Fragile",
         recipientInfos: {
             name: "Kam Massock",
-            phone: "+298209230988045023",
-            otherPhones: ["+23489489440380", "+430757848745934905"]
+            otherPhones: ["+23489489440380", "+430757848745934905"],
+            phone: "+298209230988045023"
         }
     },
     {
@@ -58,10 +57,10 @@ const deliveries = [
         packageType: "Fragile",
         recipientInfos: {
             name: "Mbouta Mbezoa",
-            phone: "+273873489283203",
-            otherPhones: ["+7838349834940380", "+08308934900054905"]
+            otherPhones: ["+7838349834940380", "+08308934900054905"],
+            phone: "+273873489283203"
         }
-    },
+    }
 ];
 
 const badDelevery = {
@@ -77,8 +76,8 @@ const badDelevery = {
     },
     recipientInfos: {
         name: "Mbouta Mbezoa",
-        phone: "+273873489283203",
-        otherPhones: ["+7838349834940380", "+08308934900054905"]
+        otherPhones: ["+7838349834940380", "+08308934900054905"],
+        phone: "+273873489283203"
     }
 };
 
@@ -123,8 +122,8 @@ function deliveryResquestor(tokenGetter, model) {
     }) {
         const request = await requestDelivery({
             app,
-            phone: clientPhone,
-            data: delivery
+            data: delivery,
+            phone: clientPhone
         });
         let token = await tokenGetter(app, driverData.phone);
         await model.update({
@@ -140,7 +139,6 @@ function deliveryResquestor(tokenGetter, model) {
 }
 
 function setupDeliveryServer(otpHandler) {
-    let deliveryRoutes;
     let app;
     let server;
     const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));

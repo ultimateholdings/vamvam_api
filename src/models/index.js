@@ -206,7 +206,7 @@ Delivery.getAllWithStatus = function (userId, status) {
         {clientId: {[Op.eq]: userId}},
         {driverId: {[Op.eq]: userId}}
     ];
-    return this.findAll({
+    return Delivery.findAll({
         include: [
             {as: "Client", model: User, required: true},
             {as: "Driver", model: User, required: true}
@@ -219,6 +219,47 @@ Delivery.getAllWithStatus = function (userId, status) {
         }
     });
 }
+
+Delivery.getAll = async function ({
+    maxSize = 10,
+    offset = 0,
+    status
+}) {
+    let query;
+    let results;
+    let formerLastId;
+    query = {
+        include: [
+            {as: "Client", model: User, required: true},
+            {as: "Driver", model: User, required: true},
+        ],
+        limit: (offset > 0 ? maxSize + 1: maxSize),
+        offset: (offset > 0 ? offset - 1: offset),
+        order: [["createdAt", "DESC"]]
+    };
+    if (typeof status === "string") {
+        query.where = {status};
+    }
+    results = await Delivery.findAll(query);
+    if (offset > 0) {
+        formerLastId = results.shift();
+        formerLastId = formerLastId?.id;
+    }
+    return {
+        lastId: results.at(-1)?.id,
+        formerLastId,
+        values: results.map(function deliveryMapper(delivery) {
+            let result = delivery.toResponse();
+            if (delivery.Client !== null) {
+                result.client = delivery.Client.toShortResponse();
+            }
+            if (delivery.Driver !== null) {
+                result.driver = delivery.Driver.toShortResponse();
+            }
+            return result;
+        })
+    };
+};
 
 Blacklist.invalidateAll = async function () {
     const {globalId} = this;

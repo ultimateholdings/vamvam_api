@@ -7,9 +7,11 @@ const {
     conflictStatuses,
     deliveryStatuses,
     errors,
-    availableRoles: roles
+    availableRoles: roles,
+    apiDeliveryStatus
 } = require("../utils/config");
 const {
+    formatDbPoint,
     isValidLocation,
     propertiesPicker,
     ressourcePaginator,
@@ -46,43 +48,6 @@ function formatBody(deliveryRequest) {
     return result;
 }
 
-function deliveryFetcher({deliveryModel, id, role}) {
-    const roleMap = {
-        "client": {clientId: id},
-        "driver": {driverId: id}
-    };
-    return async function getDelivery({maxSize, offset}) {
-        const finder = roleMap[role ?? "client"];
-        let calculatedOffset = offset * maxSize;
-        let first;
-        let deliveries;
-
-        if (calculatedOffset < 0 || !Number.isFinite(calculatedOffset)) {
-            return {
-                values: []
-            };
-        }
-        if (calculatedOffset > 0) {
-            calculatedOffset -= 1;
-        }
-        [first, ...deliveries] = await deliveryModel.findAll({
-            limit: maxSize,
-            offset: calculatedOffset,
-            where: finder
-        });
-        if (offset === 0) {
-            return {
-                lastId: deliveries.at(-1).id,
-                values: [first, ...deliveries]
-            };
-        }
-        return {
-            formerLastId: first.id,
-            lastId: deliveries.at(-1).id,
-            values: deliveries
-        };
-    };
-}
 
 async function generateCode(byteSize = 5) {
     const {
@@ -98,6 +63,7 @@ function calculatePrice() {
 function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
     const associations = associatedModels || {DeliveryConflict, User};
+    const deliveryPagition = ressourcePaginator(deliveryModel.getAll);
 
     deliveryModel.addEventListener(
         "chat-room-requested",
@@ -113,23 +79,34 @@ function getDeliveryModule({associatedModels, model}) {
         }
     );
 
-    async function notifyNearbyDrivers(delivery, eventName) {
+    async function notifyNearbyDrivers({
+        by = 5500,
+        delivery,
+        eventName,
+        params = {available: true, role: "driver"}
+    }) {
         let drivers = await associations?.User?.nearTo({
-            by: 5500,
-            params: {available: true, role: "driver"},
+            by,
+            params,
             point: delivery.departure
         });
+        const deliveryData = delivery.toResponse();
+        deliveryData.client = await delivery.getClient();
+        deliveryData.client = deliveryData.client.toShortResponse();
         drivers = drivers ?? [];
         deliveryModel.emitEvent(eventName, {
-            delivery: delivery.toResponse(),
+            delivery: deliveryData,
             drivers
         });
     }
 
     async function createChatRoom(delivery, users) {
         let name = await generateCode(6);
-        name = "Delivery " + name
-        deliveryModel.emitEvent("room-creation-requested", {delivery, name, users});
+        name = "Delivery " + name;
+        deliveryModel.emitEvent(
+            "room-creation-requested",
+            {delivery, name, users}
+        );
     }
     async function updateDriverPosition(driverMessage) {
         const {data, driverId} = driverMessage;
@@ -167,7 +144,7 @@ function getDeliveryModule({associatedModels, model}) {
     async function updateDeliveryItinerary(data) {
         const {deliveryId, driverId, points} = data;
         const delivery = await deliveryModel.findOne({
-            where: {id: deliveryId, driverId}
+            where: {driverId, id: deliveryId}
         });
         if (delivery === null) {
             data.error = errors.notFound;
@@ -230,25 +207,27 @@ function getDeliveryModule({associatedModels, model}) {
         sendCloudMessage
     );
 
-
-    function canAccessDelivery(req, res, next) {
-        const {id, role} = req.user.token;
-        const {delivery} = req;
-        const isAdmin = role === roles.admin;
-        let isInvolved = (delivery.clientId === id) || (
-            delivery.driverId === id
-        );
-        isInvolved = isInvolved && (id !== null || id !== undefined);
-        if (isAdmin || isInvolved) {
-            next();
-        } else {
-            sendResponse(res, errors.forbiddenAccess);
-        }
+    function canAccessDelivery(allowedExternals = []) {
+        return function verifyAccess(req, res, next) {
+            const {id, role} = req.user.token;
+            const {delivery} = req;
+            let isInvolved = (delivery.clientId === id) || (
+                delivery.driverId === id
+            );
+            isInvolved = isInvolved && (id !== null || id !== undefined);
+            if (allowedExternals.includes(role) || isInvolved) {
+                next();
+            } else {
+                sendResponse(res, errors.forbiddenAccess);
+            }
+        };
     }
 
     async function ensureCanReport(req, res, next) {
         let conflict;
+        let {lastPosition} = req.body;
         const {delivery} = req;
+        const {role} = req.user.token;
         const allowedStatus = [
             deliveryStatuses.pendingReception,
             deliveryStatuses.toBeConfirmed,
@@ -262,6 +241,16 @@ function getDeliveryModule({associatedModels, model}) {
         });
         if (conflict !== null) {
             return sendResponse(res, errors.alreadyReported);
+        }
+        if (!isValidLocation(lastPosition) && role !== roles.adminRole) {
+            return sendResponse(res, errors.invalidLocation);
+        }
+        if (!isValidLocation(lastPosition)) {
+            conflict = await delivery.getDriver();
+            if (conflict.position === null) {
+                return sendResponse(res, errors.invalidLocation);
+            }
+            req.body.lastPosition = formatDbPoint(conflict.position);
         }
         next();
     }
@@ -325,6 +314,20 @@ function getDeliveryModule({associatedModels, model}) {
         req.delivery = delivery;
         next();
     }
+    
+    async function ensureInitial(req, res, next) {
+        const {delivery} = req;
+        if (delivery.driverId !== null) {
+            return sendResponse(res, errors.alreadyAssigned);
+        }
+        if (delivery.status === deliveryStatuses.cancelled) {
+            return sendResponse(res, errors.alreadyCancelled);
+        }
+        if (delivery.status !== deliveryStatuses.initial) {
+            return sendResponse(res, errors.cannotPerformAction);
+        }
+        next();
+    }
 
     async function ensureDriverExists(req, res, next) {
         const {driverId} = req.body;
@@ -347,15 +350,6 @@ function getDeliveryModule({associatedModels, model}) {
             id: userId
         } = req.user.token;
         const {delivery} = req;
-        if (delivery.driverId !== null) {
-            return sendResponse(res, errors.alreadyAssigned);
-        }
-        if (delivery.status === deliveryStatuses.cancelled) {
-            return sendResponse(res, errors.alreadyCancelled);
-        }
-        if (delivery.status !== deliveryStatuses.initial) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
         driver = await associations.User.findOne({
             where: {id: userId, phone}
         });
@@ -421,7 +415,10 @@ function getDeliveryModule({associatedModels, model}) {
         delivery.status = deliveryStatuses.cancelled;
         await delivery.save();
         res.status(200).send({cancelled: true});
-        await notifyNearbyDrivers(delivery, "delivery-cancelled");
+        await notifyNearbyDrivers({
+            delivery,
+            eventName: "delivery-cancelled"
+        });
     }
 
     async function confirmDeposit(req, res) {
@@ -448,12 +445,19 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function getAllPaginated(req, res) {
         let results;
-        const {id, role} = req.user.token;
-        const {maxPageSize, pageToken} = req.body;
-        const paginator = ressourcePaginator(
-            deliveryFetcher({deliveryModel, id, role})
-        );
-        results = await paginator(pageToken, maxPageSize);
+        let {maxPageSize, status} = req.query;
+        const {page_token} = req.headers;
+        const getParams = function (params) {
+            if (apiDeliveryStatus[status] !== undefined) {
+                params.status = apiDeliveryStatus[status];
+            }
+            return params;
+        };
+        maxPageSize = Number.parseInt(maxPageSize, 10);
+        if (!Number.isFinite(maxPageSize)) {
+            maxPageSize = 10;
+        }
+        results = await deliveryPagition(page_token, maxPageSize, getParams);
         res.status(200).send(results);
     }
 
@@ -521,7 +525,19 @@ calculation of at delivery */
             id: tmp.id,
             price: body.price
         });
-        await notifyNearbyDrivers(tmp, "new-delivery");
+        await notifyNearbyDrivers({
+            delivery: tmp,
+            eventName: "new-delivery"
+        });
+    }
+
+    async function relaunchDelivery(req, res) {
+        const {delivery} = req;
+        res.status(200).json({relaunched: true});
+        await notifyNearbyDrivers({
+            delivery,
+            eventName: "new-delivery"
+        });
     }
 
     async function reportDelivery(req, res) {
@@ -535,9 +551,6 @@ calculation of at delivery */
         conflict.reporter = await associations.User.findOne({where: {id}});
         conflict.reporter = conflict.reporter.toResponse();
 
-        if (!isValidLocation(lastPosition)) {
-            return sendResponse(res, errors.invalidLocation);
-        }
         delivery.status = deliveryStatuses.inConflict;
         await delivery.save();
         await associations.DeliveryConflict.create({
@@ -664,6 +677,7 @@ calculation of at delivery */
         ensureConflictingDelivery,
         ensureDeliveryExists,
         ensureDriverExists,
+        ensureInitial,
         getAllPaginated,
         getInfos,
         getOngoingDeliveries,
@@ -672,6 +686,7 @@ calculation of at delivery */
         getPrice,
 /*jslint-enable*/
         rateDelivery,
+        relaunchDelivery,
         reportDelivery,
         requestDelivery,
         signalReception,

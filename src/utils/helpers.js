@@ -122,15 +122,13 @@ function toDbPoint(point) {
 function toDbLineString(points) {
     let lineString;
     if (Array.isArray(points)) {
-        lineString = {
-            type: "LineString",
-        };
+        lineString = {type: "LineString"};
         lineString.coordinates = points.map(function (point) {
             if (isValidLocation(point)) {
                 return [point.latitude, point.longitude];
             }
             throw new Error("Invalid location !!!");
-        })
+        });
     }
     return lineString;
 }
@@ -138,8 +136,10 @@ function toDbLineString(points) {
 function formatDbLineString(lineString) {
     let result = null;
     if (lineString !== null && lineString !== undefined) {
-        result = lineString.coordinates?.map?.(
-            ([latitude, longitude]) => {latitude, longitude}
+        result = lineString.coordinates.map(
+            function ([latitude, longitude]) {
+                return Object.freeze({latitude, longitude});
+            }
         );
     }
     return result;
@@ -202,7 +202,7 @@ async function fetchUrl({
 }
 
 function errorHandler(func) {
-    return async function (req, res, next) {
+    return async function handleEndPoint(req, res, next) {
         let err;
         let content;
         try {
@@ -245,7 +245,11 @@ function propertiesPicker(object) {
 
 function getOTPService(model) {
     const config = getOTPConfig();
-    async function sendCode({phone, signature, type = "auth"}) {
+    async function sendCode({
+        phone,
+        signature,
+        type = "auth"
+    }) {
         let response;
         let content;
         const ttlInSeconds = defaultValues.ttl;
@@ -269,8 +273,8 @@ function getOTPService(model) {
         if (response.ok) {
             response = await response.json();
             await model.upsert({
-                pinId: response.pinId,
                 phone,
+                pinId: response.pinId,
                 type
             }, {where: {phone, type}});
             return {pinId: response.pinId, sent: true};
@@ -283,7 +287,11 @@ function getOTPService(model) {
         }
     }
 
-    async function verifyCode({code, phone, type = "auth"}) {
+    async function verifyCode({
+        code,
+        phone,
+        type = "auth"
+    }) {
         let response = await model.findOne({where: {phone, type}});
         if (response === null) {
             response = cloneObject(errors.requestOTP);
@@ -323,30 +331,35 @@ function getOTPService(model) {
 
 function ressourcePaginator(getRessources, expiration = 3600000) {
     const tokenManager = jwtWrapper(expiration);
-    async function handleInvalidToken(maxSize) {
-        const {lastId, values} = await getRessources({maxSize, offset: 0});
+    async function handleInvalidToken(maxSize, getParams) {
+        const {lastId, values} = await getRessources(
+            getParams({maxSize, offset: 0})
+        );
         const nextPageToken = tokenManager.sign({
             lastId,
-            offset: 1
+            offset: maxSize
         });
         return {nextPageToken, results: values};
     }
-
-    async function handleValidToken(tokenDatas, maxSize) {
+    
+    async function handleValidToken(tokenDatas, maxSize, getParams) {
         let nextPageToken;
-        let results = await getRessources({
+        let results = await getRessources(getParams({
             maxSize,
             offset: tokenDatas.offset
-        });
+        }));
         nextPageToken = (
             results.values.length < 1
             ? null
             : tokenManager.sign({
                 lastId: results.lastId,
-                offset: tokenDatas.offset + 1
+                offset: tokenDatas.offset + maxSize
             })
         );
-        if (results.formerLastId !== tokenDatas.lastId) {
+        if (
+            (results.formerLastId !== tokenDatas.lastId) &&
+            (nextPageToken !== null)
+        ) {
             results = await handleInvalidToken(maxSize);
         } else {
             results = {
@@ -357,19 +370,27 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
         return results;
     }
 
-    return async function paginate(pageToken, maxPageSize) {
+    return async function paginate(
+        pageToken,
+        maxPageSize,
+        getParams = cloneObject
+    ) {
         let datas;
         let results;
         try {
             datas = await tokenManager.verify(pageToken);
             if (datas.valid) {
-                results = await handleValidToken(datas.token, maxPageSize);
+                results = await handleValidToken(
+                    datas.token,
+                    maxPageSize,
+                    getParams
+                );
             } else {
-                results = await handleInvalidToken(maxPageSize);
+                results = await handleInvalidToken(maxPageSize, getParams);
             }
         } catch (err) {
             console.error(err);
-            results = await handleInvalidToken(maxPageSize);
+            results = await handleInvalidToken(maxPageSize, getParams);
         }
         return results;
     };
@@ -417,8 +438,8 @@ module.exports = Object.freeze({
     deleteFile,
     errorHandler,
     fileExists,
-    formatDbPoint,
     formatDbLineString,
+    formatDbPoint,
     getFileHash,
     getOTPService,
     hashPassword(password) {
@@ -439,6 +460,6 @@ module.exports = Object.freeze({
     ressourcePaginator,
     sendCloudMessage,
     sendResponse,
-    toDbPoint,
-    toDbLineString
+    toDbLineString,
+    toDbPoint
 });
