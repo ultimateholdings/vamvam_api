@@ -221,9 +221,11 @@ Delivery.getAllWithStatus = function (userId, status) {
 }
 
 Delivery.getAll = async function ({
+    from,
     maxSize = 10,
     offset = 0,
-    status
+    status,
+    to
 }) {
     let query;
     let results;
@@ -235,10 +237,23 @@ Delivery.getAll = async function ({
         ],
         limit: (offset > 0 ? maxSize + 1: maxSize),
         offset: (offset > 0 ? offset - 1: offset),
-        order: [["createdAt", "DESC"]]
+        order: [["createdAt", "DESC"]],
+        where: {
+            [Op.and]: []
+        }
     };
     if (typeof status === "string") {
-        query.where = {status};
+        query.where.status = status;
+    }
+    if (Number.isFinite(Date.parse(from))) {
+        query.where[Op.and].push({
+            createdAt: {[Op.gte]: new Date(Date.parse(from))}
+        });
+    }
+    if (Number.isFinite(Date.parse(to))) {
+        query.where[Op.and].push({
+            createdAt: {[Op.lte]: new Date(Date.parse(to))}
+        });
     }
     results = await Delivery.findAll(query);
     if (offset > 0) {

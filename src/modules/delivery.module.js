@@ -445,12 +445,14 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function getAllPaginated(req, res) {
         let results;
-        let {maxPageSize, status} = req.query;
+        let {from, maxPageSize, status, to} = req.query;
         const {page_token} = req.headers;
         const getParams = function (params) {
             if (apiDeliveryStatus[status] !== undefined) {
                 params.status = apiDeliveryStatus[status];
             }
+            params.to = to;
+            params.from = from;
             return params;
         };
         maxPageSize = Number.parseInt(maxPageSize, 10);

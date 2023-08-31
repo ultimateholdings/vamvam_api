@@ -351,7 +351,7 @@ const deliveryStatuses = Object.freeze({
 const apiDeliveryStatus = Object.freeze({
     cancelled: deliveryStatuses.cancelled,
     conflicting: deliveryStatuses.inConflict,
-    started: deliveryStatuses.started,
+    ongoing: deliveryStatuses.started,
     terminated: deliveryStatuses.terminated
 });
 const userStatuses = {

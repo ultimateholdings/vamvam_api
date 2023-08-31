@@ -50,8 +50,10 @@ admin-manager:
     action: get all deliveries in the platform
     type: get
     queryString:
+      from: string representing the date from which we want to query (YYYY-MM-DD)
       status: string representing the status of the deliveries
       maxPageSize: number
+      to: string representing the date after which we want to query (YYYY-MM-DD)
     headers:
       page_token: string representing the token of the requested page
     response:
