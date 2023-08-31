@@ -351,7 +351,7 @@ const deliveryStatuses = Object.freeze({
 const apiDeliveryStatus = Object.freeze({
     cancelled: deliveryStatuses.cancelled,
     conflicting: deliveryStatuses.inConflict,
-    started: deliveryStatuses.started,
+    ongoing: deliveryStatuses.started,
     terminated: deliveryStatuses.terminated
 });
 const userStatuses = {
@@ -401,7 +401,7 @@ const config = Object.freeze({
                     api_key: otp_key,
                     channel: "generic",
                     from: "VAMVAM",
-                    message_text: "<#> Your verification code is" +
+                    message_text: "Your verification code is" +
                     " @vamvam@ \n\n" + signature,
                     message_type: "ALPHANUMERIC",
                     pin_attempts: 3,

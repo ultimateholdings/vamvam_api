@@ -174,15 +174,25 @@ Room.getUserRooms = async function (userId) {
                 {
                     model: User,
                     required: true
+                },
+                {
+                    model: Delivery,
+                    required: true
                 }
             ]
         },
         where: {id: userId}
     });
     return result.rooms.map(function (room) {
+        let delivery = room.delivery.toResponse();
         const result = {
+            createdAt: room.createdAt,
             id: room.id,
-            deliveryId: room.deliveryId,
+            delivery: {
+                departure: delivery.departure.address ?? "",
+                destination: delivery.destination.address ?? "",
+                id: delivery.id
+            },
             members: room.users.map((user) => user.toShortResponse()),
             name: room.name
         };
@@ -206,6 +216,12 @@ Delivery.getAllWithStatus = function (userId, status) {
         {clientId: {[Op.eq]: userId}},
         {driverId: {[Op.eq]: userId}}
     ];
+    let statusClause;
+    if (Array.isArray(status)) {
+        statusClause = {[Op.in]: status}
+    } else {
+        statusClause = status
+    }
     return Delivery.findAll({
         include: [
             {as: "Client", model: User, required: true},
@@ -214,16 +230,18 @@ Delivery.getAllWithStatus = function (userId, status) {
         where: {
             [Op.and]: {
                 [Op.or]: clause,
-                status
+                status: statusClause
             }
         }
     });
 }
 
 Delivery.getAll = async function ({
+    from,
     maxSize = 10,
     offset = 0,
-    status
+    status,
+    to
 }) {
     let query;
     let results;
@@ -235,10 +253,23 @@ Delivery.getAll = async function ({
         ],
         limit: (offset > 0 ? maxSize + 1: maxSize),
         offset: (offset > 0 ? offset - 1: offset),
-        order: [["createdAt", "DESC"]]
+        order: [["createdAt", "DESC"]],
+        where: {
+            [Op.and]: []
+        }
     };
     if (typeof status === "string") {
-        query.where = {status};
+        query.where.status = status;
+    }
+    if (Number.isFinite(Date.parse(from))) {
+        query.where[Op.and].push({
+            createdAt: {[Op.gte]: new Date(Date.parse(from))}
+        });
+    }
+    if (Number.isFinite(Date.parse(to))) {
+        query.where[Op.and].push({
+            createdAt: {[Op.lte]: new Date(Date.parse(to))}
+        });
     }
     results = await Delivery.findAll(query);
     if (offset > 0) {

@@ -112,4 +112,16 @@ describe("admin features tests", function () {
         .set("page_token", response.body.nextPageToken);
         assert.deepEqual(response.body.results.length, 3);
     });
+    it("should provide the list of ongoing deliveries", async function () {
+        let response;
+        let deliveries = [
+            ...deliveryGenerator(deliveryStatuses.cancelled),
+            ...deliveryGenerator(deliveryStatuses.started)
+        ];
+        await Delivery.bulkCreate(deliveries);
+        response =
+        await app.get("/delivery/analytics")
+        .set("authorization", "Bearer " + dbUsers.admin.token);
+        assert.equal(response.status, 200);
+    });
 });

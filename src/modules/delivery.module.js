@@ -4,11 +4,11 @@ node
 const crypto = require("crypto");
 const {Delivery, DeliveryConflict, User} = require("../models");
 const {
+    apiDeliveryStatus,
     conflictStatuses,
     deliveryStatuses,
     errors,
-    availableRoles: roles,
-    apiDeliveryStatus
+    availableRoles: roles
 } = require("../utils/config");
 const {
     formatDbPoint,
@@ -21,6 +21,13 @@ const {
     toDbPoint
 } = require("../utils/helpers");
 
+const dbStatusMap = Object.entries(apiDeliveryStatus).reduce(
+    function (acc, [key, value]) {
+        acc[value] = key;
+        return acc;
+    },
+    Object.create(null)
+);
 
 function formatBody(deliveryRequest) {
     const locationProps = ["departure", "destination"];
@@ -445,12 +452,14 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function getAllPaginated(req, res) {
         let results;
-        let {maxPageSize, status} = req.query;
+        let {from, maxPageSize, status, to} = req.query;
         const {page_token} = req.headers;
         const getParams = function (params) {
             if (apiDeliveryStatus[status] !== undefined) {
                 params.status = apiDeliveryStatus[status];
             }
+            params.to = to;
+            params.from = from;
             return params;
         };
         maxPageSize = Number.parseInt(maxPageSize, 10);
@@ -459,6 +468,26 @@ function getDeliveryModule({associatedModels, model}) {
         }
         results = await deliveryPagition(page_token, maxPageSize, getParams);
         res.status(200).send(results);
+    }
+
+    async function getAnalytics(req, res) {
+        const {from, to} = req.query;
+        let results = await deliveryModel.getAllStats({from, to});
+        const initialResult = Object.keys(apiDeliveryStatus).reduce(
+            function (acc, key) {
+                acc[key] = 0;
+                return acc;
+            },
+            {total: 0}
+        );
+        results = results.reduce(function (acc, entry) {
+            if (dbStatusMap[entry.status] !== undefined) {
+                acc[dbStatusMap[entry.status]] = entry.count;
+                acc.total += entry.count;
+            }
+            return acc;
+        }, initialResult);
+        res.status(200).json({results});
     }
 
     async function getInfos(req, res) {
@@ -633,7 +662,11 @@ calculation of at delivery */
         let {id, role} = req.user.token;
         let deliveries = await deliveryModel.getAllWithStatus(
             id,
-            deliveryStatuses.started
+            [
+                deliveryStatuses.started,
+                deliveryStatuses.pendingReception,
+                deliveryStatuses.toBeConfirmed
+            ]
         );
         deliveries = deliveries.map(
             (delivery) => toDeliveryResponse(delivery, role)
@@ -678,6 +711,7 @@ calculation of at delivery */
         ensureDeliveryExists,
         ensureDriverExists,
         ensureInitial,
+        getAnalytics,
         getAllPaginated,
         getInfos,
         getOngoingDeliveries,

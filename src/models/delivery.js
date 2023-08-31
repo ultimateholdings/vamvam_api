@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {DataTypes} = require("sequelize");
+const {DataTypes, Op} = require("sequelize");
 const {CustomEmitter, propertiesPicker} = require("../utils/helpers");
 const {deliveryStatuses} = require("../utils/config");
 
@@ -81,7 +81,7 @@ function defineDeliveryModel(connection) {
             };
         }
         return propertiesPicker(result)(allowedProps);
-    }
+    };
     delivery.prototype.getRecipientPhones = function () {
         let {
             phone,
@@ -92,6 +92,26 @@ function defineDeliveryModel(connection) {
             result.push(...otherPhones);
         }
         return result;
+    }
+    delivery.getAllStats = function ({from, to}) {
+        let query = {
+            attributes: ["status"],
+            group: ["status"],
+            where: {
+                [Op.and]: []
+            }
+        };
+        if (Number.isFinite(Date.parse(from))) {
+            query.where[Op.and].push({
+                createdAt: {[Op.gte]: new Date(Date.parse(from))}
+            });
+        }
+        if (Number.isFinite(Date.parse(to))) {
+            query.where[Op.and].push({
+                createdAt: {[Op.lte]: new Date(Date.parse(to))}
+            });
+        }
+        return delivery.count(query);
     }
     delivery.addEventListener = function (eventName, func) {
         emitter.on(eventName, func);

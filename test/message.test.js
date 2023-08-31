@@ -43,10 +43,22 @@ describe("Message test", function () {
   });
 
   beforeEach(async function () {
+    let delivery = Object.create(null);
+    Object.assign(delivery, deliveries[0]);
+    delivery.departure = toDbPoint(deliveries[0].departure);
+    delivery.destination = toDbPoint(deliveries[0].destination);
+    delivery.deliveryMeta = {
+      departureAddress: deliveries[0].departure.address,
+      destinationAddress: deliveries[0].destination.address
+    };
     await connection.sync({ force: true });
     dbUsers = await syncUsers(users, User);
+    delivery.clientId = dbUsers.goodUser.id;
+    delivery.driverId = dbUsers.firstDriver.id;
+    delivery = await Delivery.create(delivery);
     room = await Room.create({
-      name: "Livraison pour bonandjo"
+      name: "Livraison pour bonandjo",
+      deliveryId: delivery.id
     });
     await room.setUsers([dbUsers.firstDriver, dbUsers.goodUser]);
     tokens = await Promise.all([

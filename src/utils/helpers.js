@@ -276,7 +276,7 @@ function getOTPService(model) {
                 phone,
                 pinId: response.pinId,
                 type
-            }, {where: {phone, type}});
+            }, {fields: ["phone", "type"]});
             return {pinId: response.pinId, sent: true};
         } else {
             response = await response.json();
@@ -332,13 +332,16 @@ function getOTPService(model) {
 function ressourcePaginator(getRessources, expiration = 3600000) {
     const tokenManager = jwtWrapper(expiration);
     async function handleInvalidToken(maxSize, getParams) {
+        let nextPageToken = null;
         const {lastId, values} = await getRessources(
             getParams({maxSize, offset: 0})
         );
-        const nextPageToken = tokenManager.sign({
-            lastId,
-            offset: maxSize
-        });
+        if (Array.isArray(values) && values.length > 0) {
+            nextPageToken = tokenManager.sign({
+                lastId,
+                offset: maxSize
+            });
+        }
         return {nextPageToken, results: values};
     }
     

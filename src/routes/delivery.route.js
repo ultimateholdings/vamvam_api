@@ -46,6 +46,13 @@ function getDeliveryRouter(module) {
         allowRoles([roles.adminRole]),
         errorHandler(deliveryModule.getAllPaginated)
     );
+    router.get(
+        "/analytics",
+        protectRoute,
+        allowRoles([roles.adminRole]),
+        errorHandler(deliveryModule.getAnalytics)
+    );
+
     router.post(
         "/request",
         protectRoute,
