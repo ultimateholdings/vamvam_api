@@ -276,7 +276,7 @@ function getOTPService(model) {
                 phone,
                 pinId: response.pinId,
                 type
-            }, {where: {phone, type}});
+            }, {fields: ["phone", "type"]});
             return {pinId: response.pinId, sent: true};
         } else {
             response = await response.json();

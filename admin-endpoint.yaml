@@ -59,3 +59,16 @@ admin-manager:
     response:
       nextPageToken: string
       results: deliveryData[]
+  /delivery/analytics:
+    action: get the count of deliveries per status within a period
+    type: get
+    queryString:
+      from: string representing the date from which we want to query (YYYY-MM-DD)
+      to: string representing the date after which we want to query (YYYY-MM-DD)
+    response:
+      results:
+        cancelled: number
+        conflicting: number
+        ongoing: number
+        terminated: number
+        total: number

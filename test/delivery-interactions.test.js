@@ -447,7 +447,7 @@ describe("delivery side effects test", function () {
             response = await app.post(endPoint).send(payload).set(
                 "authorization", "Bearer " + driverToken
             );
-            assert.equal(response.status, errors.notAuthorized.status);
+            assert.equal(response.status, errors.forbiddenAccess.status);
             response = await app.post(endPoint).send(payload).set(
                 "authorization", "Bearer " + managerToken
             );

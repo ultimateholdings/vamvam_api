@@ -92,7 +92,7 @@ function allowRoles(roles = []) {
         if (Array.isArray(roles) && roles.includes(role)) {
             next();
         } else {
-            sendResponse(res, errors.notAuthorized);
+            sendResponse(res, errors.forbiddenAccess);
         }
     };
 }
