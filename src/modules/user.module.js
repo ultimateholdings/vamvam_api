@@ -75,7 +75,7 @@ function getUserModule({
         }
         maxPageSize = Number.parseInt(maxPageSize, 10);
         if (!Number.isFinite(maxPageSize)) {
-            maxPageSize = 8;
+            maxPageSize = 10;
         }
         results = await userPagination(page_token, maxPageSize, getParams);
         res.status(200).json(results);

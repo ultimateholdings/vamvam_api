@@ -11,8 +11,10 @@ const {
     it
 } = require("mocha");
 const {assert} = require("chai");
-const {User, connection} = require("../src/models");
-const {errors} = require("../src/utils/config");
+const {Delivery, User, connection} = require("../src/models");
+const {deliveryStatuses} = require("../src/utils/config");
+const {toDbPoint} = require("../src/utils/helpers");
+const {deliveries} = require("./fixtures/deliveries.data");
 const {
     generateToken,
     otpHandler,
@@ -21,6 +23,28 @@ const {
     users,
     syncInstances
 } = require("./fixtures/helper");
+
+function generateDBDeliveries({
+    clientId,
+    driverId,
+    initialState = deliveryStatuses.cancelled
+}) {
+    return deliveries.map(function (delivery) {
+        const result = Object.create(null);
+        Object.assign(result, delivery);
+        result.departure = toDbPoint(delivery.departure);
+        result.destination = toDbPoint(delivery.destination);
+        result.deliveryMeta = {
+            departureAdress: delivery.departure.address,
+            destinationAdress: delivery.destination.address
+        };
+        result.price = 1000;
+        result.clientId = clientId;
+        result.driverId = driverId;
+        result.status = initialState;
+        return result;
+    });
+}
 const newAdmins = [
     {
         phoneNumber: "+234093059540955",
@@ -37,6 +61,7 @@ describe("admin features tests", function () {
     let app;
     let server;
     let dbUsers;
+    let deliveryGenerator;
     before(function () {
         const tmp = setupServer(otpHandler);
         app = tmp.app;
@@ -55,6 +80,11 @@ describe("admin features tests", function () {
             acc[key] = clonedUser;
             return acc;
         }, Object.create(null));
+        deliveryGenerator = (initialState) => generateDBDeliveries({
+            clientId: dbUsers.goodUser.id,
+            driverId: dbUsers.firstDriver.id,
+            initialState
+        });
     });
     afterEach(async function () {
         await connection.drop();
@@ -80,6 +110,6 @@ describe("admin features tests", function () {
             "/user/all?maxPageSize=3"
         ).set("authorization", "Bearer " + dbUsers.admin.token)
         .set("page_token", response.body.nextPageToken);
-        assert.deepEqual(response.body.results.length, 3)
-    })
+        assert.deepEqual(response.body.results.length, 3);
+    });
 });

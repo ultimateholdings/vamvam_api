@@ -15,23 +15,7 @@ function getDeliveryRouter(module) {
     const deliveryModule = module || getDeliveryModule({});
     const router = new express.Router();
     const conflictRouter = new express.Router();
-
-    router.post(
-        "/request",
-        protectRoute,
-        errorHandler(deliveryModule.requestDelivery)
-    );
-
-    router.post(
-        "/relaunch",
-        protectRoute,
-        allowRoles([roles.clientRole]),
-        deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery([]),
-        deliveryModule.ensureInitial,
-        errorHandler(deliveryModule.relaunchDelivery)
-    );
-
+    
     router.get(
         "/infos",
         protectRoute,
@@ -56,6 +40,28 @@ function getDeliveryRouter(module) {
         allowRoles([roles.clientRole, roles.driverRole]),
         errorHandler(deliveryModule.getTerminatedDeliveries)
     );
+    router.get(
+        "/all",
+        protectRoute,
+        allowRoles([roles.adminRole]),
+        errorHandler(deliveryModule.getAllPaginated)
+    );
+    router.post(
+        "/request",
+        protectRoute,
+        errorHandler(deliveryModule.requestDelivery)
+    );
+
+    router.post(
+        "/relaunch",
+        protectRoute,
+        allowRoles([roles.clientRole]),
+        deliveryModule.ensureDeliveryExists,
+        deliveryModule.canAccessDelivery([]),
+        deliveryModule.ensureInitial,
+        errorHandler(deliveryModule.relaunchDelivery)
+    );
+
     router.post(
         "/verify-code",
         protectRoute,

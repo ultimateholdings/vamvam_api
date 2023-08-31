@@ -343,7 +343,6 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
     }
     
     async function handleValidToken(tokenDatas, maxSize, getParams) {
-        debugger;
         let nextPageToken;
         let results = await getRessources(getParams({
             maxSize,

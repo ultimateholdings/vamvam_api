@@ -219,7 +219,6 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         }
         results = await user.findAll(query);
         if (offset > 0) {
-            debugger;
             formerLastId = results.shift();
             formerLastId = formerLastId?.id;
         }

@@ -42,7 +42,18 @@ admin-manager:
       role: string
       maxPageSize: number
     headers:
-      pageToken: string representing the token of the requested page
+      page_token: string representing the token of the requested page
     response:
       nextPageToken: string
       results: userData[]
+  /delivery/all:
+    action: get all deliveries in the platform
+    type: get
+    queryString:
+      status: string representing the status of the deliveries
+      maxPageSize: number
+    headers:
+      page_token: string representing the token of the requested page
+    response:
+      nextPageToken: string
+      results: deliveryData[]

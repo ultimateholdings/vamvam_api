@@ -7,7 +7,8 @@ const {
     conflictStatuses,
     deliveryStatuses,
     errors,
-    availableRoles: roles
+    availableRoles: roles,
+    apiDeliveryStatus
 } = require("../utils/config");
 const {
     formatDbPoint,
@@ -47,43 +48,6 @@ function formatBody(deliveryRequest) {
     return result;
 }
 
-function deliveryFetcher({deliveryModel, id, role}) {
-    const roleMap = {
-        "client": {clientId: id},
-        "driver": {driverId: id}
-    };
-    return async function getDelivery({maxSize, offset}) {
-        const finder = roleMap[role ?? "client"];
-        let calculatedOffset = offset * maxSize;
-        let first;
-        let deliveries;
-
-        if (calculatedOffset < 0 || !Number.isFinite(calculatedOffset)) {
-            return {
-                values: []
-            };
-        }
-        if (calculatedOffset > 0) {
-            calculatedOffset -= 1;
-        }
-        [first, ...deliveries] = await deliveryModel.findAll({
-            limit: maxSize,
-            offset: calculatedOffset,
-            where: finder
-        });
-        if (offset === 0) {
-            return {
-                lastId: deliveries.at(-1).id,
-                values: [first, ...deliveries]
-            };
-        }
-        return {
-            formerLastId: first.id,
-            lastId: deliveries.at(-1).id,
-            values: deliveries
-        };
-    };
-}
 
 async function generateCode(byteSize = 5) {
     const {
@@ -99,6 +63,7 @@ function calculatePrice() {
 function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
     const associations = associatedModels || {DeliveryConflict, User};
+    const deliveryPagition = ressourcePaginator(deliveryModel.getAll);
 
     deliveryModel.addEventListener(
         "chat-room-requested",
@@ -480,12 +445,19 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function getAllPaginated(req, res) {
         let results;
-        const {id, role} = req.user.token;
-        const {maxPageSize, pageToken} = req.body;
-        const paginator = ressourcePaginator(
-            deliveryFetcher({deliveryModel, id, role})
-        );
-        results = await paginator(pageToken, maxPageSize);
+        let {maxPageSize, status} = req.query;
+        const {page_token} = req.headers;
+        const getParams = function (params) {
+            if (apiDeliveryStatus[status] !== undefined) {
+                params.status = apiDeliveryStatus[status];
+            }
+            return params;
+        };
+        maxPageSize = Number.parseInt(maxPageSize, 10);
+        if (!Number.isFinite(maxPageSize)) {
+            maxPageSize = 10;
+        }
+        results = await deliveryPagition(page_token, maxPageSize, getParams);
         res.status(200).send(results);
     }
 

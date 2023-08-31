@@ -348,6 +348,12 @@ const deliveryStatuses = Object.freeze({
     started: "started",
     terminated: "terminated",
 });
+const apiDeliveryStatus = Object.freeze({
+    cancelled: deliveryStatuses.cancelled,
+    conflicting: deliveryStatuses.inConflict,
+    started: deliveryStatuses.started,
+    terminated: deliveryStatuses.terminated
+});
 const userStatuses = {
     activated: "active",
     inactive: "desactivated",
@@ -362,6 +368,7 @@ const otpTypes = {
 
 const config = Object.freeze({
     ages,
+    apiDeliveryStatus,
     apiRoles: Object.freeze(apiRoles),
     availableRoles: Object.freeze(availableRoles),
     conflictStatuses,
