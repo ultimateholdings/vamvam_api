@@ -356,15 +356,15 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
     async function handleValidToken({
         getParams,
         maxPageSize,
-        pageIndex,
+        skip,
         tokenDatas = {}
     }) {
         let nextPageToken;
         let offset;
         let results;
         offset = (
-            Number.isFinite(pageIndex)
-            ? pageIndex * maxPageSize
+            Number.isFinite(skip)
+            ? skip
             : tokenDatas.offset
         );
         results = await getRessources(getParams({
@@ -382,7 +382,7 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
         if (
             (results.formerLastId !== tokenDatas.lastId) &&
             (nextPageToken !== null) &&
-            (!Number.isFinite(pageIndex))
+            (!Number.isFinite(skip))
         ) {
             results = await handleInvalidToken({
                 getParams,
@@ -402,16 +402,16 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
     return async function paginate({
         getParams = cloneObject,
         maxPageSize,
-        pageIndex,
+        skip,
         pageToken
     }) {
         let datas;
         let results;
-        if (Number.isFinite(pageIndex)) {
+        if (Number.isFinite(skip)) {
             return handleValidToken({
                 getParams,
                 maxPageSize,
-                pageIndex
+                skip
             });
         }
         try {
@@ -420,7 +420,6 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
                 results = await handleValidToken({
                     getParams,
                     maxPageSize,
-                    pageIndex,
                     tokenDatas: datas.token
                 });
             } else {

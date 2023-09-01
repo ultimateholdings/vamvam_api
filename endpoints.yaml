@@ -243,6 +243,7 @@ auth-endpoints:
       type: post
       body:
         id: string
+        code: string
       response:
         terminated: boolean
 

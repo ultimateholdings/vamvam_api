@@ -455,7 +455,7 @@ function getDeliveryModule({associatedModels, model}) {
         let {
             from,
             maxPageSize,
-            index: pageIndex,
+            skip,
             status,
             to
         } = req.query;
@@ -472,14 +472,14 @@ function getDeliveryModule({associatedModels, model}) {
         if (!Number.isFinite(maxPageSize)) {
             maxPageSize = 10;
         }
-        pageIndex = Number.parseInt(pageIndex, 10);
-        if (!Number.isFinite(pageIndex)) {
-            pageIndex = undefined;
+        skip = Number.parseInt(skip, 10);
+        if (!Number.isFinite(skip)) {
+            skip = undefined;
         }
         results = await deliveryPagination({
             getParams,
             maxPageSize,
-            pageIndex,
+            skip,
             pageToken: page_token
         });
         res.status(200).send(results);
@@ -709,10 +709,13 @@ calculation of at delivery */
             if(delivery.Driver.position !== null) {
                 driverData.position = formatDbPoint(delivery.Driver.position);
             }
-            result.driver = driverData
+            result.driver = driverData;
             result.code = delivery.code;
         } else {
             result.client = delivery.Client.toShortResponse();
+            if (delivery.status === deliveryStatuses.terminated) {
+                result.code = delivery.code;
+            }
         }
         return result;
     }

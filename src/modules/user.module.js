@@ -65,7 +65,7 @@ function getUserModule({
 
     async function getAllUsers(req, res) {
         let results;
-        let {role, index: pageIndex, maxPageSize} = req.query;
+        let {maxPageSize, role, skip} = req.query;
         const {page_token} = req.headers;
         const getParams = function (params) {
             if (apiRoles[role] !== undefined) {
@@ -77,14 +77,14 @@ function getUserModule({
         if (!Number.isFinite(maxPageSize)) {
             maxPageSize = 10;
         }
-        pageIndex = Number.parseInt(pageIndex, 10);
-        if (!Number.isFinite(pageIndex)) {
-            pageIndex = undefined;
+        skip = Number.parseInt(skip, 10);
+        if (!Number.isFinite(skip)) {
+            skip = undefined;
         }
         results = await userPagination({
             getParams,
             maxPageSize,
-            pageIndex,
+            skip,
             pageToken: page_token,
         });
         res.status(200).json(results);
