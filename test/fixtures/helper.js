@@ -68,6 +68,12 @@ const users = {
         lastName: "Marc",
         phone: "+23809090909030943-039303",
         role: availableRoles.driverRole
+    },
+    admin : {
+        firstName: "Eyong",
+        lastName: "Enow",
+        phone: "+23809090909033487-039303",
+        role: "admin"
     }
 };
 const subscriber = {

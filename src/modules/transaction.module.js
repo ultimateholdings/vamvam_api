@@ -1,17 +1,14 @@
-const { where } = require("sequelize");
-const { Transaction, Payment, Subscription, Delivery } = require("../models");
-const { errors, availableRoles: roles } = require("../utils/config");
+const { Transaction, Payment, Bundle, Delivery } = require("../models");
+const { errors, responseMessage } = require("../utils/config");
 const { FLW_SECRET_HASH } = process.env;
 const {
   propertiesPicker,
   sendResponse,
   getPaymentService,
   paymentManager,
+  calculateSolde,
 } = require("../utils/helpers");
 
-function calculateSolde(point, unitPrice = 300) {
-  return point * unitPrice;
-}
 function canSubtract(pointSum, bonusSum) {
   if (pointSum + bonusSum === 0) {
     return false;
@@ -22,24 +19,27 @@ function canSubtract(pointSum, bonusSum) {
 function getTransactionModule({
   modelTrans,
   modelPay,
-  modelSubs,
+  modelBundle,
   deliveryModel,
   paymentHan,
 }) {
   const transactionModel = modelTrans || Transaction;
   const paymentModel = modelPay || Payment;
-  const subscriptionModel = modelSubs || Subscription;
+  const bundleModel = modelBundle || Bundle;
   const deliveriesModel = deliveryModel || Delivery;
   const paymentHandler =
-    paymentHan ||
-    paymentManager(getPaymentService(paymentModel, subscriptionModel));
-  const genericProps = ["bonus", "point", "type"];
+    paymentHan || paymentManager(getPaymentService(paymentModel, bundleModel));
+  const genericProps = ["point", "bonus", "userId"];
+
+  deliveriesModel.addEventListener("can-delivery", subscriberDeliverers);
+  deliveriesModel.addEventListener("point-withdrawal", withdrawal);
 
   const staticProps = {
     country: "CM",
     currency: "XAF",
     tx_ref: "transfer-" + Date.now(),
     debit_amount: 300,
+    debit_type: "withdrawal",
   };
 
   async function canAccess(req, res, next) {
@@ -60,51 +60,61 @@ function getTransactionModule({
         },
       });
       deliveriesModel.emitEvent("failure-payment", {
-        userId: payment.customerId,
+        userId: payment.driverId,
       });
     }
   }
 
+  async function ensureBundleExists(req, res, next) {
+    const { packId } = req.body;
+    const bundle = await bundleModel.findOne({ where: { id: packId } });
+    if (bundle === null) {
+      return sendResponse(res, errors.notFound);
+    }
+    req.bundle = bundle;
+    next();
+  }
+
   async function initTrans(req, res) {
-    let { payload, packId } = req.body;
-    const { id: customerId } = req.user.token;
+    let { payload } = req.body;
+    const { id: packId } = req.bundle;
+    const { id: driverId } = req.user.token;
     payload.currency = staticProps.currency;
     payload.country = staticProps.country;
     payload.tx_ref = staticProps.tx_ref;
     const { init, code, message } = await paymentHandler.initTransaction(
       payload,
-      customerId,
+      driverId,
       packId
     );
     if (init === true) {
-      deliveriesModel.emitEvent("payment-initiated", {
-        userId: customerId,
-      });
       res.status(200).send({});
+      deliveriesModel.emitEvent("payment-initiated", {
+        driverId: driverId,
+      });
     } else {
       res.status(code).send({ message });
     }
   }
 
-  async function listenWebHook(req, res) {
-    let response;
+  async function finalizePayment(req, res) {
     const { id } = req.body.data;
     try {
-      response = await paymentHandler.verifyTransaction(id);
-      if (response.verifiedTrans) {
-        await reloadBalance(response.data);
+      const { verifiedTrans, data } = await paymentHandler.verifyTransaction(
+        id
+      );
+      if (verifiedTrans) {
+        await reloadBalance(data);
         res.status(200).end({});
-        deliveriesModel.emitEvent("successful-payment", {
-          userId: customerId,
-        });
+        deliveriesModel.emitEvent("successful-payment", {data: data});
       } else {
         res.status(401).end();
         deliveriesModel.emitEvent("failure-payment", {
-          userId: customerId,
+          driverId: driverId,
         });
       }
     } catch (error) {
-      return error;
+      return sendResponse(res, errors.internalError);
     }
   }
 
@@ -112,32 +122,32 @@ function getTransactionModule({
     return await transactionModel.create(data);
   }
 
-  async function balenceInfos(userId) {
+  async function balenceInfos(driverId) {
     let rechargeSum;
     let retraitSum;
     let bonusAdded;
     let bonusWithdraw;
     rechargeSum = await transactionModel.sum("point", {
       where: {
-        userId: userId,
+        driverId: driverId,
         type: "recharge",
       },
     });
     retraitSum = await transactionModel.sum("point", {
       where: {
-        userId: userId,
+        driverId: driverId,
         type: "withdrawal",
       },
     });
     bonusAdded = await transactionModel.sum("bonus", {
       where: {
-        userId: userId,
+        driverId: driverId,
         type: "recharge",
       },
     });
     bonusWithdraw = await transactionModel.sum("bonus", {
       where: {
-        userId: userId,
+        driverId: driverId,
         type: "withdrawal",
       },
     });
@@ -154,92 +164,133 @@ function getTransactionModule({
   }
 
   async function withdrawal(req, res) {
+    const { data } = req.body;
     let createdProps;
-    let isVerified;
-    const { id: userId } = req.user.token;
-    const pickedProperties = propertiesPicker(req.body);
+    const pickedProperties = propertiesPicker(data);
     createdProps = pickedProperties(genericProps);
     if (createdProps !== undefined) {
-      isVerified = await balenceInfos(userId);
-      if (isVerified.subtract) {
-        await transactionModel.create({
-          point: createdProps.point,
-          bonus: createdProps.bonus,
-          amount: staticProps.debit_amount,
-          type: createdProps.type,
-          userId: userId,
-        });
+      const { subtract } = await balenceInfos(createdProps.userId);
+      if (subtract) {
+        const { bonus, point, type, unitPrice } = await transactionModel.create(
+          {
+            bonus: createdProps.bonus,
+            point: createdProps.point,
+            type: staticProps.debit_type,
+            unitPrice: staticProps.debit_amount,
+            userId: createdProps.userId,
+          }
+        );
         return {
-          succes: true,
-          message: {
-            en: "successful withdrawal!",
+          data: {
+            bonus,
+            point,
+            type,
+            unitPrice,
           },
+          message: responseMessage.successWithdrawal,
         };
       } else {
         return {
-          succes: false,
-          message: {
-            en: "An empty wallet cannot be debited!",
-          },
+          message: responseMessage.emptyWallet,
         };
       }
     } else {
-      return {
-        succes: false,
-        message: errors.invalidValues,
-      };
+      sendResponse(res, errors.invalidValues);
     }
+  }
+
+  async function subscriberDeliverers(data) {
+    const users = await Promise.all(
+      data.map(async (id) => {
+        const { subtract } = await balenceInfos(id);
+        if (subtract) {
+          return id;
+        }
+      })
+    );
+    return users.filter((id) => id !== undefined);
   }
 
   async function transactionHistory(req, res) {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 8;
     const offset = (page - 1) * limit;
-    const { id: userId } = req.user.token;
-    let wallet = await balenceInfos(userId);
-    let response = await transactionModel.findAndCountAll({
-      where: {
-        userId: userId,
-      },
-      limit: limit,
-      offset: offset,
-      order: [["createdAt", "DESC"]],
+    const { id: driverId } = req.user.token;
+    const { type } = req.body;
+    let { rows } = await transactionModel.getAllByType({
+      limit,
+      offset,
+      driverId,
+      type,
     });
-    if (response !== null) {
-      res.status(200).json({
-        point: wallet.point,
-        bonus: wallet.bonus,
-        solde: wallet.solde,
-        canDeliver: wallet.subtract,
-        data: response.rows,
-      });
-    } else {
-      sendResponse(res, errors.notFound);
-    }
+    res.status(200).json(rows);
   }
 
-  async function walletInfos(req, res) {
-    const { id: userId } = req.user.token;
-    let response = await balenceInfos(userId);
-    if (response !== null) {
-      res.status(200).json({
-        point: response.point,
-        bonus: response.bonus,
-        solde: response.solde,
-        canDeliver: response.subtract,
+  async function wallet(req, res) {
+    const { id } = req.user.token;
+    let data = await balenceInfos(id);
+    res.status(200).json({
+      wallet: data,
+    });
+  }
+
+  async function rechargeHistory(req, res) {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 8;
+    const offset = (page - 1) * limit;
+    try {
+      const { startDate, endDate } = req.body;
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      const { rows, count } = await transactionModel.getAllByTime({
+        limit,
+        offset,
+        start,
+        end,
       });
-    } else {
+      res.status(200).json({
+        data: rows,
+        total: count,
+      });
+    } catch (error) {
       sendResponse(res, errors.internalError);
     }
   }
 
+  async function rechargeInfos(req, res) {
+    try {
+      let rechargeSum;
+      let bonusSum;
+      rechargeSum = await transactionModel.sum("point", {
+        where: {
+          type: "recharge",
+        },
+      });
+      bonusSum = await transactionModel.sum("bonus", {
+        where: {
+          type: "recharge",
+        },
+      });
+      const solde = calculateSolde(rechargeSum);
+      res.status(200).json({
+        point: rechargeSum,
+        bonus: bonusSum,
+        solde: solde,
+      });
+    } catch (error) {
+      sendResponse(res, errors.internalError);
+    }
+  }
   return Object.freeze({
-    withdrawal,
-    transactionHistory,
-    walletInfos,
-    initTrans,
-    listenWebHook,
     canAccess,
+    ensureBundleExists,
+    transactionHistory,
+    initTrans,
+    finalizePayment,
+    wallet,
+    rechargeHistory,
+    rechargeInfos,
   });
 }
 module.exports = getTransactionModule;

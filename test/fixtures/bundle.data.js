@@ -4,13 +4,13 @@ node
 require("dotenv").config();
 const supertest = require("supertest");
 const { buildServer } = require("../../src");
-const subscriptionModule = require("../../src/modules/subscription.module");
-const buildSubscriptionRoutes = require("../../src/routes/subscription.route");
+const subscriptionModule = require("../../src/modules/bundle.module");
+const buildSubscriptionRoutes = require("../../src/routes/bundle.route");
 const buildRouter = require("../../src/routes");
 const buildAuthRoutes = require("../../src/routes/auth.route");
 const getAuthModule = require("../../src/modules/auth.module");
 
-const subscriptions = [
+const bundles = [
   {
     title: "10 Livraisons",
     bonus: 0,
@@ -49,31 +49,7 @@ const subscriptions = [
   },
 ];
 
-function subscriptionHandle(tokenGetter, model) {
-  async function subscriptionCreate({ app, data, phone, url }) {
-    let token = await tokenGetter(app, phone);
-    let response = await app
-      .post(url)
-      .send(data)
-      .set("authorization", "Bearer " + token);
-    return { response, token };
-  }
-  async function postSubscription({ app, data, phone }) {
-    let { response, token } = await subscriptionCreate({
-      app,
-      data,
-      phone,
-      url: "/subscription/new-subscription",
-    });
-    response.body.token = token;
-    response.body.status = response.status;
-    return response.body;
-  }
-
-  return Object.freeze({ postSubscription });
-}
-
-function setupSubscriptionServer(otpHandler) {
+function setupBundleServer(otpHandler) {
   let subscriptionRoutes;
   let app;
   let server;
@@ -85,7 +61,6 @@ function setupSubscriptionServer(otpHandler) {
 }
 
 module.exports = Object.freeze({
-  subscriptions,
-  subscriptionHandle,
-  setupSubscriptionServer,
+  bundles,
+  setupBundleServer,
 });

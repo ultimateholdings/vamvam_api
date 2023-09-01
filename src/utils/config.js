@@ -318,6 +318,18 @@ const eventMessages = {
         fr: "Cette discussion est désormais archivée suite à la fin" +
         " de la livraison."
     },
+    successPayment: {
+        en: "Successful payment!",
+        fr: "Paiement effectuer avec succès!"
+    },
+    failurePayment: {
+        en: "Failed payment!",
+        fr: "Echec du paiement!"
+    },
+    initPayment: {
+        en: "Payment initiated!",
+        fr: "Paiement initialisé!"
+    },
     withSameTitle(title, body) {
         return {
             en: {body: body?.en, title},
@@ -332,6 +344,16 @@ const eventMessages = {
     }
 };
 
+const responseMessage = {
+    successWithdrawal: {
+        en: "Successful point removal!",
+        fr: "Retrait des points réussi!"
+    },
+    emptyWallet: {
+        en: "An empty wallet cannot be debited!",
+        fr: "Un portefeuille vide ne peut être débité!"
+    }
+}
 const defaultValues = {
     ttl: 180
 };
@@ -369,6 +391,7 @@ const config = Object.freeze({
     deliveryStatuses,
     errors: Object.freeze(errors),
     eventMessages: Object.freeze(eventMessages),
+    responseMessage: Object.freeze(responseMessage),
     getFirebaseConfig() {
         const {
             fb_serverKey: key,

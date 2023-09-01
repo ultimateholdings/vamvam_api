@@ -15,10 +15,6 @@ function defineTransaction (connection) {
             type: DataTypes.DOUBLE,
             allowNull: false
         },
-        userId: {
-            type: DataTypes.STRING,
-            allowNull: false
-        },
         unitPrice: {
             type: DataTypes.DOUBLE,
             allowNull: false

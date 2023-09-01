@@ -318,6 +318,52 @@ function deliveryMessageHandler(emitter) {
             onPositionUpdateCompleted
         );
 
+        function handleInitPayment({driverId}) {
+            const eventName = "payment-initiated";
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit(eventName);
+            } else {
+                emitter.emitEvent(
+                    "cloud-message-fallback-requested",
+                    {
+                        message: eventMessages.initPayment,
+                        meta: {eventName},
+                        recieverId: driverId
+                    }
+                    );
+                }
+        }
+        function handleFailurePayment({driverId}) {
+            const eventName = "failure-payment";
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit(eventName);
+            } else {
+                emitter.emitEvent(
+                    "cloud-message-fallback-requested",
+                    {
+                        message: eventMessages.failurePayment,
+                        meta: {eventName},
+                        recieverId: driverId
+                    }
+                    );
+                }
+        }
+        function handleSuccessPayment(data) {
+            const eventName = "successful-payment";
+            const {point, bonus, solde, driverId} = data;
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit(eventName, {bonus, point, solde});
+            } else {
+                emitter.emitEvent(
+                    "cloud-message-fallback-requested",
+                    {
+                        message: eventMessages.successPayment,
+                        meta: {eventName},
+                        recieverId: driverId
+                    }
+                    );
+                }
+        }
         emitter.addEventListener("delivery-end", handleEnding);
         emitter.addEventListener("delivery-accepted", handleAcceptation);
         emitter.addEventListener("delivery-cancelled", handleCancellation);
@@ -339,6 +385,9 @@ function deliveryMessageHandler(emitter) {
             "itinerary-update-rejected",
             handleRejectedItinerary
         );
+        emitter.addEventListener("payment-initiated", handleInitPayment);
+        emitter.addEventListener("failure-payment", handleFailurePayment);
+        emitter.addEventListener("successful-payment", handleSuccessPayment);
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

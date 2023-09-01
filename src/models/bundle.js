@@ -4,7 +4,7 @@ node, nomen, this
 const fs = require("fs");
 const {DataTypes} = require("sequelize");
 
-function defineSubscriptionModel(connection) {
+function defineBundleModel(connection) {
     const schema = {
         title: {
             type: DataTypes.STRING,
@@ -28,8 +28,8 @@ function defineSubscriptionModel(connection) {
             type: DataTypes.UUID
         }
     };
-    const subscription = connection.define("subscription", schema)
-    return subscription;
+    const bundle = connection.define("bundle", schema)
+    return bundle;
 }
 
-module.exports = defineSubscriptionModel;
+module.exports = defineBundleModel;

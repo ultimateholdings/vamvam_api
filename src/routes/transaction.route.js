@@ -1,7 +1,9 @@
 const express = require("express");
 const getTransactionModule = require("../modules/transaction.module");
 const {errorHandler} = require("../utils/helpers");
+const {availableRoles: roles} = require("../utils/config");
 const {
+    allowRoles,
     protectRoute
 } = require("../utils/middlewares");
 
@@ -11,18 +13,31 @@ function getTransactionRouter(module){
     router.post(
         "/init-transaction",
         protectRoute,
+        transactonModule.ensureBundleExists,
         errorHandler(transactonModule.initTrans)
     );
     router.get(
         "/history",
         protectRoute,
         errorHandler(transactonModule.transactionHistory)
-    )
+    );
     router.get(
-        "/wallet",
+        "/payment-history",
         protectRoute,
-        errorHandler(transactonModule.walletInfos)
-    )
+        allowRoles([roles.adminRole]),
+        errorHandler(transactonModule.rechargeHistory)
+    );
+    router.get(
+        "/wallet-infos",
+        protectRoute,
+        errorHandler(transactonModule.wallet)
+    );
+    router.get(
+        "/recharge-infos",
+        protectRoute,
+        allowRoles([roles.adminRole]),
+        errorHandler(transactonModule.rechargeInfos)
+    );
     return router;
 }
 module.exports = getTransactionRouter;

@@ -2,13 +2,11 @@
 node, this
 */
 "use strict";
-const { EventEmitter } = require("node:events");
+const {EventEmitter} = require("node:events");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
-const { errors, getFirebaseConfig, getOTPConfig } = require("../utils/config");
-const { ValidationError } = require("sequelize");
 const path = require("path");
 const {
     defaultValues,
@@ -17,6 +15,10 @@ const {
     getOTPConfig
 } = require("../utils/config");
 const {ValidationError} = require("sequelize");
+const CustomEmitter = function (name) {
+    this.name = name;
+};
+CustomEmitter.prototype = EventEmitter.prototype;
 const {
   TOKEN_EXP: expiration = 3600,
   JWT_SECRET: secret = "test1234butdefault",
@@ -24,18 +26,9 @@ const {
   TEST_FLW_SECRET_KEY,
 } = process.env;
 
-const CustomEmitter = function () {
-  this.on("error", console.error);
-};
-CustomEmitter.prototype = EventEmitter.prototype;
-
-function calculPackAmount(point, unitPrice) {
+function calculateSolde(point, unitPrice = 300) {
   return point * unitPrice;
 }
-const CustomEmitter = function (name) {
-    this.name = name;
-};
-CustomEmitter.prototype = EventEmitter.prototype;
 
 function cloneObject(object) {
     const tmp = Object.create(null);
@@ -394,8 +387,8 @@ function sendCloudMessage({body, meta, title, to}) {
       url: config.url
   });
 }
-function getPaymentService(paymentModel, subscriptionModel) {
-  async function initTrans(payload, customerId, packId) {
+function getPaymentService(paymentModel, bundleModel) {
+  async function initTrans(payload, driverId, packId) {
     let response;
     try {
       response = await fetch(
@@ -422,7 +415,7 @@ function getPaymentService(paymentModel, subscriptionModel) {
       response = await response.json();
       await paymentModel.create({
         transId: response.data.id,
-        customerId: customerId,
+        driverId: driverId,
         packId: packId,
       });
       return { init: true };
@@ -456,12 +449,12 @@ function getPaymentService(paymentModel, subscriptionModel) {
           verifiedTrans: false,
         };
       }
-      pack = await subscriptionModel.findOne({
+      pack = await bundleModel.findOne({
         where: {
           id: payment.packId,
         },
       });
-      expectedAmount = calculPackAmount(pack.point, pack.unitPrice);
+      expectedAmount = calculateSolde(pack.point, pack.unitPrice);
       response = await fetch(
         `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
         {
@@ -486,7 +479,7 @@ function getPaymentService(paymentModel, subscriptionModel) {
               point: pack.point,
               bonus: pack.bonus,
               unitPrice: pack.unitPrice,
-              userId: payment.customerId,
+              driverId: payment.driverId,
             },
             verifiedTrans: true,
           };
@@ -518,8 +511,8 @@ function getPaymentService(paymentModel, subscriptionModel) {
 
 function paymentManager(paymentService) {
   return {
-    initTransaction: function (payload, customerId, packId) {
-      return paymentService.initTrans(payload, customerId, packId);
+    initTransaction: function (payload, driverId, packId) {
+      return paymentService.initTrans(payload, driverId, packId);
     },
     verifyTransaction: async function (transactionId) {
       let isVerified = await paymentService.verifyTrans(transactionId);
@@ -579,4 +572,5 @@ module.exports = Object.freeze({
   toDbLineString,
   getPaymentService,
   paymentManager,
+  calculateSolde
 });
