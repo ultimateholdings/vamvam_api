@@ -38,7 +38,9 @@ deliveryData:
   recipientInfos: JSON
 roomData:
   id: string
-  deliveryId: string
+  delivery:
+    id: string
+    name: string
   lastMessage: messageData
   members: shortUserData[]
   name: string

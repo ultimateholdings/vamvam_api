@@ -93,6 +93,10 @@ Message.getAllByRoom = async function ({limit, offset, roomId}) {
                 as: "sender",
                 attributes: ["id", "firstName", "lastName", "avatar"],
                 model: User
+            },
+            {
+                model: Room,
+                required: true
             }
         ],
         limit,
@@ -105,12 +109,17 @@ Message.getAllByRoom = async function ({limit, offset, roomId}) {
             content,
             createdAt: date,
             id: messageId,
+            room,
             sender
         } = row;
         return Object.freeze({
             content,
             date,
             messageId,
+            room: {
+                id: room.id,
+                name: room.name
+            },
             sender: sender.toShortResponse()
         });
     });
@@ -145,6 +154,10 @@ Message.getMissedMessages = async function (userId) {
             content,
             date,
             id,
+            room: {
+                id: room.id,
+                name: room.name
+            },
             sender: sender.toShortResponse()
         });
         return acc;
@@ -201,6 +214,10 @@ Room.getUserRooms = async function (userId) {
                 content: msg.content,
                 date: msg.createdAt.toISOString(),
                 id: msg.id,
+                room: {
+                    id: room.id,
+                    name: room.name
+                },
                 sender: msg.sender.toShortResponse()
             })
         );

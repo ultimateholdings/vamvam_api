@@ -2,13 +2,14 @@
 node
 */
 const {Delivery, Message, Room} = require("../models");
-const {sendResponse} = require("../utils/helpers");
+const {ressourcePaginator, sendResponse} = require("../utils/helpers");
 const {errors} = require("../utils/config");
 
 function getChatModule({deliveryModel, messageModel, roomModel}) {
     const deliveriesModel = deliveryModel || Delivery;
     const messagesModel = messageModel || Message;
     const roomsModel = roomModel || Room;
+    const messagePagination = ressourcePaginator(messageModel.getAllByRoom);
     
     deliveriesModel.addEventListener("room-creation-requested", createRoom);
 
