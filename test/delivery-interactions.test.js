@@ -17,14 +17,14 @@ const {
     getToken,
     otpHandler,
     postData,
+    setupServer,
     syncUsers,
     users
 } = require("./fixtures/helper");
 const {
     deliveries,
     deliveryResquestor,
-    missoke,
-    setupDeliveryServer
+    missoke
 } = require("./fixtures/deliveries.data");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
@@ -59,7 +59,7 @@ describe("delivery side effects test", function () {
     let setupDatas;
 
     before(function () {
-        const tmp = setupDeliveryServer(otpHandler);
+        const tmp = setupServer(otpHandler);
         server = tmp.server;
         app = tmp.app;
         socketServer = getSocketManager({
@@ -289,9 +289,11 @@ describe("delivery side effects test", function () {
                 })
             ]);
             delivery = await Delivery.findOne({where: {id: request.body.id}});
+            delivery = delivery.toResponse();
+            delivery.client = dbUsers.goodUser.toShortResponse();
             assert.deepEqual(
                 data.map((data) => data.value),
-                [delivery.toResponse(), undefined]
+                [delivery, undefined]
             );
         });
     it("should enable a driver to update the itinerary", async function () {
@@ -445,7 +447,7 @@ describe("delivery side effects test", function () {
             response = await app.post(endPoint).send(payload).set(
                 "authorization", "Bearer " + driverToken
             );
-            assert.equal(response.status, errors.notAuthorized.status);
+            assert.equal(response.status, errors.forbiddenAccess.status);
             response = await app.post(endPoint).send(payload).set(
                 "authorization", "Bearer " + managerToken
             );

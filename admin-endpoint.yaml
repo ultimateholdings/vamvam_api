@@ -1,10 +1,74 @@
-/admin/revoke-user:
-  action: "invalidate a user token"
-  type: post
+/users/drivers:
+  action: get drivers close to a location
+  type: get
   body:
-    id: string
-/admin/revoke-all:
-  action: "invalidate all users token"
-  type: post
-  body:
-    id: string
+    from: locationData
+    by: double
+    internal: boolean
+  response: userData[]
+conflict-manager:
+  /delivery/conflict/assign-driver:
+    action: assign an internal driver to a conflicting delivery
+    type: post
+    body:
+      id: string representing the conflict Id
+      driverId: string
+    response:
+      assigned: boolean
+  
+
+
+admin-manager:
+  /admin/revoke-user:
+    action: "invalidate a user token"
+    type: post
+    body:
+      id: string
+  /admin/revoke-all:
+    action: "invalidate all users token"
+    type: post
+  /admin/new-admin:
+    action: "create a new administrator"
+    type: post
+    body:
+      type: string
+      phoneNumber: string
+      password: string
+      email: string
+  /user/all:
+    action: get all users in the platform
+    type: get
+    queryString:
+      role: string
+      maxPageSize: number
+    headers:
+      page_token: string representing the token of the requested page
+    response:
+      nextPageToken: string
+      results: userData[]
+  /delivery/all:
+    action: get all deliveries in the platform
+    type: get
+    queryString:
+      from: string representing the date from which we want to query (YYYY-MM-DD)
+      status: string representing the status of the deliveries
+      maxPageSize: number
+      to: string representing the date after which we want to query (YYYY-MM-DD)
+    headers:
+      page_token: string representing the token of the requested page
+    response:
+      nextPageToken: string
+      results: deliveryData[]
+  /delivery/analytics:
+    action: get the count of deliveries per status within a period
+    type: get
+    queryString:
+      from: string representing the date from which we want to query (YYYY-MM-DD)
+      to: string representing the date after which we want to query (YYYY-MM-DD)
+    response:
+      results:
+        cancelled: number
+        conflicting: number
+        ongoing: number
+        terminated: number
+        total: number

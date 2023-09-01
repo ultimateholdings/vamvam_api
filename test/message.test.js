@@ -43,10 +43,22 @@ describe("Message test", function () {
   });
 
   beforeEach(async function () {
+    let delivery = Object.create(null);
+    Object.assign(delivery, deliveries[0]);
+    delivery.departure = toDbPoint(deliveries[0].departure);
+    delivery.destination = toDbPoint(deliveries[0].destination);
+    delivery.deliveryMeta = {
+      departureAddress: deliveries[0].departure.address,
+      destinationAddress: deliveries[0].destination.address
+    };
     await connection.sync({ force: true });
     dbUsers = await syncUsers(users, User);
+    delivery.clientId = dbUsers.goodUser.id;
+    delivery.driverId = dbUsers.firstDriver.id;
+    delivery = await Delivery.create(delivery);
     room = await Room.create({
-      name: "Livraison pour bonandjo"
+      name: "Livraison pour bonandjo",
+      deliveryId: delivery.id
     });
     await room.setUsers([dbUsers.firstDriver, dbUsers.goodUser]);
     tokens = await Promise.all([
@@ -55,6 +67,18 @@ describe("Message test", function () {
     ]);
     messages[0].roomId = room.id;
     messages[1].roomId = room.id;
+    await Message.bulkCreate([
+      {
+        content: messages[0].content,
+        senderId: dbUsers.firstDriver.id,
+        roomId: room.id,
+      },
+      {
+        content: messages[1].content,
+        senderId: dbUsers.goodUser.id,
+        roomId: room.id,
+      }
+    ]);
   });
 
   afterEach(async function () {
@@ -66,23 +90,11 @@ describe("Message test", function () {
     server.close();
   });
   it("should return Room Messages", async function () {
-    await postData({
-      app,
-      data: messages[0],
-      token: tokens[0],
-      url: "/discussion/new-message"
-    });
-    await postData({
-      app,
-      data: messages[1],
-      token: tokens[1],
-      url: "/discussion/new-message",
-    });
     let response = await app
     .get("/discussion/messages")
-    .send({ roomId: room.id })
+    .send({roomId: room.id})
     .set("authorization", "Bearer " + tokens[1]);
-    assert.equal(response.body.totalmessage, 2)
+    assert.equal(response.body.results.length, 2)
   });
   it("should provide user missed messages on connection", async function () {
     let data;
@@ -134,18 +146,7 @@ describe("Message test", function () {
   );
   it("should return user rooms with last message", async function () {
     let lastMessage;
-    await Message.bulkCreate([
-      {
-        content: messages[0].content,
-        senderId: dbUsers.firstDriver.id,
-        roomId: room.id,
-      },
-      {
-        content: messages[1].content,
-        senderId: dbUsers.goodUser.id,
-        roomId: room.id,
-      }
-    ]);
+    let response;
     lastMessage = await new Promise(function (res) {
       setTimeout(function () {
         res(Message.create({
@@ -154,8 +155,8 @@ describe("Message test", function () {
           roomId: room.id,
         }));
       }, 1000);
-    })
-    let response = await app
+    });
+    response = await app
       .get("/discussion/all")
       .set("authorization", "Bearer " + tokens[0]);
     assert.equal(response.body.rooms[0].lastMessage.id, lastMessage.id);

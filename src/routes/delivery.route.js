@@ -15,18 +15,12 @@ function getDeliveryRouter(module) {
     const deliveryModule = module || getDeliveryModule({});
     const router = new express.Router();
     const conflictRouter = new express.Router();
-
-    router.post(
-        "/request",
-        protectRoute,
-        errorHandler(deliveryModule.requestDelivery)
-    );
-
+    
     router.get(
         "/infos",
         protectRoute,
         deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery,
+        deliveryModule.canAccessDelivery([roles.adminRole, roles.conflictManager]),
         errorHandler(deliveryModule.getInfos)
     );
     router.get(
@@ -46,6 +40,35 @@ function getDeliveryRouter(module) {
         allowRoles([roles.clientRole, roles.driverRole]),
         errorHandler(deliveryModule.getTerminatedDeliveries)
     );
+    router.get(
+        "/all",
+        protectRoute,
+        allowRoles([roles.adminRole]),
+        errorHandler(deliveryModule.getAllPaginated)
+    );
+    router.get(
+        "/analytics",
+        protectRoute,
+        allowRoles([roles.adminRole]),
+        errorHandler(deliveryModule.getAnalytics)
+    );
+
+    router.post(
+        "/request",
+        protectRoute,
+        errorHandler(deliveryModule.requestDelivery)
+    );
+
+    router.post(
+        "/relaunch",
+        protectRoute,
+        allowRoles([roles.clientRole]),
+        deliveryModule.ensureDeliveryExists,
+        deliveryModule.canAccessDelivery([]),
+        deliveryModule.ensureInitial,
+        errorHandler(deliveryModule.relaunchDelivery)
+    );
+
     router.post(
         "/verify-code",
         protectRoute,
@@ -58,6 +81,7 @@ function getDeliveryRouter(module) {
         protectRoute,
         allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
+        deliveryModule.ensureInitial,
         errorHandler(deliveryModule.acceptDelivery)
     );
     router.post(
@@ -86,7 +110,7 @@ function getDeliveryRouter(module) {
         protectRoute,
         allowRoles([roles.clientRole]),
         deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery,
+        deliveryModule.canAccessDelivery(),
         errorHandler(deliveryModule.rateDelivery)
     );
     conflictRouter.post(
@@ -99,9 +123,9 @@ function getDeliveryRouter(module) {
     conflictRouter.post(
         "/report",
         protectRoute,
-        allowRoles([roles.driverRole]),
+        allowRoles([roles.driverRole, roles.adminRole]),
         deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery,
+        deliveryModule.canAccessDelivery([roles.adminRole]),
         deliveryModule.ensureCanReport,
         errorHandler(deliveryModule.reportDelivery)
     );

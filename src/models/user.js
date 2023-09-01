@@ -2,7 +2,15 @@
 node, nomen, this
 */
 const fs = require("fs");
-const {DataTypes, Op, col, fn, where} = require("sequelize");
+const {
+/*jslint-disable*/
+    Op,
+    col,
+    fn,
+    where,
+/*jslint-enable*/
+    DataTypes
+} = require("sequelize");
 const {
     fileExists,
     formatDbPoint,
@@ -148,16 +156,20 @@ function defineUserModel(connection) {
 
     user.prototype.toShortResponse = function () {
         let result = this.dataValues;
+        if (result.avatar !== null && result.avatar !== undefined) {
+            result.avatar = pathToURL(result.avatar);
+        }
         return propertiesPicker(result)(shortDescriptionProps);
-    }
+    };
 
 /*
 Please note that these GIS functions are only supported on
 PostgreSql, Mysql and MariaDB so if your DB doesn't support it
-it better to use the haversine formula to get the distance between 2 points
+its better to use the haversine formula to get the distance between 2 points
 link: https://en.wikipedia.org/wiki/Haversine_formula
 */
-    user.nearTo = async function ({point, by, params}) {
+/*jslint-disable*/
+    user.nearTo = async function ({by, params, point}) {
         let result = [];
         let coordinates = point?.coordinates;
         let distanceQuery;
@@ -172,7 +184,7 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
             ),fn("ST_GeomFromText", coordinates, 4326));
             clause.push(where(distanceQuery(), {[Op.lte]: by}));
             if (params !== null && typeof params === "object") {
-                clause.push(params)
+                clause.push(params);
             }
             result = await user.findAll({
                 attributes: {
@@ -185,15 +197,49 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         }
         return result ?? [];
     };
+    user.getAll = async function ({
+        maxSize = 10,
+        offset = 0,
+        role
+    }) {
+        let query;
+        let results;
+        let formerLastId;
+        query = {
+            limit: (offset > 0 ? maxSize + 1: maxSize),
+            offset: (offset > 0 ? offset - 1: offset),
+            order: [["createdAt", "DESC"]]
+        };
+        if (typeof role === "string") {
+            query.where = {role};
+        } else {
+            query.where = {
+                role: {[Op.notIn]: [availableRoles.adminRole]}
+            };
+        }
+        results = await user.findAll(query);
+        if (offset > 0) {
+            formerLastId = results.shift();
+            formerLastId = formerLastId?.id;
+        }
+        return {
+            lastId: results.at(-1)?.id,
+            formerLastId,
+            values: results.map((user) => user.toResponse())
+        };
+    };
+/*jslint-enable*/
     user.genericProps = genericProps;
     user.statuses = userStatuses;
+/*jslint-disable*/
     user.getAllByPhones = function (phoneList) {
         return this.findAll({
             where: {
                 phone: {[Op.in]: phoneList}
             }
         });
-    }
+    };
+/*jslint-enable*/
     return user;
 }
 

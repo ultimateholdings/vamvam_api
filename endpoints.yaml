@@ -27,8 +27,10 @@ userData:
   role: string
 deliveryData:
   begin: Date
+  client: shortUserData
   departure: locationData
   destination: locationData
+  driver: shortUserData
   end: Date
   id: string
   note: double
@@ -36,7 +38,9 @@ deliveryData:
   recipientInfos: JSON
 roomData:
   id: string
-  deliveryId: string
+  delivery:
+    id: string
+    name: string
   lastMessage: messageData
   members: shortUserData[]
   name: string
@@ -150,16 +154,6 @@ auth-endpoints:
       response:
         updated: boolean
 
-  users:
-    /users/drivers:
-      action: get drivers close to a location
-      type: get
-      body:
-        from: locationData
-        by: double
-        internal: boolean
-      response: userData[]
-
   delivery:
     /delivery/request:
       action: request a new delivery
@@ -175,6 +169,14 @@ auth-endpoints:
         code: string
         id: string
         price: string
+
+    /delivery/relaunch:
+      action: relaunch a delivery when no driver has accepted after a given time
+      type: post
+      body:
+        id: string representing the delivery Id
+      response:
+        relaunched: boolean
 
     /delivery/infos:
       action: get delivery informations
@@ -280,14 +282,6 @@ auth-endpoints:
       response:
         terminated: boolean
 
-    /delivery/conflict/assign-driver:
-      action: assign an internal driver to a conflicting delivery
-      type: post
-      body:
-        id: string representing the conflict Id
-        driverId: string
-      response:
-        assigned: boolean
 
     chat:
       /discussion/new-message:
@@ -302,16 +296,17 @@ auth-endpoints:
       /discussion/messages:
         action: get room messages
         type: get
+        queryString:
+          maxPageSize: number
+          index: number
+        headers:
+          page_token: string
         body:
           roomId: string
-        query:
-          page: double
-          limit: double 
         response:
-          succes: boolean
-          totalmessage: double
-          totalPage: double
-          messages: messageData[]
+          nextPageToken: string
+          refreshed: boolean
+          results: messageData[]
 
       /discussion/all:
         action: get user rooms
