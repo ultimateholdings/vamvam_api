@@ -7,12 +7,12 @@ const { Bundle, User, connection } = require("../src/models");
 const {
   getToken,
   otpHandler,
+  setupServer,
   syncUsers,
   users,
 } = require("./fixtures/helper");
 const {
-  bundles,
-  setupBundleServer,
+  bundles
 } = require("./fixtures/bundle.data");
 const { errors } = require("../src/utils/config");
 describe("Bundle CRUD test", function () {
@@ -20,15 +20,27 @@ describe("Bundle CRUD test", function () {
   let app;
   let dbUsers;
   before(async function () {
-    const tmp = setupBundleServer(otpHandler);
+    const tmp = setupServer(otpHandler);
     server = tmp.server;
     app = tmp.app;
+  });
+
+  beforeEach(async function () {
     await connection.sync({ force: true });
     dbUsers = await syncUsers(users, User);
+    tokens = await Promise.all([
+      getToken(app, dbUsers.goodUser.phone),
+      getToken(app, dbUsers.firstDriver.phone),
+      getToken(app, dbUsers.admin.phone)
+    ]);
   });
-  after(async function () {
+
+  afterEach(async function () {
     await connection.drop();
-    await server.close();
+  });
+
+  after(function () {
+    server.close();
   });
   it("should return all bunch", async function () {
     let response;
@@ -44,19 +56,15 @@ describe("Bundle CRUD test", function () {
   });
   it("should return a 200 status on valid propertices and 404 on invalid propertices", async function () {
     let response;
-    let [userToken, adminToken] = await Promise.all([
-      getToken(app, dbUsers.goodUser.phone),
-      getToken(app, dbUsers.admin.phone),
-    ]);
     response = await app
       .post("/bundle/new-bundle")
       .send(bundles[0])
-      .set("authorization", "Bearer " + userToken);
-    assert.equal(response.status, errors.notAuthorized.status);
+      .set("authorization", "Bearer " + tokens[0]);
+    assert.equal(response.status, errors.forbiddenAccess.status);
     response = await app
       .post("/bundle/new-bundle")
       .send(bundles[0])
-      .set("authorization", "Bearer " + adminToken);
+      .set("authorization", "Bearer " + tokens[2]);
     assert.equal(response.status, 200);
   });
   it("should return bundle infos", async function () {
