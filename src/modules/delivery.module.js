@@ -70,7 +70,7 @@ function calculatePrice() {
 function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
     const associations = associatedModels || {DeliveryConflict, User};
-    const deliveryPagition = ressourcePaginator(deliveryModel.getAll);
+    const deliveryPagination = ressourcePaginator(deliveryModel.getAll);
 
     deliveryModel.addEventListener(
         "chat-room-requested",
@@ -321,8 +321,8 @@ function getDeliveryModule({associatedModels, model}) {
         req.delivery = delivery;
         next();
     }
-    
-    async function ensureInitial(req, res, next) {
+
+    function ensureInitial(req, res, next) {
         const {delivery} = req;
         if (delivery.driverId !== null) {
             return sendResponse(res, errors.alreadyAssigned);
@@ -452,7 +452,13 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function getAllPaginated(req, res) {
         let results;
-        let {from, maxPageSize, status, to} = req.query;
+        let {
+            from,
+            maxPageSize,
+            index: pageIndex,
+            status,
+            to
+        } = req.query;
         const {page_token} = req.headers;
         const getParams = function (params) {
             if (apiDeliveryStatus[status] !== undefined) {
@@ -466,7 +472,16 @@ function getDeliveryModule({associatedModels, model}) {
         if (!Number.isFinite(maxPageSize)) {
             maxPageSize = 10;
         }
-        results = await deliveryPagition(page_token, maxPageSize, getParams);
+        pageIndex = Number.parseInt(pageIndex, 10);
+        if (!Number.isFinite(pageIndex)) {
+            pageIndex = undefined;
+        }
+        results = await deliveryPagination({
+            getParams,
+            maxPageSize,
+            pageIndex,
+            pageToken: page_token
+        });
         res.status(200).send(results);
     }
 
@@ -711,8 +726,8 @@ calculation of at delivery */
         ensureDeliveryExists,
         ensureDriverExists,
         ensureInitial,
-        getAnalytics,
         getAllPaginated,
+        getAnalytics,
         getInfos,
         getOngoingDeliveries,
         getTerminatedDeliveries,

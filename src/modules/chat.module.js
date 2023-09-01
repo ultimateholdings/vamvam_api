@@ -9,7 +9,7 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
     const deliveriesModel = deliveryModel || Delivery;
     const messagesModel = messageModel || Message;
     const roomsModel = roomModel || Room;
-    const messagePagination = ressourcePaginator(messageModel.getAllByRoom);
+    const messagePagination = ressourcePaginator(messagesModel.getAllByRoom);
     
     deliveriesModel.addEventListener("room-creation-requested", createRoom);
 
@@ -131,22 +131,31 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
     }
 
     async function getRoomMessages(req, res) {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 8;
-        const offset = (page - 1) * limit;
-        const {roomId} = req.body;
-        //TODO: implement token-based pagination
-        let response = await messagesModel.getAllByRoom({
-          limit,
-          offset,
-          roomId
+        let response;
+        let {maxPageSize, index: pageIndex} = req.query;
+        const {page_token} = req.headers;
+        const {room} = req;
+        const getParams = function (params) {
+            const clone = Object.create(null);
+            Object.assign(clone, params);
+            clone.roomId = room.id;
+            return clone;
+        }
+        maxPageSize = Number.parseInt(maxPageSize, 10);
+        if (!Number.isFinite(maxPageSize)) {
+            maxPageSize = 10;
+        }
+        pageIndex = Number.parseInt(pageIndex, 10);
+        if (!Number.isFinite(pageIndex)) {
+            pageIndex = undefined;
+        }
+        response = await messagePagination({
+            getParams,
+            maxPageSize,
+            pageIndex,
+            pageToken: page_token
         });
-        res.status(200).json({
-            succes: true,
-            totalmessage: response.count,
-            totalPage: Math.ceil(response.count / limit),
-            messages: response.rows
-        });
+        res.status(200).json(response);
     }
 
     async function getRooms(req, res) {

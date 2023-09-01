@@ -2,7 +2,11 @@
 node
 */
 const {DataTypes, Op} = require("sequelize");
-const {CustomEmitter, propertiesPicker} = require("../utils/helpers");
+const {
+    CustomEmitter,
+    formatDbLineString,
+    propertiesPicker
+} = require("../utils/helpers");
 const {deliveryStatuses} = require("../utils/config");
 
 const hiddenProps = ["code", "deliveryMeta"];
@@ -79,6 +83,9 @@ function defineDeliveryModel(connection) {
                 latitude: result.departure.coordinates[0],
                 longitude: result.departure.coordinates[1]
             };
+        }
+        if (result.route !== null) {
+            result.route = formatDbLineString(result.route);
         }
         return propertiesPicker(result)(allowedProps);
     };

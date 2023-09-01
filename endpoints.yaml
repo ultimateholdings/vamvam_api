@@ -296,16 +296,17 @@ auth-endpoints:
       /discussion/messages:
         action: get room messages
         type: get
+        queryString:
+          maxPageSize: number
+          index: number
+        headers:
+          page_token: string
         body:
           roomId: string
-        query:
-          page: double
-          limit: double 
         response:
-          succes: boolean
-          totalmessage: double
-          totalPage: double
-          messages: messageData[]
+          nextPageToken: string
+          refreshed: boolean
+          results: messageData[]
 
       /discussion/all:
         action: get user rooms

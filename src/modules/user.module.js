@@ -65,7 +65,7 @@ function getUserModule({
 
     async function getAllUsers(req, res) {
         let results;
-        let {role, maxPageSize} = req.query;
+        let {role, index: pageIndex, maxPageSize} = req.query;
         const {page_token} = req.headers;
         const getParams = function (params) {
             if (apiRoles[role] !== undefined) {
@@ -77,7 +77,16 @@ function getUserModule({
         if (!Number.isFinite(maxPageSize)) {
             maxPageSize = 10;
         }
-        results = await userPagination(page_token, maxPageSize, getParams);
+        pageIndex = Number.parseInt(pageIndex, 10);
+        if (!Number.isFinite(pageIndex)) {
+            pageIndex = undefined;
+        }
+        results = await userPagination({
+            getParams,
+            maxPageSize,
+            pageIndex,
+            pageToken: page_token,
+        });
         res.status(200).json(results);
     }
     async function getNearByDrivers(req, res) {

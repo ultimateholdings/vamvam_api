@@ -92,9 +92,9 @@ describe("Message test", function () {
   it("should return Room Messages", async function () {
     let response = await app
     .get("/discussion/messages")
-    .send({ roomId: room.id })
+    .send({roomId: room.id})
     .set("authorization", "Bearer " + tokens[1]);
-    assert.equal(response.body.totalmessage, 2)
+    assert.equal(response.body.results.length, 2)
   });
   it("should provide user missed messages on connection", async function () {
     let data;
