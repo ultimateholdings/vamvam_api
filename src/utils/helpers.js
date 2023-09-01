@@ -2,21 +2,21 @@
 node, this
 */
 "use strict";
-const {EventEmitter} = require("node:events");
+const { EventEmitter } = require("node:events");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const {
-    defaultValues,
-    errors,
-    getFirebaseConfig,
-    getOTPConfig
+  defaultValues,
+  errors,
+  getFirebaseConfig,
+  getOTPConfig,
 } = require("../utils/config");
-const {ValidationError} = require("sequelize");
+const { ValidationError } = require("sequelize");
 const CustomEmitter = function (name) {
-    this.name = name;
+  this.name = name;
 };
 CustomEmitter.prototype = EventEmitter.prototype;
 const {
@@ -31,9 +31,9 @@ function calculateSolde(point, unitPrice = 300) {
 }
 
 function cloneObject(object) {
-    const tmp = Object.create(null);
-    Object.assign(tmp, object);
-    return tmp;
+  const tmp = Object.create(null);
+  Object.assign(tmp, object);
+  return tmp;
 }
 
 function fileExists(path) {
@@ -53,17 +53,17 @@ function fileExists(path) {
 }
 
 function deleteFile(path) {
-    if (typeof path === "string") {
-        return new Promise(function (res) {
-            fs.unlink(path, function (err) {
-                if (err) {
-                    res(false);
-                }
-                res(true);
-            });
-        });
-    }
-    return Promise.resolve(false);
+  if (typeof path === "string") {
+    return new Promise(function (res) {
+      fs.unlink(path, function (err) {
+        if (err) {
+          res(false);
+        }
+        res(true);
+      });
+    });
+  }
+  return Promise.resolve(false);
 }
 
 function jwtWrapper(expiresIn = expiration) {
@@ -106,67 +106,62 @@ function sendResponse(res, content, data = {}) {
 }
 
 function isValidPoint(point) {
-    if (point !== null && point !== undefined) {
-        return (
-            Number.isFinite(point.latitude) &&
-            Number.isFinite(point.longitude)
-        );
-    }
-    return false;
+  if (point !== null && point !== undefined) {
+    return Number.isFinite(point.latitude) && Number.isFinite(point.longitude);
+  }
+  return false;
 }
 
 function toDbPoint(point) {
-    return {
-        coordinates: [point?.latitude, point?.longitude],
-        type: "Point"
-    };
+  return {
+    coordinates: [point?.latitude, point?.longitude],
+    type: "Point",
+  };
 }
 
 function toDbLineString(points) {
-    let lineString;
-    if (Array.isArray(points)) {
-        lineString = {
-            type: "LineString",
-        };
-        lineString.coordinates = points.map(function (point) {
-            if (isValidLocation(point)) {
-                return [point.latitude, point.longitude];
-            }
-            throw new Error("Invalid location !!!");
-        })
-    }
-    return lineString;
+  let lineString;
+  if (Array.isArray(points)) {
+    lineString = { type: "LineString" };
+    lineString.coordinates = points.map(function (point) {
+      if (isValidLocation(point)) {
+        return [point.latitude, point.longitude];
+      }
+      throw new Error("Invalid location !!!");
+    });
+  }
+  return lineString;
 }
 
 function formatDbLineString(lineString) {
-    let result = null;
-    if (lineString !== null && lineString !== undefined) {
-        result = lineString.coordinates?.map?.(
-            ([latitude, longitude]) => {latitude, longitude}
-        );
-    }
-    return result;
+  let result = null;
+  if (lineString !== null && lineString !== undefined) {
+    result = lineString.coordinates.map(function ([latitude, longitude]) {
+      return Object.freeze({ latitude, longitude });
+    });
+  }
+  return result;
 }
 
 function formatDbPoint(dbPoint) {
-    let result = null;
-    if (dbPoint !== null && dbPoint !== undefined) {
-        result = {
-            latitude: dbPoint.coordinates[0],
-            longitude: dbPoint.coordinates[1]
-        };
-    }
-    return result;
+  let result = null;
+  if (dbPoint !== null && dbPoint !== undefined) {
+    result = {
+      latitude: dbPoint.coordinates[0],
+      longitude: dbPoint.coordinates[1],
+    };
+  }
+  return result;
 }
 
 function isValidLocation(location) {
-    let result;
-    if (Array.isArray(location)) {
-        result = location.every(isValidPoint);
-    } else if (location !== null && location !== undefined) {
-        result = isValidPoint(location);
-    }
-    return result;
+  let result;
+  if (Array.isArray(location)) {
+    result = location.every(isValidPoint);
+  } else if (location !== null && location !== undefined) {
+    result = isValidPoint(location);
+  }
+  return result;
 }
 
 function getFileHash(path) {
@@ -203,24 +198,26 @@ async function fetchUrl({
 }
 
 function errorHandler(func) {
-    return async function (req, res, next) {
-        let err;
-        let content;
-        try {
-            await func(req, res, next);
-        } catch (error) {
-            if (ValidationError.prototype.isPrototypeOf(error)) {
-                err = errors.invalidValues;
-                content = error.errors.map(function ({message}) {
-                    return message.replace(/^\w*\./, "");
-                }, {}).join(" and ");
-                return sendResponse(res, err, content);
-            } else {
-                err = errors.internalError;
-                return sendResponse(res, err);
-            }
-        }
-    };
+  return async function handleEndPoint(req, res, next) {
+    let err;
+    let content;
+    try {
+      await func(req, res, next);
+    } catch (error) {
+      if (ValidationError.prototype.isPrototypeOf(error)) {
+        err = errors.invalidValues;
+        content = error.errors
+          .map(function ({ message }) {
+            return message.replace(/^\w*\./, "");
+          }, {})
+          .join(" and ");
+        return sendResponse(res, err, content);
+      } else {
+        err = errors.internalError;
+        return sendResponse(res, err);
+      }
+    }
+  };
 }
 
 function propertiesPicker(object) {
@@ -243,148 +240,202 @@ function propertiesPicker(object) {
 
 function getOTPService(model) {
   const config = getOTPConfig();
-  async function sendCode({phone, signature, type = "auth"}) {
-      let response;
-      let content;
-      const ttlInSeconds = defaultValues.ttl;
-      response = await model.canRequest({phone, ttlInSeconds, type});
-      if (!response) {
-          response = cloneObject(errors.ttlNotExpired);
-          response.sent = false;
-          return response;
-      }
-      try {
-          response = await fetchUrl({
-              body: config.getSendingBody(phone, signature),
-              url: config.sent_url
-          });
-      } catch (error) {
-          response = cloneObject(errors.internalError);
-          response.sent = false;
-          response.content = error.toString();
-          return response;
-      }
+  async function sendCode({ phone, signature, type = "auth" }) {
+    let response;
+    let content;
+    const ttlInSeconds = defaultValues.ttl;
+    response = await model.canRequest({ phone, ttlInSeconds, type });
+    if (!response) {
+      response = cloneObject(errors.ttlNotExpired);
+      response.sent = false;
+      return response;
+    }
+    try {
+      response = await fetchUrl({
+        body: config.getSendingBody(phone, signature),
+        url: config.sent_url,
+      });
+    } catch (error) {
+      response = cloneObject(errors.internalError);
+      response.sent = false;
+      response.content = error.toString();
+      return response;
+    }
+    if (response.ok) {
+      response = await response.json();
+      await model.upsert(
+        {
+          phone,
+          pinId: response.pinId,
+          type,
+        },
+        { fields: ["phone", "type"] }
+      );
+      return { pinId: response.pinId, sent: true };
+    } else {
+      response = await response.json();
+      content = cloneObject(errors.otpSendingFail);
+      content.sent = false;
+      content.content = response.message;
+      return content;
+    }
+  }
+
+  async function verifyCode({ code, phone, type = "auth" }) {
+    let response = await model.findOne({ where: { phone, type } });
+    if (response === null) {
+      response = cloneObject(errors.requestOTP);
+      response.verified = false;
+      return response;
+    }
+    try {
+      response = await fetchUrl({
+        body: config.getVerificationBody(response.pinId, code),
+        url: config.verify_url,
+      });
       if (response.ok) {
-          response = await response.json();
-          await model.upsert({
-              pinId: response.pinId,
-              phone,
-              type
-          }, {where: {phone, type}});
-          return {pinId: response.pinId, sent: true};
+        response = await response.json();
+        if (response.verified && response.msisdn === phone) {
+          await model.destroy({ where: { phone, type } });
+          return { verified: true };
+        }
+        response = cloneObject(errors.forbiddenAccess);
+        response.verified = false;
+        return response;
       } else {
-          response = await response.json();
-          content = cloneObject(errors.otpSendingFail);
-          content.sent = false;
-          content.content = response.message;
-          return content;
+        response = cloneObject(errors.invalidCredentials);
+        response.verified = false;
+        return response;
       }
+    } catch (error) {
+      response = cloneObject(errors.internalError);
+      response.content = error.toString();
+      response.verified = false;
+      return response;
+    }
   }
 
-  async function verifyCode({code, phone, type = "auth"}) {
-      let response = await model.findOne({where: {phone, type}});
-      if (response === null) {
-          response = cloneObject(errors.requestOTP);
-          response.verified = false;
-          return response;
-      }
-      try {
-          response = await fetchUrl({
-              body: config.getVerificationBody(response.pinId, code),
-              url: config.verify_url
-          });
-          if (response.ok) {
-              response = await response.json();
-              if (response.verified && response.msisdn === phone) {
-                  await model.destroy({where: {phone, type}});
-                  return {verified: true};
-              }
-              response = cloneObject(errors.forbiddenAccess);
-              response.verified = false;
-              return response;
-          } else {
-              response = cloneObject(errors.invalidCredentials);
-              response.verified = false;
-              return response;
-          }
-      } catch (error) {
-          response = cloneObject(errors.internalError);
-          response.content = error.toString();
-          response.verified = false;
-          return response;
-      }
-  }
-
-  return Object.freeze({sendCode, verifyCode});
+  return Object.freeze({ sendCode, verifyCode });
 }
 
 function ressourcePaginator(getRessources, expiration = 3600000) {
   const tokenManager = jwtWrapper(expiration);
-  async function handleInvalidToken(maxSize) {
-    const { lastId, values } = await getRessources({ maxSize, offset: 0 });
-    const nextPageToken = tokenManager.sign({
-      lastId,
-      offset: 1,
-    });
-    return { nextPageToken, results: values };
+  async function handleInvalidToken({
+    getParams,
+    maxPageSize,
+    refreshed = false,
+  }) {
+    let nextPageToken = null;
+    const { lastId, values } = await getRessources(
+      getParams({ maxSize: maxPageSize, offset: 0 })
+    );
+    if (Array.isArray(values) && values.length > 0) {
+      nextPageToken = tokenManager.sign({
+        lastId,
+        offset: maxPageSize,
+      });
+    }
+    return {
+      nextPageToken,
+      refreshed,
+      results: values,
+    };
   }
 
-  async function handleValidToken(tokenDatas, maxSize) {
+  async function handleValidToken({
+    getParams,
+    maxPageSize,
+    pageIndex,
+    tokenDatas = {},
+  }) {
     let nextPageToken;
-    let results = await getRessources({
-      maxSize,
-      offset: tokenDatas.offset,
-    });
+    let offset;
+    let results;
+    offset = Number.isFinite(pageIndex)
+      ? pageIndex * maxPageSize
+      : tokenDatas.offset;
+    results = await getRessources(
+      getParams({
+        maxSize: maxPageSize,
+        offset,
+      })
+    );
     nextPageToken =
-      results.values.length < 1
+      results.values.length < maxPageSize
         ? null
         : tokenManager.sign({
             lastId: results.lastId,
-            offset: tokenDatas.offset + 1,
+            offset: offset + maxPageSize,
           });
-    if (results.formerLastId !== tokenDatas.lastId) {
-      results = await handleInvalidToken(maxSize);
+    if (
+      results.formerLastId !== tokenDatas.lastId &&
+      nextPageToken !== null &&
+      !Number.isFinite(pageIndex)
+    ) {
+      results = await handleInvalidToken({
+        getParams,
+        maxSize: maxPageSize,
+        refreshed: true,
+      });
     } else {
       results = {
         nextPageToken,
+        refreshed: false,
         results: results.values,
       };
     }
     return results;
   }
 
-  return async function paginate(pageToken, maxPageSize) {
+  return async function paginate({
+    getParams = cloneObject,
+    maxPageSize,
+    pageIndex,
+    pageToken,
+  }) {
     let datas;
     let results;
+    if (Number.isFinite(pageIndex)) {
+      return handleValidToken({
+        getParams,
+        maxPageSize,
+        pageIndex,
+      });
+    }
     try {
       datas = await tokenManager.verify(pageToken);
       if (datas.valid) {
-        results = await handleValidToken(datas.token, maxPageSize);
+        results = await handleValidToken({
+          getParams,
+          maxPageSize,
+          pageIndex,
+          tokenDatas: datas.token,
+        });
       } else {
-        results = await handleInvalidToken(maxPageSize);
+        results = await handleInvalidToken({ getParams, maxPageSize });
       }
     } catch (err) {
       console.error(err);
-      results = await handleInvalidToken(maxPageSize);
+      results = await handleInvalidToken({ getParams, maxPageSize });
     }
     return results;
   };
 }
 
-function sendCloudMessage({body, meta, title, to}) {
+function sendCloudMessage({ body, meta, title, to }) {
   const config = getFirebaseConfig();
   return fetchUrl({
-      body: {
-          data: meta,
-          notification: {
-              body,
-              "mutable_content": true,
-              title
-          },
-          to
+    body: {
+      data: meta,
+      notification: {
+        body,
+        mutable_content: true,
+        title,
       },
-      headers: config.headers,
-      url: config.url
+      to,
+    },
+    headers: config.headers,
+    url: config.url,
   });
 }
 function getPaymentService(paymentModel, bundleModel) {
@@ -468,7 +519,7 @@ function getPaymentService(paymentModel, bundleModel) {
       if (response.ok) {
         response = await response.json();
         if (
-          response.data.status === 'successful' &&
+          response.data.status === "successful" &&
           response.data.amount === expectedAmount &&
           response.data.currency === "XAF"
         ) {
@@ -522,43 +573,41 @@ function paymentManager(paymentService) {
 }
 
 function pathToURL(filePath) {
-    let rootDir;
-    if (typeof filePath === "string" && filePath.length > 0) {
-        rootDir = path.normalize(
-            path.dirname(filePath)
-        ).split(path.sep).at(-1);
-        return "/" + rootDir + "/" + path.basename(filePath);
-    }
+  let rootDir;
+  if (typeof filePath === "string" && filePath.length > 0) {
+    rootDir = path.normalize(path.dirname(filePath)).split(path.sep).at(-1);
+    return "/" + rootDir + "/" + path.basename(filePath);
+  }
 }
 
 module.exports = Object.freeze({
   CustomEmitter,
   comparePassword(givenPassword, hash) {
-      return new Promise(function executor(resolve, reject) {
-          bcrypt.compare(givenPassword, hash, function (err, result) {
-              if (err !== null && err !== undefined) {
-                  reject(err);
-              }
-              resolve(result === true);
-          });
+    return new Promise(function executor(resolve, reject) {
+      bcrypt.compare(givenPassword, hash, function (err, result) {
+        if (err !== null && err !== undefined) {
+          reject(err);
+        }
+        resolve(result === true);
       });
+    });
   },
   deleteFile,
   errorHandler,
   fileExists,
-  formatDbPoint,
   formatDbLineString,
+  formatDbPoint,
   getFileHash,
   getOTPService,
   hashPassword(password) {
-      return new Promise(function executor(resolve, reject) {
-          bcrypt.hash(password, 10, function (err, result) {
-              if (err !== null && err !== undefined) {
-                  reject(err);
-              }
-              resolve(result);
-          });
+    return new Promise(function executor(resolve, reject) {
+      bcrypt.hash(password, 10, function (err, result) {
+        if (err !== null && err !== undefined) {
+          reject(err);
+        }
+        resolve(result);
       });
+    });
   },
   isValidLocation,
   jwtWrapper,
@@ -568,9 +617,9 @@ module.exports = Object.freeze({
   ressourcePaginator,
   sendCloudMessage,
   sendResponse,
-  toDbPoint,
   toDbLineString,
+  toDbPoint,
   getPaymentService,
   paymentManager,
-  calculateSolde
+  calculateSolde,
 });

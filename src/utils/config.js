@@ -9,6 +9,12 @@ const availableRoles = {
     driverRole: "driver",
     registrationManager: "registration-manager"
 };
+const apiRoles = {
+    client: availableRoles.clientRole,
+    conflict: availableRoles.conflictManager,
+    driver: availableRoles.driverRole,
+    registration: availableRoles.registrationManager
+};
 const errors = {
     alreadyAssigned: {
         message: {
@@ -207,6 +213,13 @@ const errors = {
             "votre demande précédente n'a pas encore expiré veuillez patienter"
         },
         status: 422
+    },
+    unsupportedType: {
+        message: {
+            en: "the type you provided is not yet supported",
+            fr: "le type que vous avez fourni n'est pas encore pris en charge"
+        },
+        status: 414
     }
 };
 
@@ -371,6 +384,12 @@ const deliveryStatuses = Object.freeze({
     started: "started",
     terminated: "terminated",
 });
+const apiDeliveryStatus = Object.freeze({
+    cancelled: deliveryStatuses.cancelled,
+    conflicting: deliveryStatuses.inConflict,
+    ongoing: deliveryStatuses.started,
+    terminated: deliveryStatuses.terminated
+});
 const userStatuses = {
     activated: "active",
     inactive: "desactivated",
@@ -385,6 +404,8 @@ const otpTypes = {
 
 const config = Object.freeze({
     ages,
+    apiDeliveryStatus,
+    apiRoles: Object.freeze(apiRoles),
     availableRoles: Object.freeze(availableRoles),
     conflictStatuses,
     defaultValues: Object.freeze(defaultValues),
@@ -417,7 +438,7 @@ const config = Object.freeze({
                     api_key: otp_key,
                     channel: "generic",
                     from: "VAMVAM",
-                    message_text: "<#> Your verification code is" +
+                    message_text: "Your verification code is" +
                     " @vamvam@ \n\n" + signature,
                     message_type: "ALPHANUMERIC",
                     pin_attempts: 3,

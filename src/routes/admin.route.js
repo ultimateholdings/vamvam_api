@@ -29,6 +29,13 @@ function getAdminRouter(module) {
         adminModule.ensureUserExists,
         errorHandler(adminModule.invalidateUser)
     );
+    router.post(
+        "/new-admin",
+        protectRoute,
+        allowRoles([availableRoles.adminRole]),
+        adminModule.validateAdminCreation,
+        errorHandler(adminModule.createNewAdmin)
+    );
     return router;
 }
 

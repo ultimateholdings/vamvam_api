@@ -37,6 +37,12 @@ function getUserRouter(userModule) {
         allowRoles([roles.conflictManager]),
         errorHandler(routerModule.getNearByDrivers)
     );
+    router.get(
+        "/all",
+        protectRoute,
+        allowRoles([roles.adminRole]),
+        errorHandler(routerModule.getAllUsers)
+    )
 
     router.post(
         "/delete-avatar",
