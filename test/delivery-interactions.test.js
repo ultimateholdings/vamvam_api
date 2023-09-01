@@ -17,14 +17,14 @@ const {
     getToken,
     otpHandler,
     postData,
+    setupServer,
     syncUsers,
     users
 } = require("./fixtures/helper");
 const {
     deliveries,
     deliveryResquestor,
-    missoke,
-    setupDeliveryServer
+    missoke
 } = require("./fixtures/deliveries.data");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
@@ -59,7 +59,7 @@ describe("delivery side effects test", function () {
     let setupDatas;
 
     before(function () {
-        const tmp = setupDeliveryServer(otpHandler);
+        const tmp = setupServer(otpHandler);
         server = tmp.server;
         app = tmp.app;
         socketServer = getSocketManager({

@@ -86,35 +86,61 @@ User.belongsToMany(Room, {through: UserRoom});
 Room.hasMany(Message, {foreignKey: "roomId"});
 Message.belongsTo(Room, {foreignKey: "roomId"});
 
-Message.getAllByRoom = async function ({limit, offset, roomId}) {
-    const result = await Message.findAndCountAll({
+Message.getAllByRoom = async function ({
+    maxSize,
+    offset,
+    roomId
+}) {
+    let query;
+    let formerLastId;
+    let results;
+    query = {
         include: [
             {
                 as: "sender",
                 attributes: ["id", "firstName", "lastName", "avatar"],
                 model: User
+            },
+            {
+                model: Room,
+                required: true
             }
         ],
-        limit,
-        offset,
-        order: [["createdAt", "DESC"]],
-        where: {roomId}
-    });
-    result.rows = result.rows.map(function (row) {
-        const {
-            content,
-            createdAt: date,
-            id: messageId,
-            sender
-        } = row;
-        return Object.freeze({
-            content,
-            date,
-            messageId,
-            sender: sender.toShortResponse()
-        });
-    });
-    return result;
+        limit: (offset > 0 ? maxSize + 1: maxSize),
+        offset: (offset > 0 ? offset - 1: offset),
+        order: [["createdAt", "DESC"]]
+    };
+    if (typeof roomId === "string") {
+        query.where = {roomId};
+    }
+    results = await Message.findAndCountAll(query);
+    if (offset > 0) {
+        formerLastId = results.rows.shift();
+        formerLastId = formerLastId?.id;
+    }
+    return {
+        lastId: results.rows.at(-1)?.id,
+        formerLastId,
+        values: results.rows.map(function deliveryMapper(row) {
+            const {
+                content,
+                createdAt: date,
+                id,
+                room,
+                sender
+            } = row;
+            return Object.freeze({
+                content,
+                date,
+                id,
+                room: {
+                    id: room.id,
+                    name: room.name
+                },
+                sender: sender.toShortResponse()
+            });
+        })
+    };
 };
 
 Message.getMissedMessages = async function (userId) {
@@ -145,6 +171,10 @@ Message.getMissedMessages = async function (userId) {
             content,
             date,
             id,
+            room: {
+                id: room.id,
+                name: room.name
+            },
             sender: sender.toShortResponse()
         });
         return acc;
@@ -201,6 +231,10 @@ Room.getUserRooms = async function (userId) {
                 content: msg.content,
                 date: msg.createdAt.toISOString(),
                 id: msg.id,
+                room: {
+                    id: room.id,
+                    name: room.name
+                },
                 sender: msg.sender.toShortResponse()
             })
         );

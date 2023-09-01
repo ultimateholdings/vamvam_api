@@ -331,69 +331,104 @@ function getOTPService(model) {
 
 function ressourcePaginator(getRessources, expiration = 3600000) {
     const tokenManager = jwtWrapper(expiration);
-    async function handleInvalidToken(maxSize, getParams) {
+    async function handleInvalidToken({
+        getParams,
+        maxPageSize,
+        refreshed = false
+    }) {
         let nextPageToken = null;
         const {lastId, values} = await getRessources(
-            getParams({maxSize, offset: 0})
+            getParams({maxSize: maxPageSize, offset: 0})
         );
         if (Array.isArray(values) && values.length > 0) {
             nextPageToken = tokenManager.sign({
                 lastId,
-                offset: maxSize
+                offset: maxPageSize
             });
         }
-        return {nextPageToken, results: values};
+        return {
+            nextPageToken,
+            refreshed,
+            results: values
+        };
     }
-    
-    async function handleValidToken(tokenDatas, maxSize, getParams) {
+
+    async function handleValidToken({
+        getParams,
+        maxPageSize,
+        pageIndex,
+        tokenDatas = {}
+    }) {
         let nextPageToken;
-        let results = await getRessources(getParams({
-            maxSize,
-            offset: tokenDatas.offset
+        let offset;
+        let results;
+        offset = (
+            Number.isFinite(pageIndex)
+            ? pageIndex * maxPageSize
+            : tokenDatas.offset
+        );
+        results = await getRessources(getParams({
+            maxSize: maxPageSize,
+            offset
         }));
         nextPageToken = (
-            results.values.length < 1
+            results.values.length < maxPageSize
             ? null
             : tokenManager.sign({
                 lastId: results.lastId,
-                offset: tokenDatas.offset + maxSize
+                offset: offset + maxPageSize
             })
         );
         if (
             (results.formerLastId !== tokenDatas.lastId) &&
-            (nextPageToken !== null)
+            (nextPageToken !== null) &&
+            (!Number.isFinite(pageIndex))
         ) {
-            results = await handleInvalidToken(maxSize);
+            results = await handleInvalidToken({
+                getParams,
+                maxSize: maxPageSize,
+                refreshed: true
+            });
         } else {
             results = {
                 nextPageToken,
+                refreshed: false,
                 results: results.values
             };
         }
         return results;
     }
 
-    return async function paginate(
-        pageToken,
+    return async function paginate({
+        getParams = cloneObject,
         maxPageSize,
-        getParams = cloneObject
-    ) {
+        pageIndex,
+        pageToken
+    }) {
         let datas;
         let results;
+        if (Number.isFinite(pageIndex)) {
+            return handleValidToken({
+                getParams,
+                maxPageSize,
+                pageIndex
+            });
+        }
         try {
             datas = await tokenManager.verify(pageToken);
             if (datas.valid) {
-                results = await handleValidToken(
-                    datas.token,
+                results = await handleValidToken({
+                    getParams,
                     maxPageSize,
-                    getParams
-                );
+                    pageIndex,
+                    tokenDatas: datas.token
+                });
             } else {
-                results = await handleInvalidToken(maxPageSize, getParams);
+                results = await handleInvalidToken({getParams, maxPageSize});
             }
         } catch (err) {
             console.error(err);
-            results = await handleInvalidToken(maxPageSize, getParams);
+            results = await handleInvalidToken({getParams, maxPageSize});
         }
         return results;
     };
