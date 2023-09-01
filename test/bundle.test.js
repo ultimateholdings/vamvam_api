@@ -5,15 +5,13 @@ const { after, before, describe, it } = require("mocha");
 const { assert } = require("chai");
 const { Bundle, User, connection } = require("../src/models");
 const {
+  bundles,
   getToken,
   otpHandler,
   setupServer,
   syncUsers,
   users,
 } = require("./fixtures/helper");
-const {
-  bundles
-} = require("./fixtures/bundle.data");
 const { errors } = require("../src/utils/config");
 describe("Bundle CRUD test", function () {
   let server;

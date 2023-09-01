@@ -5,6 +5,7 @@ const { after, afterEach, before, beforeEach, describe, it } = require("mocha");
 const { assert } = require("chai");
 const {Delivery, Bundle, connection, Transaction, User } = require("../src/models");
 const {
+  bundles,
   clientSocketCreator,
   listenEvent,
   getToken,
@@ -14,7 +15,6 @@ const {
   syncUsers,
   users,
 } = require("./fixtures/helper");
-const { bundles } = require("./fixtures/bundle.data");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
 const { calculateSolde } = require("../src/utils/helpers");

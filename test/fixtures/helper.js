@@ -117,6 +117,46 @@ const messages = [
       content: "J'arrive dans une minute."
     },
   ];
+
+  const bundles = [
+    {
+      title: "10 Livraisons",
+      bonus: 0,
+      point: 10,
+      unitPrice: 300,
+    },
+    {
+      title: "15 Livraisons",
+      bonus: 0,
+      point: 15,
+      unitPrice: 300,
+    },
+    {
+      title: "20 Livraisons",
+      bonus: 1,
+      point: 20,
+      unitPrice: 300,
+    },
+    {
+      title: "25 Livraisons",
+      bonus: 2,
+      point: 25,
+      unitPrice: 300,
+    },
+    {
+      title: "35 Livraisons",
+      bonus: 3,
+      point: 35,
+      unitPrice: 300,
+    },
+    {
+      title: "40 Livraisons",
+      bonus: 5,
+      point: 40,
+      unitPrice: 300,
+    },
+  ];
+
 const otpHandler = {
     sendCode: () => Promise.resolve({verified: true}),
     verifyCode: () => Promise.resolve({verified: true})
@@ -327,6 +367,7 @@ function listenEvent({
     });
 }
 module.exports = Object.freeze({
+    bundles,
     clientSocketCreator,
     generateToken,
     getDatas,
