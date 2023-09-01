@@ -703,8 +703,13 @@ calculation of at delivery */
 
     function toDeliveryResponse(delivery, role) {
         const result = delivery.toResponse();
+        let driverData;
         if (role === roles.clientRole) {
-            result.driver = delivery.Driver.toShortResponse();
+            driverData = delivery.Driver.toShortResponse();
+            if(delivery.Driver.position !== null) {
+                driverData.position = formatDbPoint(delivery.Driver.position);
+            }
+            result.driver = driverData
             result.code = delivery.code;
         } else {
             result.client = delivery.Client.toShortResponse();
