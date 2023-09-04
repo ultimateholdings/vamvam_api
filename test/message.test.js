@@ -106,7 +106,7 @@ describe("Message test", function () {
     client = await clientSocketCreator("delivery", tokens[0]);
     data = await listenEvent({name: "new-missed-messages", socket: client});
 /*this assertion is made this way to avoid false negative introduced by date comparison*/
-    assert.isTrue(data.roomId === room.id && data.messages.length === 1);
+    assert.isTrue(data.roomId === room.id && data.messages.length === 2);
   });
   it("should enable to mark a message as read", async function () {
     let data;

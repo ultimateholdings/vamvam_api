@@ -132,7 +132,7 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
 
     async function getRoomMessages(req, res) {
         let response;
-        let {maxPageSize, index: pageIndex} = req.query;
+        let {maxPageSize, skip} = req.query;
         const {page_token} = req.headers;
         const {room} = req;
         const getParams = function (params) {
@@ -145,14 +145,14 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
         if (!Number.isFinite(maxPageSize)) {
             maxPageSize = 10;
         }
-        pageIndex = Number.parseInt(pageIndex, 10);
-        if (!Number.isFinite(pageIndex)) {
-            pageIndex = undefined;
+        skip = Number.parseInt(skip, 10);
+        if (!Number.isFinite(skip)) {
+            skip = undefined;
         }
         response = await messagePagination({
             getParams,
             maxPageSize,
-            pageIndex,
+            skip,
             pageToken: page_token
         });
         res.status(200).json(response);
