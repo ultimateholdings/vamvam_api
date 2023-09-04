@@ -60,7 +60,7 @@ function getTransactionModule({
         },
       });
       deliveriesModel.emitEvent("failure-payment", {
-        userId: payment.driverId,
+        driverId: payment.driverId,
       });
     }
   }
@@ -105,7 +105,7 @@ function getTransactionModule({
       );
       if (verifiedTrans) {
         await reloadBalance(data);
-        res.status(200).end({});
+        res.status(200).json({});
         deliveriesModel.emitEvent("successful-payment", {data: data});
       } else {
         res.status(401).end();

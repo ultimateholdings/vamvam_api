@@ -3,7 +3,14 @@ node, nomen
 */
 const { after, afterEach, before, beforeEach, describe, it } = require("mocha");
 const { assert } = require("chai");
-const {Delivery, Bundle, connection, Transaction, User } = require("../src/models");
+const {
+  Delivery,
+  Bundle,
+  connection,
+  Transaction,
+  User,
+  Payment,
+} = require("../src/models");
 const {
   bundles,
   clientSocketCreator,
@@ -14,6 +21,7 @@ const {
   setupServer,
   syncUsers,
   users,
+  webhookData,
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
@@ -39,22 +47,23 @@ describe("Transaction test", function () {
     tokens = await Promise.all([
       getToken(app, dbUsers.goodUser.phone),
       getToken(app, dbUsers.firstDriver.phone),
-      getToken(app, dbUsers.admin.phone)
+      getToken(app, dbUsers.admin.phone),
     ]);
   });
 
-  afterEach(async function () {
-    await connection.drop();
-  });
+  // afterEach(async function () {
+  //   await connection.drop();
+  // });
 
-  after(function () {
+  after(async function () {
+    await connection.drop()
     socketServer.close();
     server.close();
   });
   it("should recharge with good props", async function () {
     let response;
     let [driver] = await Promise.all([
-      clientSocketCreator("delivery", tokens[1])
+      clientSocketCreator("delivery", tokens[1]),
     ]);
     const { id: packId } = await Bundle.create(bundles[0]);
     const payload = {
@@ -70,6 +79,24 @@ describe("Transaction test", function () {
     data = await Promise.allSettled([
       listenEvent({ name: "payment-initiated", socket: driver }),
     ]);
+    assert.equal(response.status, 200);
+  });
+  it("should verify transaction", async function () {
+    let response;
+    let [driver] = await Promise.all([
+      clientSocketCreator("delivery", tokens[1]),
+    ]);
+    const { id: packId } = await Bundle.create(bundles[0]);
+    const { id: transId } = webhookData.data;
+    const payment = Payment.create({
+      transId:  transId,
+      driverId: driver.id,
+      packId: packId
+    });
+    response = await app
+      .post("/flw-webhook")
+      .send(webhookData)
+      .set("authorization", "Bearer " + tokens[1]);
     assert.equal(response.status, 200);
   });
   it("should return transaction history and wallet infos", async function () {

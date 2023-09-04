@@ -348,11 +348,11 @@ function deliveryMessageHandler(emitter) {
                     );
                 }
         }
-        function handleSuccessPayment(data) {
+        function handleSuccessPayment({data}) {
             const eventName = "successful-payment";
-            const {point, bonus, solde, driverId} = data;
+            const {driverId} = data;
             if (connectedUsers[driverId] !== undefined) {
-                connectedUsers[driverId].emit(eventName, {bonus, point, solde});
+                connectedUsers[driverId].emit(eventName, {data});
             } else {
                 emitter.emitEvent(
                     "cloud-message-fallback-requested",
