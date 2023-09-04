@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {eventMessages} = require("../utils/config");
+const {eventMessages, errors} = require("../utils/config");
 const {socketAuthenticator} = require("../utils/middlewares");
 
 function deliveryMessageHandler(emitter) {
@@ -20,10 +20,20 @@ function deliveryMessageHandler(emitter) {
                 positionUpdateHandler(socket, data);
             });
             socket.on("messages-read", function (data) {
-                emitter.emitEvent(
-                    "messages-read-request",
-                    {messagesId: data, userId: socket.user.id}
-                );
+                if (
+                    Array.isArray(data) &&
+                    data.every((id) => typeof id === "string")
+                ) {
+                    emitter.emitEvent(
+                        "messages-read-request",
+                        {messagesId: data, userId: socket.user.id}
+                    );
+                } else {
+                    socket.emit(
+                        "messages-read-fail",
+                        errors.invalidValues.message
+                    );
+                }
             });
             socket.on("itinerary-changed", function (data) {
                 itineraryUpdateHandler(socket, data);

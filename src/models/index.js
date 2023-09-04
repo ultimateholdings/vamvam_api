@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {Op, Transaction, fn, where} = require("sequelize");
+const {Op, Transaction, col, fn, where} = require("sequelize");
 const defineUserModel = require("./user.js");
 const otpModel = require("./otp_request.js");
 const defineDeliveryModel = require("./delivery.js");
@@ -174,7 +174,10 @@ Message.getAllByRoom = async function ({
 
 Message.getMissedMessages = async function (userId) {
     let clause = [
-        where(fn("JSON_SEARCH", "reader", "one", userId), {[Op.is] : null}),
+        where(
+            fn("JSON_SEARCH", col("reader"), "one", userId),
+            {[Op.is] : null}
+        ),
         {senderId: {[Op.ne]: userId}}
     ];
     let result = await this.findAll({

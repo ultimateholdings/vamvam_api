@@ -1,7 +1,7 @@
 /*jslint
 node, nomen
 */
-const {DataTypes, Op, col, fn} = require("sequelize");
+const {DataTypes, Op, col, fn, literal} = require("sequelize");
 const {CustomEmitter} = require("../utils/helpers");
 
 function defineMessageModel(connection) {
@@ -29,7 +29,7 @@ function defineMessageModel(connection) {
           "JSON_ARRAY_INSERT",
           fn(
             "IF",
-            fn("ISNULL", col("reader")),
+            literal("`reader` IS NULL"),
             fn("JSON_ARRAY"), col("reader")
           ),
           "$[0]",
