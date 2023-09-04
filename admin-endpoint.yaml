@@ -2,6 +2,91 @@
   action: get drivers close to a location
   type: get
   body:
+    id: string
+/admin/revoke-all:
+  action: "invalidate all users token"
+  type: post
+  body:
+    id: string
+
+bundle:
+/bundle/new-bundle:
+  action: "create new bundle"
+  type: post
+  body:
+    title: string
+    bonus: doudle
+    point: double
+    unitPrice: double
+/bundle/infos:
+  action: "get bundle infos"
+  type: get
+  body:
+    bundleId: string
+  response:
+    title: string
+    bonus: doudle
+    point: double
+    unitPrice: double
+    price: double
+    gain: double
+/bundle/:
+   action: "get all bundles"
+  type: get
+  body:
+  response:
+    data:
+      title: string
+      bonus: doudle
+      point: double
+      unitPrice: double
+      price: double
+      gain: double
+/bundle/update:
+   action: "update bundle"
+  type: post
+  body:
+    title: string
+    bonus: doudle
+    point: double
+    unitPrice: double
+  response:
+    message: string
+/bundle/delete:
+   action: "delete bundle"
+  type: post
+  body:
+    bundleId: string
+  response:
+
+transaction:
+/transaction/payment-history:
+  action: "lists payments within a given time interval"
+  type: get
+  query:
+    page: double
+    limit: double
+  body:
+    startDate: Date
+    endDate: Date
+  response:
+    total: double
+    data: 
+      amount: double
+      bonus: double
+      date: string
+      point: double
+      avatar: string
+      firstName: string
+      lastName: string
+/transaction/recharge-infos:
+  action: "gives information on the sum of payments"
+  type: get
+  body:
+  response:
+    solde: double
+    bonus: double
+    point: double
     from: locationData
     by: double
     internal: boolean

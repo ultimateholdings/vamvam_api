@@ -144,3 +144,17 @@ chat:
     new-message:
       action: "notify a user that a new message was sent in a discusssion he's part of"
       data: messageData
+
+payment:
+  payment-initiated:
+      action: "notifies driver of payment initiation"
+      data: 
+  failure-payment:
+      action: "notifies driver of payment failure"
+      data: 
+  successful-payment:
+      action: "notifies the driver of the success of a payment"
+      data:
+        bonus: double represents bonus points for the package purchased
+        point: double represents package points purchased
+        solde: double represents the amount of the package purchased

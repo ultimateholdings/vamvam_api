@@ -5,6 +5,9 @@ const {Op, Transaction, fn, where} = require("sequelize");
 const defineUserModel = require("./user.js");
 const otpModel = require("./otp_request.js");
 const defineDeliveryModel = require("./delivery.js");
+const defineBundleModel = require("./bundle.js");
+const defineTransactionModel = require("./transaction.js");
+const definePaymentModel = require("./payment.js");
 const defineReportModel = require("./delivery-report.js");
 const defineRegistration = require("./driver-registration.js");
 const defineRoomModel = require("./room.model");
@@ -13,10 +16,15 @@ const defineUserRoomModel = require("./user_room.model.js");
 const defineBlackListModel = require("./blacklist.js");
 const {sequelizeConnection} = require("../utils/db-connector.js");
 const {tokenTtl} = require("../utils/config.js");
+const {calculateSolde} = require("../utils/helpers.js");
+
 const connection = sequelizeConnection();
 const User = defineUserModel(connection);
 const otpRequest = otpModel(connection);
 const Delivery = defineDeliveryModel(connection);
+const Bundle = defineBundleModel(connection);
+const Trans = defineTransactionModel(connection);
+const Payment = definePaymentModel(connection);
 const DeliveryConflict = defineReportModel(connection);
 const Registration = defineRegistration(connection);
 const Message = defineMessageModel(connection);
@@ -35,6 +43,27 @@ Delivery.belongsTo(User, {
     constraints: false,
     foreignKey: {
         name: "clientId"
+    }
+});
+Bundle.hasOne(Payment, {
+    as: "Pack",
+    constraints: false,
+    foreignKey:{
+        name: 'packId'
+    } 
+})
+User.hasOne(Payment, {
+    as: "Driver",
+    constraints: false,
+    foreignKey:{
+        name: 'driverId'
+    } 
+})
+Trans.belongsTo(User, {
+    as: "Driver",
+    constraints: false,
+    foreignKey: {
+        name: "driverId"
     }
 });
 DeliveryConflict.belongsTo(User, {
@@ -348,6 +377,77 @@ Blacklist.invalidateAll = async function () {
     }
 }
 
+Trans.getAllByType= async function ({limit, offset, driverId, type}) {
+    const result = await Trans.findAndCountAll({
+        limit,
+        offset,
+        order: [["createdAt", "DESC"]],
+        where: {
+            driverId: driverId,
+            type: type
+        },
+    });
+    result.rows = result.rows.map(function (row) {
+        const {
+            bonus,
+            createdAt: date,
+            point,
+            unitPrice
+        } = row;
+        return Object.freeze({
+            amount: calculateSolde(point, unitPrice),
+            bonus,
+            date,
+            point
+        });
+    });
+    return result;
+};
+Trans.getAllByTime= async function ({limit, offset, start, end}) {
+    const result = await Trans.findAndCountAll({
+        limit,
+        offset,
+        order: [["createdAt", "DESC"]],
+        include: [
+            {
+                as: "Driver",
+                attributes: ["id", "firstName", "lastName", "avatar"],
+                model: User,
+                require: true
+            }
+        ],
+        where: {
+            type: "recharge",
+            createdAt: {
+              [Op.between]: [start, end],
+            }
+        },
+    });
+    result.rows = result.rows.map(function (row) {
+        const {
+            bonus,
+            createdAt: date,
+            point,
+            unitPrice
+        } = row;
+        const {
+            avatar,
+            firstName,
+            lastName
+        } = row.Driver
+        return Object.freeze({
+            amount: calculateSolde(point, unitPrice),
+            bonus,
+            date,
+            point,
+            avatar,
+            firstName,
+            lastName
+        });
+    });
+    return result;
+};
+
 module.exports = Object.freeze({
     Blacklist,
     Delivery,
@@ -356,6 +456,9 @@ module.exports = Object.freeze({
     Registration,
     Room,
     User,
+    Bundle,
+    Transaction: Trans,
+    Payment,
     UserRoom,
     connection,
     otpRequest

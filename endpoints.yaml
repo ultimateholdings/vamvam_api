@@ -314,4 +314,65 @@ auth-endpoints:
         body:
         response:
           rooms: roomData[]
+
+    bundle:
+      /bundle/infos:
+        action: "get bundle infos"
+        type: get
+        body:
+          bundleId: string
+        response:
+          title: string
+          bonus: doudle
+          point: double
+          unitPrice: double
+          price: double
+          gain: double
+      /bundle/:
+        action: "get all bundles"
+        type: get
+        body:
+        response:
+          data:
+            title: string
+            bonus: doudle
+            point: double
+            unitPrice: double
+            price: double
+            gain: double  
+    transaction:
+      /transaction/init-transaction:
+        action: "initialiaze payment"
+        type: post
+        body:
+          packId: string
+          payload:
+            phone_number: string
+            amount: double,
+            email: string
+            fullname: string
+        response:
+      /transaction/history:
+        action: "list driver transaction"
+        type: get
+        query:
+          page: double
+          limit: double
+        body:
+          type: string
+        response:
+          total: double
+        data: 
+          amount: double
+          bonus: double
+          date: string
+          point: double
+      /transaction/wallet-infos:
+        action: "give driver wallet information"
+        type: get
+        body:
+        response:
+          solde: double
+          bonus: double
+          point: double
             
