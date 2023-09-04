@@ -6,10 +6,6 @@ const {DataTypes} = require("sequelize");
 
 function defineBundleModel(connection) {
     const schema = {
-        title: {
-            type: DataTypes.STRING,
-            allowNull: false
-        },
         bonus: {
             type: DataTypes.DOUBLE,
             allowNull: false

@@ -1,5 +1,9 @@
-const { Transaction, Payment, Bundle, Delivery } = require("../models");
-const { errors, responseMessage, staticProps } = require("../utils/config");
+const { Transaction, Payment, Bundle, Delivery, User } = require("../models");
+const {
+  errors,
+  responseMessage,
+  staticPaymentProps,
+} = require("../utils/config");
 const { FLW_SECRET_HASH } = process.env;
 const {
   propertiesPicker,
@@ -22,11 +26,13 @@ function getTransactionModule({
   modelBundle,
   deliveryModel,
   paymentHan,
+  modelUser,
 }) {
   const transactionModel = modelTrans || Transaction;
   const paymentModel = modelPay || Payment;
   const bundleModel = modelBundle || Bundle;
   const deliveriesModel = deliveryModel || Delivery;
+  const userModel = modelUser || User;
   const paymentHandler =
     paymentHan || paymentManager(getPaymentService(paymentModel, bundleModel));
   const genericProps = ["point", "bonus", "userId"];
@@ -68,12 +74,24 @@ function getTransactionModule({
   }
 
   async function initTrans(req, res) {
-    let { payload } = req.body;
-    const { id: packId } = req.bundle;
     const { id: driverId } = req.user.token;
-    payload.currency = staticProps.currency;
-    payload.country = staticProps.country;
-    payload.tx_ref = staticProps.tx_ref;
+    const { phone_number } = req.body;
+    const { point, unitPrice, id: packId } = req.bundle;
+    const amount = calculateSolde(point, unitPrice);
+    let { lastName, firstName, email } = await userModel.findOne({
+      where: { id: driverId },
+      attributes: ["firstName", "lastName", "email"],
+    });
+    const fullname = lastName + " " + firstName;
+    let payload = {
+      phone_number: phone_number,
+      amount: amount,
+      email: email,
+      fullname: fullname,
+      currency: staticPaymentProps.currency,
+      country: staticPaymentProps.country,
+      tx_ref: staticPaymentProps.tx_ref,
+    };
     const { init, code, message } = await paymentHandler.initTransaction(
       payload,
       driverId,
@@ -167,8 +185,8 @@ function getTransactionModule({
           {
             bonus: createdProps.bonus,
             point: createdProps.point,
-            type: staticProps.debit_type,
-            unitPrice: staticProps.debit_amount,
+            type: staticPaymentProps.debit_type,
+            unitPrice: staticPaymentProps.debit_amount,
             userId: createdProps.userId,
           }
         );

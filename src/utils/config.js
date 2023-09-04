@@ -402,7 +402,7 @@ const otpTypes = {
     reset: "reset",
 };
 
-const staticProps = {
+const staticPaymentProps = {
     country: "CM",
     currency: "XAF",
     tx_ref: "transfer-" + Date.now(),
@@ -504,7 +504,7 @@ const config = Object.freeze({
     tokenTtl: process.env.TOKEN_EXP,
     uploadsRoot: "/uploads/",
     userStatuses,
-    staticProps
+    staticPaymentProps
 });
 
 module.exports = config;

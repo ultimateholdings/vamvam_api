@@ -72,13 +72,13 @@ describe("Bundle CRUD test", function () {
       getToken(app, dbUsers.goodUser.phone),
     ]);
     bundle = await Bundle.create(bundles[0]);
-    const bundleId = bundle.id;
+    const id = bundle.id;
     response = await app
       .get("/bundle/infos")
-      .send({ bundleId })
+      .send({ id })
       .set("authorization", "Bearer " + userToken);
     assert.equal(response.status, 200);
-    assert.equal(response.body.bundleId, bundleId);
+    assert.equal(response.body.id, id);
   });
   it("should edit bunch", async function () {
     let response;
@@ -94,7 +94,7 @@ describe("Bundle CRUD test", function () {
       getToken(app, dbUsers.admin.phone),
     ]);
     bundle = await Bundle.create(bundles[5]);
-    updateData.bundleId = bundle.id
+    updateData.id = bundle.id
     response = await app.post("/bundle/update")
     .send(updateData)
     .set("authorization", "Bearer " + adminToken);
@@ -107,10 +107,10 @@ describe("Bundle CRUD test", function () {
       getToken(app, dbUsers.admin.phone),
     ]);
     bundle = await Bundle.create(bundles[5]);
-    const bundleId = bundle.id;
+    const id = bundle.id;
     response = await app
       .post("/bundle/delete")
-      .send({ bundleId })
+      .send({ id })
       .set("authorization", "Bearer " + adminToken);
     assert.equal(response.status, 204);
   })

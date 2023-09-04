@@ -61,24 +61,15 @@ describe("Transaction test", function () {
   });
   it("should recharge with good props", async function () {
     let response;
-    let [driver] = await Promise.all([
-      clientSocketCreator("delivery", tokens[1]),
-    ]);
+    let driver = await clientSocketCreator("delivery", tokens[1]);
     const { id: packId } = await Bundle.create(bundles[0]);
-    const payload = {
-      phone_number: "+237683411151",
-      amount: 3000,
-      email: "support@ultimateholdingsinc.com",
-      fullname: dbUsers.firstDriver.firstName,
-    };
+    const  phone_number = "+237683411151"
     response = await app
       .post("/transaction/init-transaction")
-      .send({ payload, packId })
+      .send({ phone_number, packId })
       .set("authorization", "Bearer " + tokens[1]);
-    data = await Promise.allSettled([
-      listenEvent({ name: "payment-initiated", socket: driver }),
-    ]);
     assert.equal(response.status, 200);
+    data = await listenEvent({ name: "payment-initiated", socket: driver });
   });
   it("should verify transaction", async function () {
     let response;
