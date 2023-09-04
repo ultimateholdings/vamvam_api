@@ -3,11 +3,14 @@ node
 */
 const {
     Blacklist,
+    Bundle,
     Delivery,
     DeliveryConflict,
     Message,
+    Payment,
     Registration,
     Room,
+    Transaction,
     User,
     UserRoom,
     connection,
@@ -31,6 +34,9 @@ async function up() {
     await createTable(connection, DeliveryConflict);
     await createTable(connection, Registration);
     await createTable(connection, Blacklist);
+    await createTable(connection, Bundle);
+    await createTable(connection, Payment);
+    await createTable(connection, Transaction);
 }
 
 async function down() {
@@ -45,6 +51,9 @@ async function down() {
         DeliveryConflict.getTableName()
     );
     await connection.getQueryInterface().dropTable(Blacklist.getTableName());
+    await connection.getQueryInterface().dropTable(Bundle.getTableName());
+    await connection.getQueryInterface().dropTable(Payment.getTableName());
+    await connection.getQueryInterface().dropTable(Transaction.getTableName());
 }
 
 module.exports = Object.freeze({down, up});

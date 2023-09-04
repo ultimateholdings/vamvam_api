@@ -450,13 +450,13 @@ Trans.getAllByTime= async function ({limit, offset, start, end}) {
 
 module.exports = Object.freeze({
     Blacklist,
+    Bundle,
     Delivery,
     DeliveryConflict,
     Message,
     Registration,
     Room,
     User,
-    Bundle,
     Transaction: Trans,
     Payment,
     UserRoom,
