@@ -1,5 +1,5 @@
 const { Transaction, Payment, Bundle, Delivery } = require("../models");
-const { errors, responseMessage } = require("../utils/config");
+const { errors, responseMessage, staticProps } = require("../utils/config");
 const { FLW_SECRET_HASH } = process.env;
 const {
   propertiesPicker,
@@ -34,20 +34,12 @@ function getTransactionModule({
   deliveriesModel.addEventListener("can-delivery", subscriberDeliverers);
   deliveriesModel.addEventListener("point-withdrawal", withdrawal);
 
-  const staticProps = {
-    country: "CM",
-    currency: "XAF",
-    tx_ref: "transfer-" + Date.now(),
-    debit_amount: 300,
-    debit_type: "withdrawal",
-  };
-
   async function canAccess(req, res, next) {
     let payment;
     const secretHash = FLW_SECRET_HASH;
     const signature = req.headers["verif-hash"];
     const { status, id } = req.body.data;
-    if (!signature || signature !== secretHash) {
+    if (signature !== secretHash) {
       return sendResponse(res, errors.notAuthorized);
     }
     if (status === "successful") {
@@ -106,7 +98,7 @@ function getTransactionModule({
       if (verifiedTrans) {
         await reloadBalance(data);
         res.status(200).json({});
-        deliveriesModel.emitEvent("successful-payment", {data: data});
+        deliveriesModel.emitEvent("successful-payment", { data: data });
       } else {
         res.status(401).end();
         deliveriesModel.emitEvent("failure-payment", {

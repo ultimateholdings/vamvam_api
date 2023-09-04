@@ -9,7 +9,6 @@ const buildBundleRoutes = require("./bundle.route");
 const buildRechargeRoutes = require("./transaction.route");
 const buildRegistrationRoutes = require("./driver.route");
 const buildChatRoutes = require("./chat.route");
-const buildWebhookRoutes = require("./webhook.route");
 const buildAdminRoutes = require("./admin.route");
 const {Router} = require("express");
 
@@ -21,8 +20,7 @@ function buildRoutes({
     userRoutes,
     bundleRoutes,
     rechargeRoutes,
-    registrationRoutes,
-    webhookRoutes
+    registrationRoutes
 }) {
     const authRouter = authRoutes || buildAuthRoutes();
     const userRouter = userRoutes || buildUserRoutes();
@@ -31,7 +29,6 @@ function buildRoutes({
     const rechargeRouter = rechargeRoutes || buildRechargeRoutes();
     const registrationRouter = registrationRoutes || buildRegistrationRoutes();
     const chatRouter = chatRoutes || buildChatRoutes();
-    const webhookRouter = webhookRoutes || buildWebhookRoutes();
     const adminRouter = adminRoutes || buildAdminRoutes();
     const router = new Router();
     router.use("/auth", authRouter);
@@ -41,7 +38,6 @@ function buildRoutes({
     router.use("/transaction", rechargeRouter);
     router.use("/driver", registrationRouter);
     router.use("/discussion", chatRouter);
-    router.use("/flw-webhook", webhookRouter);
     router.use("/admin", adminRouter);
     return router;
 }

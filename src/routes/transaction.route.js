@@ -16,6 +16,10 @@ function getTransactionRouter(module){
         transactonModule.ensureBundleExists,
         errorHandler(transactonModule.initTrans)
     );
+    router.post(
+        "/verify",
+        transactonModule.finalizePayment
+    );
     router.get(
         "/history",
         protectRoute,

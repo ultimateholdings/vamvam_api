@@ -56,7 +56,6 @@ describe("Transaction test", function () {
   // });
 
   after(async function () {
-    await connection.drop()
     socketServer.close();
     server.close();
   });
@@ -83,21 +82,20 @@ describe("Transaction test", function () {
   });
   it("should verify transaction", async function () {
     let response;
-    let [driver] = await Promise.all([
-      clientSocketCreator("delivery", tokens[1]),
-    ]);
+    let driver;
     const { id: packId } = await Bundle.create(bundles[0]);
     const { id: transId } = webhookData.data;
-    const payment = Payment.create({
+    await Payment.create({
       transId:  transId,
-      driverId: driver.id,
+      driverId: dbUsers.firstDriver.id,
       packId: packId
     });
     response = await app
-      .post("/flw-webhook")
+      .post("/transaction/verify")
       .send(webhookData)
       .set("authorization", "Bearer " + tokens[1]);
-    assert.equal(response.status, 200);
+    driver = await clientSocketCreator("delivery", tokens[0]);
+    await listenEvent({name: "successful-payment", socket: driver});
   });
   it("should return transaction history and wallet infos", async function () {
     let response;
