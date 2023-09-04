@@ -49,11 +49,12 @@ describe("Transaction test", function () {
       getToken(app, dbUsers.firstDriver.phone),
       getToken(app, dbUsers.admin.phone),
     ]);
+    this.timeout(10000);
   });
 
-  // afterEach(async function () {
-  //   await connection.drop();
-  // });
+  afterEach(async function () {
+    await connection.drop();
+  });
 
   after(async function () {
     socketServer.close();
