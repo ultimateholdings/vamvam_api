@@ -172,5 +172,4 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
         sendMessage
     });
 }
-
 module.exports = getChatModule;
