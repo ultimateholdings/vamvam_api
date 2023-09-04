@@ -44,6 +44,7 @@ const users = {
     lastName: "Benoît",
     phone: "+00383998-7388-2423",
     role: availableRoles.driverRole,
+    email: "support@ultimateholdingsinc.com"
   },
   goodUser: {
     avatar: "/path/to/avatar.jpg",

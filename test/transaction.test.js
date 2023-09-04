@@ -49,55 +49,45 @@ describe("Transaction test", function () {
       getToken(app, dbUsers.firstDriver.phone),
       getToken(app, dbUsers.admin.phone),
     ]);
+    this.timeout(10000);
   });
 
-  // afterEach(async function () {
-  //   await connection.drop();
-  // });
+  afterEach(async function () {
+    await connection.drop();
+  });
 
   after(async function () {
-    await connection.drop()
     socketServer.close();
     server.close();
   });
   it("should recharge with good props", async function () {
     let response;
-    let [driver] = await Promise.all([
-      clientSocketCreator("delivery", tokens[1]),
-    ]);
+    let driver = await clientSocketCreator("delivery", tokens[1]);
     const { id: packId } = await Bundle.create(bundles[0]);
-    const payload = {
-      phone_number: "+237683411151",
-      amount: 3000,
-      email: "support@ultimateholdingsinc.com",
-      fullname: dbUsers.firstDriver.firstName,
-    };
+    const  phone_number = "+237683411151"
     response = await app
       .post("/transaction/init-transaction")
-      .send({ payload, packId })
+      .send({ phone_number, packId })
       .set("authorization", "Bearer " + tokens[1]);
-    data = await Promise.allSettled([
-      listenEvent({ name: "payment-initiated", socket: driver }),
-    ]);
     assert.equal(response.status, 200);
+    data = await listenEvent({ name: "payment-initiated", socket: driver });
   });
   it("should verify transaction", async function () {
     let response;
-    let [driver] = await Promise.all([
-      clientSocketCreator("delivery", tokens[1]),
-    ]);
+    let driver;
     const { id: packId } = await Bundle.create(bundles[0]);
     const { id: transId } = webhookData.data;
-    const payment = Payment.create({
+    await Payment.create({
       transId:  transId,
-      driverId: driver.id,
+      driverId: dbUsers.firstDriver.id,
       packId: packId
     });
     response = await app
-      .post("/flw-webhook")
+      .post("/transaction/verify")
       .send(webhookData)
       .set("authorization", "Bearer " + tokens[1]);
-    assert.equal(response.status, 200);
+    driver = await clientSocketCreator("delivery", tokens[0]);
+    await listenEvent({name: "successful-payment", socket: driver});
   });
   it("should return transaction history and wallet infos", async function () {
     let response;

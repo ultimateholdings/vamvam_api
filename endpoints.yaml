@@ -320,9 +320,8 @@ auth-endpoints:
         action: "get bundle infos"
         type: get
         body:
-          bundleId: string
+          id: string
         response:
-          title: string
           bonus: doudle
           point: double
           unitPrice: double
@@ -334,10 +333,9 @@ auth-endpoints:
         body:
         response:
           data:
-            title: string
+            id: string
             bonus: doudle
             point: double
-            unitPrice: double
             price: double
             gain: double  
     transaction:
@@ -346,11 +344,7 @@ auth-endpoints:
         type: post
         body:
           packId: string
-          payload:
-            phone_number: string
-            amount: double,
-            email: string
-            fullname: string
+          phone_number: string
         response:
       /transaction/history:
         action: "list driver transaction"

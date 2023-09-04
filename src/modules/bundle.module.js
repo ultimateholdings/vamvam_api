@@ -11,7 +11,7 @@ function calculateGainMin(nb_point, minDeliveryPrice = 1000) {
 }
 function getBundleModule({ model }) {
   const BundleModel = model || Bundle;
-  const bundleProps = ["title", "bonus", "point", "unitPrice"];
+  const bundleProps = ["bonus", "point", "unitPrice"];
   
   async function ensureBundleExists(req, res, next) {
     const { id } = req.body;
@@ -29,7 +29,6 @@ function getBundleModule({ model }) {
       propertiesCreate = pickedProperties(bundleProps);
       if (propertiesCreate !== undefined) {
         await BundleModel.create({
-          title: propertiesCreate.title,
           bonus: propertiesCreate.bonus,
           point: propertiesCreate.point,
           unitPrice: propertiesCreate.unitPrice,
@@ -45,18 +44,17 @@ function getBundleModule({ model }) {
   async function getBundleInfos(req, res) {
     let price;
     let gainMin;
-    const { bundleId } = req.body;
+    const { id } = req.body;
     const bundle = await BundleModel.findOne({
       where: {
-        id: bundleId,
+        id: id,
       },
     });
     if (bundle != null) {
       price = calculateSolde(bundle.point, bundle.unitPrice);
       gainMin = calculateSolde(bundle.point, minDeliveryPrice);
       res.status(200).json({
-        bundleId: bundle.id,
-        title: bundle.title,
+        id: bundle.id,
         bonus: bundle.bonus,
         point: bundle.point,
         unitPrice: bundle.unitPrice,
@@ -73,8 +71,7 @@ function getBundleModule({ model }) {
       let bunchs;
       bunchs = await BundleModel.findAll();
       data = bunchs?.map((bunch) => ({
-        bundleId: bunch.id,
-        title: bunch.title,
+        id: bunch.id,
         bonus: bunch.bonus,
         point: bunch.point,
         unitPrice: bunch.unitPrice,
@@ -87,7 +84,7 @@ function getBundleModule({ model }) {
     }
   }
   async function updateBunch(req, res) {
-    let { bundleId } = req.body;
+    let { id } = req.body;
     let updated;
     let updatedProps;
     try {
@@ -95,7 +92,7 @@ function getBundleModule({ model }) {
       updatedProps = pickedProperties(bundleProps);
       if (updatedProps !== undefined) {
         updated = await BundleModel.update(updatedProps, {
-          where: { id: bundleId },
+          where: { id: id },
         });
         res.status(200).json({
           message: {
@@ -111,10 +108,10 @@ function getBundleModule({ model }) {
     }
   }
   async function deleteBunch(req, res) {
-    const { bundleId } = req.body;
+    const { id } = req.body;
     try {
       await BundleModel.destroy({
-        where: { id: bundleId },
+        where: { id: id },
       });
       res.status(204).send();
     } catch (error) {

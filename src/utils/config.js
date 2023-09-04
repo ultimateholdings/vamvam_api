@@ -402,6 +402,14 @@ const otpTypes = {
     reset: "reset",
 };
 
+const staticPaymentProps = {
+    country: "CM",
+    currency: "XAF",
+    tx_ref: "transfer-" + Date.now(),
+    debit_amount: 300,
+    debit_type: "withdrawal",
+};
+
 const config = Object.freeze({
     ages,
     apiDeliveryStatus,
@@ -495,7 +503,8 @@ const config = Object.freeze({
     registrationsRoot: "/registrations/",
     tokenTtl: process.env.TOKEN_EXP,
     uploadsRoot: "/uploads/",
-    userStatuses
+    userStatuses,
+    staticPaymentProps
 });
 
 module.exports = config;

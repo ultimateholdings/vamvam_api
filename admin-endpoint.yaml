@@ -36,7 +36,7 @@ bundle:
   body:
   response:
     data:
-      title: string
+      id: string
       bonus: doudle
       point: double
       unitPrice: double
@@ -46,7 +46,7 @@ bundle:
    action: "update bundle"
   type: post
   body:
-    title: string
+    id: string
     bonus: doudle
     point: double
     unitPrice: double
@@ -56,7 +56,7 @@ bundle:
    action: "delete bundle"
   type: post
   body:
-    bundleId: string
+    id: string
   response:
 
 transaction:
