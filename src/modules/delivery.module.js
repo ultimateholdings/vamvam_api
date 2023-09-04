@@ -125,16 +125,21 @@ function getDeliveryModule({associatedModels, model}) {
             } else {
                 position = data;
             }
-            position = toDbPoint(position);
-            await associations.User.update(
-                {position},
-                {where: {id: driverId}}
-            );
-            clients = await deliveryModel.findAll({where: {
-                driverId,
-                status: "started"
-            }});
-            clients = clients ?? [];
+            try {
+                position = toDbPoint(position);
+                await associations.User.update(
+                    {position},
+                    {where: {id: driverId}}
+                );
+                clients = await deliveryModel.getOngoing(driverId);
+                clients = clients ?? []; 
+            } catch (error) {
+                deliveryModel.emitEvent("driver-position-update-failed", {
+                    data: error.message,
+                    driverId,
+                    message: errors.invalidLocation.message
+                });
+            }
             deliveryModel.emitEvent("driver-position-update-completed", {
                 clients: clients.map(function (delivery) {
                     const result = Object.create(null);
@@ -379,6 +384,7 @@ function getDeliveryModule({associatedModels, model}) {
             delivery,
             [client, driver, ...others]
         );
+        await driver.setAvailability(false);
     }
 
     async function archiveConflict(req, res) {
@@ -392,7 +398,7 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function assignDriver(req, res) {
         const {conflict, driver} = req;
-        const {id} = req.body;
+        const {id} = req.user.token;
         let assignment = await conflict.getDeliveryDetails();
         conflict.assignerId = id;
         conflict.backupId = driver.id;
@@ -402,6 +408,7 @@ function getDeliveryModule({associatedModels, model}) {
             assignment,
             driverId: driver.id
         });
+        await driver.setAvailability(false);
     }
 
     async function cancelDelivery(req, res) {
@@ -610,6 +617,10 @@ calculation of at delivery */
             conflict,
             deliveryId: delivery.id
         });
+        await associations.User.update(
+            {available: true},
+            {where: {id: delivery.driverId}}
+        );
     }
 
     async function signalReception(req, res) {
@@ -632,6 +643,7 @@ calculation of at delivery */
 
     async function terminateDelivery(req, res) {
         const {canTerminate, delivery} = req;
+        const {id} = req.user.token;
         if (canTerminate === true) {
             delivery.status = deliveryStatuses.terminated;
             delivery.end = new Date().toISOString();
@@ -643,6 +655,7 @@ calculation of at delivery */
                 "delivery-end",
                 {clientId: delivery.clientId, deliveryId: delivery.id}
             );
+            await associations.User.update({available: true}, {where: {id}});
         } else {
             return sendResponse(
                 res,
@@ -671,6 +684,7 @@ calculation of at delivery */
             assignerId: conflict.assignerId,
             conflictId: conflict.id
         });
+        await associations.User.update({available: true}, {where: {id}});
     }
 
     async function getOngoingDeliveries(req, res) {
