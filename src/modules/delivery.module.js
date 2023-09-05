@@ -116,30 +116,26 @@ function getDeliveryModule({associatedModels, model}) {
         );
     }
     async function updateDriverPosition(driverMessage) {
-        const {data, driverId} = driverMessage;
+        let {data, driverId} = driverMessage;
         let clients;
         let position;
-        if (isValidLocation(data)) {
+        try {
+            data = JSON.parse(data.toString());
+            if (!isValidLocation(data)) {
+                throw new Error("invalid location datas");
+            }
             if (Array.isArray(data)) {
                 position = data.at(-1);
             } else {
                 position = data;
             }
-            try {
-                position = toDbPoint(position);
-                await associations.User.update(
-                    {position},
-                    {where: {id: driverId}}
-                );
-                clients = await deliveryModel.getOngoing(driverId);
-                clients = clients ?? []; 
-            } catch (error) {
-                deliveryModel.emitEvent("driver-position-update-failed", {
-                    data: error.message,
-                    driverId,
-                    message: errors.invalidLocation.message
-                });
-            }
+            position = toDbPoint(position);
+            await associations.User.update(
+                {position},
+                {where: {id: driverId}}
+            );
+            clients = await deliveryModel.getOngoing(driverId);
+            clients = clients ?? [];
             deliveryModel.emitEvent("driver-position-update-completed", {
                 clients: clients.map(function (delivery) {
                     const result = Object.create(null);
@@ -149,6 +145,12 @@ function getDeliveryModule({associatedModels, model}) {
                     return result;
                 }),
                 driverId
+            });
+        } catch (error) {
+            deliveryModel.emitEvent("driver-position-update-failed", {
+                data: error.message,
+                driverId,
+                message: errors.invalidLocation.message
             });
         }
     }
@@ -318,7 +320,11 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function ensureDeliveryExists(req, res, next) {
         const {id} = req.body;
-        const delivery = await deliveryModel?.findOne({where: {id}});
+        let delivery;
+        if (typeof id !== "string" || id === "") {
+            return sendResponse(res, errors.invalidValues);
+        }
+        delivery = await deliveryModel?.findOne({where: {id}});
 
         if (delivery === null) {
             return sendResponse(res, errors.notFound);
@@ -343,7 +349,11 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function ensureDriverExists(req, res, next) {
         const {driverId} = req.body;
-        let driver = await associations.User.findOne({
+        let driver;
+        if (typeof driverId !== "string" || driverId === "") {
+            return sendResponse(res, errors.invalidValues);
+        }
+        driver = await associations.User.findOne({
             where: {id: driverId}
         });
         if (driver === null) {

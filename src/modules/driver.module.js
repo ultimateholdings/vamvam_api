@@ -35,7 +35,11 @@ function getRegistrationModule({associatedModels, model}) {
 
     async function ensureRegistrationExists(req, res, next) {
         const {id} = req.body;
-        const registration = await registrationModel.findOne({where: {id}});
+        let registration;
+        if (typeof id !== "string" || id === "") {
+            return sendResponse(res, errors.invalidValues);
+        }
+        registration = await registrationModel.findOne({where: {id}});
         if (registration === null) {
             return sendResponse(res, errors.notFound);
         }
@@ -62,7 +66,11 @@ function getRegistrationModule({associatedModels, model}) {
 
     async function ensureUserNotExists(req, res, next) {
         const {phoneNumber: phone} = req.body;
-        const user = await associations.User.findOne({where: {phone}});
+        let user;
+        if (typeof phone !== "string" || phone === "") {
+            return sendResponse(res, errors.invalidValues);
+        }
+        user = await associations.User.findOne({where: {phone}});
         if (user !== null) {
             return sendResponse(res, errors.existingUser);
         }

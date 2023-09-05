@@ -75,7 +75,11 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
 
     async function ensureRoomExists(req, res, next) {
         const {roomId} = req.body;
-        const room = await roomsModel.findOne({where: {id: roomId}});
+        let room;
+        if (typeof roomId !== "string" || roomId === "") {
+            return sendResponse(res, errors.invalidValues);
+        }
+        room = await roomsModel.findOne({where: {id: roomId}});
         if (room === null) {
             return sendResponse(res, errors.notFound);
         }

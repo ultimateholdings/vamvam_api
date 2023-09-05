@@ -72,6 +72,7 @@ function getDeliveryRouter(module) {
     router.post(
         "/verify-code",
         protectRoute,
+        allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
         deliveryModule.ensureCanTerminate,
         errorHandler(deliveryModule.terminateDelivery)

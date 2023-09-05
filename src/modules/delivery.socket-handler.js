@@ -20,13 +20,19 @@ function deliveryMessageHandler(emitter) {
                 positionUpdateHandler(socket, data);
             });
             socket.on("messages-read", function (data) {
+                let messagesId = null;
+                try {
+                    messagesId = JSON.parse(data.toString());
+                } catch (ignore) {
+                    messagesId = null;
+                }
                 if (
-                    Array.isArray(data) &&
-                    data.every((id) => typeof id === "string")
+                    Array.isArray(messagesId) &&
+                    messagesId.every((id) => typeof id === "string")
                 ) {
                     emitter.emitEvent(
                         "messages-read-request",
-                        {messagesId: data, userId: socket.user.id}
+                        {messagesId, userId: socket.user.id}
                     );
                 } else {
                     socket.emit(
