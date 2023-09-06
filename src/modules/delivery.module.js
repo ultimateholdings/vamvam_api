@@ -480,7 +480,7 @@ function getDeliveryModule({associatedModels, model}) {
             status,
             to
         } = req.query;
-        const {page_token} = req.headers;
+        const pageToken = req.headers["page-token"];
         const getParams = function (params) {
             if (apiDeliveryStatus[status] !== undefined) {
                 params.status = apiDeliveryStatus[status];
@@ -501,7 +501,7 @@ function getDeliveryModule({associatedModels, model}) {
             getParams,
             maxPageSize,
             skip,
-            pageToken: page_token
+            pageToken
         });
         res.status(200).send(results);
     }

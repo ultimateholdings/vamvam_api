@@ -109,7 +109,7 @@ describe("admin features tests", function () {
         response = await app.get(
             "/user/all?maxPageSize=3"
         ).set("authorization", "Bearer " + dbUsers.admin.token)
-        .set("page_token", response.body.nextPageToken);
+        .set("page-token", response.body.nextPageToken);
         assert.deepEqual(response.body.results.length, 3);
     });
     it("should provide the list of ongoing deliveries", async function () {

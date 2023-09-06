@@ -66,7 +66,7 @@ function getUserModule({
     async function getAllUsers(req, res) {
         let results;
         let {maxPageSize, role, skip} = req.query;
-        const {page_token} = req.headers;
+        const pageToken = req.headers["page-oken"];
         const getParams = function (params) {
             if (apiRoles[role] !== undefined) {
                 params.role = apiRoles[role];
@@ -85,7 +85,7 @@ function getUserModule({
             getParams,
             maxPageSize,
             skip,
-            pageToken: page_token,
+            pageToken
         });
         res.status(200).json(results);
     }

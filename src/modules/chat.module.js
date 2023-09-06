@@ -137,7 +137,7 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
     async function getRoomMessages(req, res) {
         let response;
         let {maxPageSize, skip} = req.query;
-        const {page_token} = req.headers;
+        const pageToken = req.headers["page-token"];
         const {room} = req;
         const getParams = function (params) {
             const clone = Object.create(null);
@@ -157,7 +157,7 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
             getParams,
             maxPageSize,
             skip,
-            pageToken: page_token
+            pageToken
         });
         res.status(200).json(response);
     }
