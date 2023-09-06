@@ -14,8 +14,12 @@ function getBundleModule({ model }) {
   const bundleProps = ["bonus", "point", "unitPrice"];
   
   async function ensureBundleExists(req, res, next) {
-    const { id } = req.body;
-    const bundle = await BundleModel?.findOne({ where: { id } });
+    const {id} = req.body;
+    let bundle;
+    if (typeof id !== "string" || id === "") {
+      return sendResponse(res, errors.invalidValues);
+    }
+    bundle = await BundleModel?.findOne({ where: { id } });
     if (bundle === null) {
       return sendResponse(res, errors.notFound);
     }

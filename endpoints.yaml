@@ -243,6 +243,7 @@ auth-endpoints:
       type: post
       body:
         id: string
+        code: string
       response:
         terminated: boolean
 
@@ -298,7 +299,7 @@ auth-endpoints:
         type: get
         queryString:
           maxPageSize: number
-          index: number
+          skip: number
         headers:
           page_token: string
         body:

@@ -21,7 +21,11 @@ function getAdminModule({associatedModels}) {
 
     async function ensureUserExists(req, res, next) {
         const {id} = req.body;
-        const user = await associations.User.findOne({where: {id}});
+        let user;
+        if (typeof id !== "string" || id === "") {
+            return sendResponse(res, errors.invalidValues);
+        }
+        user = await associations.User.findOne({where: {id}});
         if (user === null) {
             return sendResponse(res, errors.notFound);
         }

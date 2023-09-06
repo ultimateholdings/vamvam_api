@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {eventMessages} = require("../utils/config");
+const {eventMessages, errors} = require("../utils/config");
 const {socketAuthenticator} = require("../utils/middlewares");
 
 function deliveryMessageHandler(emitter) {
@@ -20,10 +20,26 @@ function deliveryMessageHandler(emitter) {
                 positionUpdateHandler(socket, data);
             });
             socket.on("messages-read", function (data) {
-                emitter.emitEvent(
-                    "messages-read-request",
-                    {messagesId: data, userId: socket.user.id}
-                );
+                let messagesId = null;
+                try {
+                    messagesId = JSON.parse(data.toString());
+                } catch (ignore) {
+                    messagesId = null;
+                }
+                if (
+                    Array.isArray(messagesId) &&
+                    messagesId.every((id) => typeof id === "string")
+                ) {
+                    emitter.emitEvent(
+                        "messages-read-request",
+                        {messagesId, userId: socket.user.id}
+                    );
+                } else {
+                    socket.emit(
+                        "messages-read-fail",
+                        errors.invalidValues.message
+                    );
+                }
             });
             socket.on("itinerary-changed", function (data) {
                 itineraryUpdateHandler(socket, data);
@@ -54,10 +70,15 @@ function deliveryMessageHandler(emitter) {
         }
 
         function onPositionUpdateCompleted({clients, driverId}) {
-            connectedUsers[driverId]?.emit?.("position-updated", true);
+            connectedUsers[driverId]?.emit("position-updated", true);
             clients.forEach(function ({id, ...data}) {
-                connectedUsers[id]?.emit?.("new-driver-position", data);
+                connectedUsers[id]?.emit("new-driver-position", data);
             });
+        }
+
+        function handlePositionUpdateFailure(data) {
+            const {driverId, ...rest} = data;
+            connectedUsers[driverId]?.emit("position-update-failed", rest);
         }
 
         function handleRejectedItinerary({driverId, error, points, id}) {
@@ -93,9 +114,9 @@ function deliveryMessageHandler(emitter) {
                 emitter.emitEvent(
                     "cloud-message-fallback-requested",
                     {
-                        message: eventMessages.deliveryEnd,
+                        message: eventMessages.deliveryAccepted,
                         meta: {eventName, payload: {deliveryId, driver}},
-                        recieverId: clientId
+                        receiverId: clientId
                     }
                 );
             }
@@ -112,7 +133,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.newAssignment,
                         meta: {eventName, payload: assignment},
-                        recieverId: driverId
+                        receiverId: driverId
                     }
                 );
             }
@@ -129,7 +150,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.deliveryEnd,
                         meta: {eventName, payload: deliveryId},
-                        recieverId: clientId
+                        receiverId: clientId
                     }
                 );
             }
@@ -165,7 +186,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.newDelivery,
                         meta: {eventName, payload: deliveryId},
-                        recieverId: clientId
+                        receiverId: clientId
                     }
                 );
             }
@@ -186,7 +207,7 @@ function deliveryMessageHandler(emitter) {
                         {
                             message: eventMessages.deliveryStarted,
                             meta: {eventName, payload: deliveryId},
-                            recieverId: id
+                            receiverId: id
                         }
                     );
                 }
@@ -223,7 +244,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.newConflict,
                         meta: {eventName, payload: deliveryId},
-                        recieverId: clientId
+                        receiverId: clientId
                     }
                     );
                 }
@@ -261,7 +282,7 @@ function deliveryMessageHandler(emitter) {
                             message.sender.firstName + ": " + message.content
                         ),
                         meta: {eventName, payload: message},
-                        recieverId: userId
+                        receiverId: userId
                     }
                 );
             }
@@ -285,7 +306,7 @@ function deliveryMessageHandler(emitter) {
                                     eventMessages.roomDeletedBody
                                 ),
                                 meta: {eventName, payload: room},
-                                recieverId: userId
+                                receiverId: userId
                             }
                         );
                     }
@@ -306,7 +327,7 @@ function deliveryMessageHandler(emitter) {
                         {
                             message: eventMessages.newRoom,
                             meta: {eventName, payload: room},
-                            recieverId: id
+                            receiverId: id
                         }
                     );
                 }
@@ -388,6 +409,10 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener("payment-initiated", handleInitPayment);
         emitter.addEventListener("failure-payment", handleFailurePayment);
         emitter.addEventListener("successful-payment", handleSuccessPayment);
+        emitter.addEventListener(
+            "driver-position-update-failed",
+            handlePositionUpdateFailure
+        );
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

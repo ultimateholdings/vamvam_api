@@ -89,6 +89,20 @@ function defineDeliveryModel(connection) {
         }
         return propertiesPicker(result)(allowedProps);
     };
+/*jslint-disable*/
+    delivery.getOngoing = function (driverId) {
+        return delivery.findAll({where: {
+            driverId,
+            status: {[Op.in]: [
+                [
+                    deliveryStatuses.started,
+                    deliveryStatuses.pendingReception,
+                    deliveryStatuses.toBeConfirmed
+                ]
+            ]}
+        }});
+    };
+/*jslint-enable*/
     delivery.prototype.getRecipientPhones = function () {
         let {
             phone,

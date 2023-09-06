@@ -60,8 +60,12 @@ function getTransactionModule({
   }
 
   async function ensureBundleExists(req, res, next) {
-    const { packId } = req.body;
-    const bundle = await bundleModel.findOne({ where: { id: packId } });
+    const {packId} = req.body;
+    let bundle;
+    if (typeof packId !== "string" || packId === "") {
+      return sendResponse(res, errors.invalidValues);
+    }
+    bundle = await bundleModel.findOne({ where: { id: packId } });
     if (bundle === null) {
       return sendResponse(res, errors.notFound);
     }

@@ -341,65 +341,66 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
       results: values,
     };
   }
-
+  
   async function handleValidToken({
     getParams,
     maxPageSize,
-    pageIndex,
-    tokenDatas = {},
+    skip,
+    tokenDatas = {}
   }) {
     let nextPageToken;
     let offset;
     let results;
-    offset = Number.isFinite(pageIndex)
-      ? pageIndex * maxPageSize
-      : tokenDatas.offset;
-    results = await getRessources(
-      getParams({
-        maxSize: maxPageSize,
-        offset,
-      })
+    offset = (
+        Number.isFinite(skip)
+        ? skip
+        : tokenDatas.offset
     );
-    nextPageToken =
-      results.values.length < maxPageSize
+    results = await getRessources(getParams({
+        maxSize: maxPageSize,
+        offset
+    }));
+    nextPageToken = (
+        results.values.length < maxPageSize
         ? null
         : tokenManager.sign({
             lastId: results.lastId,
-            offset: offset + maxPageSize,
-          });
+            offset: offset + maxPageSize
+        })
+    );
     if (
-      results.formerLastId !== tokenDatas.lastId &&
-      nextPageToken !== null &&
-      !Number.isFinite(pageIndex)
+        (results.formerLastId !== tokenDatas.lastId) &&
+        (nextPageToken !== null) &&
+        (!Number.isFinite(skip))
     ) {
-      results = await handleInvalidToken({
-        getParams,
-        maxSize: maxPageSize,
-        refreshed: true,
-      });
+        results = await handleInvalidToken({
+            getParams,
+            maxSize: maxPageSize,
+            refreshed: true
+        });
     } else {
-      results = {
-        nextPageToken,
-        refreshed: false,
-        results: results.values,
-      };
+        results = {
+            nextPageToken,
+            refreshed: false,
+            results: results.values
+        };
     }
     return results;
   }
-
+  
   return async function paginate({
     getParams = cloneObject,
     maxPageSize,
-    pageIndex,
-    pageToken,
+    skip,
+    pageToken
   }) {
     let datas;
     let results;
-    if (Number.isFinite(pageIndex)) {
+    if (Number.isFinite(skip)) {
       return handleValidToken({
-        getParams,
-        maxPageSize,
-        pageIndex,
+          getParams,
+          maxPageSize,
+          skip
       });
     }
     try {
@@ -408,19 +409,19 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
         results = await handleValidToken({
           getParams,
           maxPageSize,
-          pageIndex,
-          tokenDatas: datas.token,
+          tokenDatas: datas.token
         });
       } else {
-        results = await handleInvalidToken({ getParams, maxPageSize });
+        results = await handleInvalidToken({getParams, maxPageSize});
       }
     } catch (err) {
       console.error(err);
-      results = await handleInvalidToken({ getParams, maxPageSize });
+      results = await handleInvalidToken({getParams, maxPageSize});
     }
     return results;
   };
 }
+
 
 function sendCloudMessage({ body, meta, title, to }) {
   const config = getFirebaseConfig();

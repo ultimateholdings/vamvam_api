@@ -228,6 +228,14 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
             values: results.map((user) => user.toResponse())
         };
     };
+    user.prototype.setAvailability = function available (isAvailable) {
+        this.available = isAvailable;
+        return this.save();
+    }
+    user.setAvailability = function (driver, available) {
+        driver.available = available;
+        return driver.save();
+    }
 /*jslint-enable*/
     user.genericProps = genericProps;
     user.statuses = userStatuses;

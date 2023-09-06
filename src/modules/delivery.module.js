@@ -116,10 +116,14 @@ function getDeliveryModule({associatedModels, model}) {
         );
     }
     async function updateDriverPosition(driverMessage) {
-        const {data, driverId} = driverMessage;
+        let {data, driverId} = driverMessage;
         let clients;
         let position;
-        if (isValidLocation(data)) {
+        try {
+            data = JSON.parse(data.toString());
+            if (!isValidLocation(data)) {
+                throw new Error("invalid location datas");
+            }
             if (Array.isArray(data)) {
                 position = data.at(-1);
             } else {
@@ -130,10 +134,7 @@ function getDeliveryModule({associatedModels, model}) {
                 {position},
                 {where: {id: driverId}}
             );
-            clients = await deliveryModel.findAll({where: {
-                driverId,
-                status: "started"
-            }});
+            clients = await deliveryModel.getOngoing(driverId);
             clients = clients ?? [];
             deliveryModel.emitEvent("driver-position-update-completed", {
                 clients: clients.map(function (delivery) {
@@ -144,6 +145,12 @@ function getDeliveryModule({associatedModels, model}) {
                     return result;
                 }),
                 driverId
+            });
+        } catch (error) {
+            deliveryModel.emitEvent("driver-position-update-failed", {
+                data: error.message,
+                driverId,
+                message: errors.invalidLocation.message
             });
         }
     }
@@ -313,7 +320,11 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function ensureDeliveryExists(req, res, next) {
         const {id} = req.body;
-        const delivery = await deliveryModel?.findOne({where: {id}});
+        let delivery;
+        if (typeof id !== "string" || id === "") {
+            return sendResponse(res, errors.invalidValues);
+        }
+        delivery = await deliveryModel?.findOne({where: {id}});
 
         if (delivery === null) {
             return sendResponse(res, errors.notFound);
@@ -338,7 +349,11 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function ensureDriverExists(req, res, next) {
         const {driverId} = req.body;
-        let driver = await associations.User.findOne({
+        let driver;
+        if (typeof driverId !== "string" || driverId === "") {
+            return sendResponse(res, errors.invalidValues);
+        }
+        driver = await associations.User.findOne({
             where: {id: driverId}
         });
         if (driver === null) {
@@ -379,6 +394,7 @@ function getDeliveryModule({associatedModels, model}) {
             delivery,
             [client, driver, ...others]
         );
+        await driver.setAvailability(false);
     }
 
     async function archiveConflict(req, res) {
@@ -392,7 +408,7 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function assignDriver(req, res) {
         const {conflict, driver} = req;
-        const {id} = req.body;
+        const {id} = req.user.token;
         let assignment = await conflict.getDeliveryDetails();
         conflict.assignerId = id;
         conflict.backupId = driver.id;
@@ -402,6 +418,7 @@ function getDeliveryModule({associatedModels, model}) {
             assignment,
             driverId: driver.id
         });
+        await driver.setAvailability(false);
     }
 
     async function cancelDelivery(req, res) {
@@ -455,7 +472,7 @@ function getDeliveryModule({associatedModels, model}) {
         let {
             from,
             maxPageSize,
-            index: pageIndex,
+            skip,
             status,
             to
         } = req.query;
@@ -472,14 +489,14 @@ function getDeliveryModule({associatedModels, model}) {
         if (!Number.isFinite(maxPageSize)) {
             maxPageSize = 10;
         }
-        pageIndex = Number.parseInt(pageIndex, 10);
-        if (!Number.isFinite(pageIndex)) {
-            pageIndex = undefined;
+        skip = Number.parseInt(skip, 10);
+        if (!Number.isFinite(skip)) {
+            skip = undefined;
         }
         results = await deliveryPagination({
             getParams,
             maxPageSize,
-            pageIndex,
+            skip,
             pageToken: page_token
         });
         res.status(200).send(results);
@@ -610,6 +627,10 @@ calculation of at delivery */
             conflict,
             deliveryId: delivery.id
         });
+        await associations.User.update(
+            {available: true},
+            {where: {id: delivery.driverId}}
+        );
     }
 
     async function signalReception(req, res) {
@@ -632,6 +653,7 @@ calculation of at delivery */
 
     async function terminateDelivery(req, res) {
         const {canTerminate, delivery} = req;
+        const {id} = req.user.token;
         if (canTerminate === true) {
             delivery.status = deliveryStatuses.terminated;
             delivery.end = new Date().toISOString();
@@ -643,6 +665,7 @@ calculation of at delivery */
                 "delivery-end",
                 {clientId: delivery.clientId, deliveryId: delivery.id}
             );
+            await associations.User.update({available: true}, {where: {id}});
         } else {
             return sendResponse(
                 res,
@@ -671,6 +694,7 @@ calculation of at delivery */
             assignerId: conflict.assignerId,
             conflictId: conflict.id
         });
+        await associations.User.update({available: true}, {where: {id}});
     }
 
     async function getOngoingDeliveries(req, res) {
@@ -709,10 +733,13 @@ calculation of at delivery */
             if(delivery.Driver.position !== null) {
                 driverData.position = formatDbPoint(delivery.Driver.position);
             }
-            result.driver = driverData
+            result.driver = driverData;
             result.code = delivery.code;
         } else {
             result.client = delivery.Client.toShortResponse();
+            if (delivery.status === deliveryStatuses.terminated) {
+                result.code = delivery.code;
+            }
         }
         return result;
     }
