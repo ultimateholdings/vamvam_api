@@ -121,6 +121,10 @@ function getDeliveryModule({associatedModels, model}) {
         let position;
         try {
             data = JSON.parse(data.toString());
+        } catch (ignore) {
+            data = driverMessage.data;
+        }
+        try {
             if (!isValidLocation(data)) {
                 throw new Error("invalid location datas");
             }
