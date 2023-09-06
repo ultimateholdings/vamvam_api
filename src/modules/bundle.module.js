@@ -73,7 +73,11 @@ function getBundleModule({ model }) {
     try {
       let data;
       let bunchs;
-      bunchs = await BundleModel.findAll();
+      bunchs = await BundleModel.findAll({
+        order: [
+          ['point', 'ASC'],
+      ],
+      });
       data = bunchs?.map((bunch) => ({
         id: bunch.id,
         bonus: bunch.bonus,

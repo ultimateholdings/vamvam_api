@@ -521,7 +521,7 @@ function getPaymentService(paymentModel, bundleModel) {
         response = await response.json();
         if (
           response.data.status === "successful" &&
-          response.data.amount === expectedAmount &&
+          response.data.amount >= expectedAmount &&
           response.data.currency === "XAF"
         ) {
           payment.isVerify = true;

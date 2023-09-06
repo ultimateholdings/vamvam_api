@@ -338,14 +338,15 @@ auth-endpoints:
             bonus: doudle
             point: double
             price: double
-            gain: double  
+            gain: double
+
     transaction:
       /transaction/init-transaction:
         action: "initialiaze payment"
         type: post
         body:
           packId: string
-          phone_number: string
+          phoneNumber: string
         response:
       /transaction/history:
         action: "list driver transaction"
