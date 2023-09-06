@@ -344,7 +344,7 @@ auth-endpoints:
         type: post
         body:
           packId: string
-          phone_number: string
+          phoneNumber: string
         response:
       /transaction/history:
         action: "list driver transaction"

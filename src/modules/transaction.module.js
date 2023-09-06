@@ -14,11 +14,7 @@ const {
 } = require("../utils/helpers");
 
 function canSubtract(pointSum, bonusSum) {
-  if (pointSum + bonusSum === 0) {
-    return false;
-  } else {
-    return true;
-  }
+  return pointSum + bonusSum !== 0
 }
 function getTransactionModule({
   modelTrans,
@@ -75,7 +71,7 @@ function getTransactionModule({
 
   async function initTrans(req, res) {
     const { id: driverId } = req.user.token;
-    const { phone_number } = req.body;
+    const { phoneNumber } = req.body;
     const { point, unitPrice, id: packId } = req.bundle;
     const amount = calculateSolde(point, unitPrice);
     let { lastName, firstName, email } = await userModel.findOne({
@@ -84,7 +80,7 @@ function getTransactionModule({
     });
     const fullname = lastName + " " + firstName;
     let payload = {
-      phone_number: phone_number,
+      phone_number: phoneNumber,
       amount: amount,
       email: email,
       fullname: fullname,
