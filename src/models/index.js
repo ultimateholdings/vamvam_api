@@ -162,10 +162,7 @@ Message.getAllByRoom = async function ({
                 content,
                 date,
                 id,
-                room: {
-                    id: room.id,
-                    name: room.name
-                },
+                room: room.toResponse(),
                 sender: sender.toShortResponse()
             });
         })
@@ -203,10 +200,7 @@ Message.getMissedMessages = async function (userId) {
             content,
             date,
             id,
-            room: {
-                id: room.id,
-                name: room.name
-            },
+            room: room.toResponse(),
             sender: sender.toShortResponse()
         });
         return acc;
@@ -263,10 +257,7 @@ Room.getUserRooms = async function (userId) {
                 content: msg.content,
                 date: msg.createdAt.toISOString(),
                 id: msg.id,
-                room: {
-                    id: room.id,
-                    name: room.name
-                },
+                room: room.toResponse(),
                 sender: msg.sender.toShortResponse()
             })
         );

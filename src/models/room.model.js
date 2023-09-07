@@ -28,11 +28,12 @@ function defineRoomModel(connection) {
       },
     }
   );
-  room.addEventListener = function(eventName, func){
-    emitter.on(eventName, func);
-  };
-  room.emitEvent = function(eventName, func){
-    emitter.emit(eventName, func);
+  room.prototype.toResponse = function () {
+    const result = this.dataValues;
+    return Object.freeze({
+      id: result.id,
+      name: result.name
+    });
   };
   return room;
 }

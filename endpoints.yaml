@@ -301,7 +301,7 @@ auth-endpoints:
           maxPageSize: number
           skip: number
         headers:
-          page_token: string
+          page-token: string
         body:
           roomId: string
         response:

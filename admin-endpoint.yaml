@@ -40,7 +40,7 @@ admin-manager:
       role: string
       maxPageSize: number
     headers:
-      page_token: string representing the token of the requested page
+      page-token: string representing the token of the requested page
     response:
       nextPageToken: string
       results: userData[]
@@ -53,7 +53,7 @@ admin-manager:
       maxPageSize: number
       to: string representing the date after which we want to query (YYYY-MM-DD)
     headers:
-      page_token: string representing the token of the requested page
+      page-token: string representing the token of the requested page
     response:
       nextPageToken: string
       results: deliveryData[]
@@ -70,15 +70,6 @@ admin-manager:
         ongoing: number
         terminated: number
         total: number
-
-/users/drivers:
-  action: get drivers close to a location
-  type: get
-  body:
-    from: locationData
-    by: double
-    internal: boolean
-  response: userData[]
 
 bundle:
 /bundle/new-bundle:
@@ -102,9 +93,9 @@ bundle:
     gain: double
 /bundle/:
    action: "get all bundles"
-  type: get
-  body:
-  response:
+   type: get
+   body:
+   response:
     data:
       id: string
       bonus: doudle
@@ -113,7 +104,7 @@ bundle:
       price: double
       gain: double
 /bundle/update:
-   action: "update bundle"
+  action: "update bundle"
   type: post
   body:
     id: string
@@ -123,7 +114,7 @@ bundle:
   response:
     message: string
 /bundle/delete:
-   action: "delete bundle"
+  action: "delete bundle"
   type: post
   body:
     id: string

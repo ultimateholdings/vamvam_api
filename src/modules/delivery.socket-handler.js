@@ -24,7 +24,7 @@ function deliveryMessageHandler(emitter) {
                 try {
                     messagesId = JSON.parse(data.toString());
                 } catch (ignore) {
-                    messagesId = null;
+                    messagesId = data;
                 }
                 if (
                     Array.isArray(messagesId) &&
@@ -60,8 +60,12 @@ function deliveryMessageHandler(emitter) {
 
         function itineraryUpdateHandler(socket, data) {
             const {id} = socket.user;
-            const message = Object.create(null);
-            Object.assign(message, data);
+            let message;
+            try {
+                message = JSON.parse(data.toString());
+            } catch (ignore) {
+                message = data
+            }
             message.driverId = id;
             emitter.emitEvent(
                 "delivery-itinerary-update-requested",
