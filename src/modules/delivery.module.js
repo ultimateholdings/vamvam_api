@@ -5,7 +5,9 @@ const crypto = require("crypto");
 const {Delivery, DeliveryConflict, User} = require("../models");
 const {
     apiDeliveryStatus,
+    apiSettings,
     conflictStatuses,
+    dbSettings,
     deliveryStatuses,
     errors,
     availableRoles: roles
@@ -71,6 +73,13 @@ function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
     const associations = associatedModels || {DeliveryConflict, User};
     const deliveryPagination = ressourcePaginator(deliveryModel.getAll);
+    const settings = Object.entries(apiSettings.delivery.defaultValues).reduce(
+        function (acc, [key, value]) {
+            acc[dbSettings[apiSettings.delivery.value].options[key]] = value;
+            return acc;
+        },
+        Object.create(null)
+    );
 
     deliveryModel.addEventListener(
         "chat-room-requested",
@@ -207,6 +216,12 @@ function getDeliveryModule({associatedModels, model}) {
             });
         }
     }
+    
+    function updateSettings(data) {
+        Object.entries(data).forEach(function ([key, value]) {
+            settings[key] = value;
+        });
+    }
 
     deliveryModel.addEventListener(
         "driver-position-update-requested",
@@ -223,6 +238,10 @@ function getDeliveryModule({associatedModels, model}) {
     deliveryModel.addEventListener(
         "cloud-message-sending-requested",
         sendCloudMessage
+    );
+    deliveryModel.addEventListener(
+        "delivery-settings-updated",
+        updateSettings
     );
 
     function canAccessDelivery(allowedExternals = []) {
@@ -337,6 +356,16 @@ function getDeliveryModule({associatedModels, model}) {
         next();
     }
 
+    function ensureNotExpired(req, res, next) {
+        const {delivery} = req;
+        let deadline = Date.parse(delivery.createdAt);
+        deadline += settings.ttl * 1000;
+        if (deadline < Date.now()) {
+            return sendResponse(res, errors.deliveryTimeout);
+        }
+        next();
+    }
+
     function ensureInitial(req, res, next) {
         const {delivery} = req;
         if (delivery.driverId !== null) {
@@ -444,6 +473,7 @@ function getDeliveryModule({associatedModels, model}) {
         await delivery.save();
         res.status(200).send({cancelled: true});
         await notifyNearbyDrivers({
+            by: settings.search_radius,
             delivery,
             eventName: "delivery-cancelled"
         });
@@ -591,6 +621,7 @@ calculation of at delivery */
             price: body.price
         });
         await notifyNearbyDrivers({
+            by: settings.search_radius,
             delivery: tmp,
             eventName: "new-delivery"
         });
@@ -598,8 +629,16 @@ calculation of at delivery */
 
     async function relaunchDelivery(req, res) {
         const {delivery} = req;
+        const newDate = new Date();
+        await deliveryModel.update({
+            createdAt: newDate,
+            updatedAt: newDate
+        }, {
+            where: {id: delivery.id}
+        });
         res.status(200).json({relaunched: true});
         await notifyNearbyDrivers({
+            by: settings.search_radius,
             delivery,
             eventName: "new-delivery"
         });
@@ -762,6 +801,7 @@ calculation of at delivery */
         ensureDeliveryExists,
         ensureDriverExists,
         ensureInitial,
+        ensureNotExpired,
         getAnalytics,
         getAllPaginated,
         getAnalytics,

@@ -1,9 +1,6 @@
-
-const path = require("node:path");
 const {DataTypes} = require("sequelize");
 const {
     ages,
-    registrationsRoot,
     userStatuses
 } = require("../utils/config");
 const {

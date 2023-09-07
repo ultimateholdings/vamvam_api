@@ -83,6 +83,7 @@ function getDeliveryRouter(module) {
         allowRoles([roles.driverRole]),
         deliveryModule.ensureDeliveryExists,
         deliveryModule.ensureInitial,
+        deliveryModule.ensureNotExpired,
         errorHandler(deliveryModule.acceptDelivery)
     );
     router.post(

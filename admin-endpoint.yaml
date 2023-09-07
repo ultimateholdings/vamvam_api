@@ -1,3 +1,14 @@
+OTPSettingsData:
+  type: "otp"
+  value:
+    ttl: number
+DeliverySettingsData:
+  type: "delivery"
+  value:
+    search_radius: number representing the radius to search a driver in second
+    ttl: number representing the delay within which a driver can accept a delivery
+
+
 /users/drivers:
   action: get drivers close to a location
   type: get
@@ -33,6 +44,10 @@ admin-manager:
       phoneNumber: string
       password: string
       email: string
+  /admin/update-settings:
+    action: "update system settings"
+    type: post
+    body: OTPSettingsData || DeliverySettingsData
   /user/all:
     action: get all users in the platform
     type: get

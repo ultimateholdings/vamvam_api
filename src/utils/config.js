@@ -2,6 +2,19 @@
 node
 */
 "use strict";
+function settingReducer(acc, [key, setting]) {
+    acc[setting.value] = {
+        value: key,
+        options: Object.entries(setting.options).reduce(
+            function (prev, [otp_key, opt_value]) {
+                prev[opt_value] = otp_key;
+                return prev;
+            },
+            Object.create(null)
+        )
+    };
+    return acc;
+}
 const availableRoles = {
     adminRole: "admin",
     clientRole: "client",
@@ -14,6 +27,26 @@ const apiRoles = {
     conflict: availableRoles.conflictManager,
     driver: availableRoles.driverRole,
     registration: availableRoles.registrationManager
+};
+const apiSettings = {
+    delivery: {
+        value: "delivery-settings",
+        defaultValues: {
+            driver_search_radius: 5500,
+            delivery_ttl: 180
+        },
+        options: {
+            search_radius: "driver_search_radius",
+            ttl: "delivery_ttl"
+        }
+    },
+    otp: {
+        value: "otp-settings",
+        defaultValues: {otp_ttl: 180},
+        options: {
+            ttl: "otp_ttl"
+        }
+    }
 };
 const errors = {
     alreadyAssigned: {
@@ -72,6 +105,13 @@ const errors = {
             fr: "Cette livraison n'est pas conflictuelle"
         },
         status: 454
+    },
+    deliveryTimeout: {
+        message: {
+            en: "The delay to react to this delivery request is over",
+            fr: "Le délai de réaction à cette demande de livraison est dépassé"
+        },
+        status: 410
     },
     driverNotFound: {
         message: {
@@ -368,6 +408,7 @@ const responseMessage = {
     }
 }
 const defaultValues = {
+    search_radius: 5500,
     ttl: 180
 };
 const conflictStatuses = Object.freeze({
@@ -414,8 +455,12 @@ const config = Object.freeze({
     ages,
     apiDeliveryStatus,
     apiRoles: Object.freeze(apiRoles),
+    apiSettings: Object.freeze(apiSettings),
     availableRoles: Object.freeze(availableRoles),
     conflictStatuses,
+    dbSettings: Object.freeze(
+        Object.entries(apiSettings).reduce(settingReducer, Object.create(null))
+    ),
     defaultValues: Object.freeze(defaultValues),
     deliveryStatuses,
     errors: Object.freeze(errors),

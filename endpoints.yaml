@@ -44,6 +44,16 @@ roomData:
   lastMessage: messageData
   members: shortUserData[]
   name: string
+OTPSettingsData:
+  type: "otp"
+  value:
+    ttl: number
+DeliverySettingsData:
+  type: "delivery"
+  value:
+    search_radius: number representing the radius to search a driver in second
+    ttl: number representing the delay within which a driver can accept a delivery
+
 non-auth-endpoints:
   /auth/login : 
       action: connect with password
@@ -115,6 +125,13 @@ non-auth-endpoints:
 
           
 auth-endpoints:
+  /system/settings:
+    action: get the system settings
+    queryString:
+      type: string?
+    response:
+      settings: (OTPSettingsData || DeliverySettingsData)[]
+
   user:
     /user/infos :
       action: get user informations

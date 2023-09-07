@@ -124,7 +124,9 @@ chat:
   server-sent:
     room-deleted:
       action: "notify a user that a room he is part of has been deleted"
-      data: string representing the message Id
+      data:
+        id: string representing the message Id
+        name: string representing the name of the deleted room
     room-created:
       action: "notify a user that he is now part of a new discusssion"
       data:

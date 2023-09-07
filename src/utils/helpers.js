@@ -90,14 +90,6 @@ function jwtWrapper(expiresIn = expiration) {
     },
   };
 }
-
-function methodAdder(object) {
-  return function addMethod(name, func) {
-    if (!object.hasOwnProperty(name)) {
-      object.prototype[name] = func;
-    }
-  };
-}
 function sendResponse(res, content, data = {}) {
   res.status(content.status).send({
     data,
@@ -326,7 +318,7 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
     refreshed = false,
   }) {
     let nextPageToken = null;
-    const { lastId, values } = await getRessources(
+    const {lastId, values} = await getRessources(
       getParams({ maxSize: maxPageSize, offset: 0 })
     );
     if (Array.isArray(values) && values.length > 0) {
@@ -612,7 +604,6 @@ module.exports = Object.freeze({
   },
   isValidLocation,
   jwtWrapper,
-  methodAdder,
   pathToURL,
   propertiesPicker,
   ressourcePaginator,

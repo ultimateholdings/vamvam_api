@@ -17,8 +17,8 @@ const {
     otpRequest
 } = require("../models");
 
-async function createTable(connection, model) {
-    await connection.getQueryInterface().createTable(
+function createTable(connection, model) {
+    return connection.getQueryInterface().createTable(
         model.getTableName(),
         model.getAttributes()
     );
