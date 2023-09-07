@@ -193,7 +193,7 @@ function getTransactionModule({
         res.status(200).json({});
         deliveriesModel.emitEvent("point-withdrawal", {
           data: {
-            amount: calculateSolde(point, unitPrice),
+            solde: calculateSolde(point, unitPrice),
             bonus,
             driverId: createdProps.driverId,
             point

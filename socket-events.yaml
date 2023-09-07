@@ -165,4 +165,4 @@ point-withdrawal:
     driverId: string
     bonus: double represents the bonus points withdrawn
     point: double represents the points withdrawn
-    amount: double represents the amount debited
+    solde: double represents the amount debited
