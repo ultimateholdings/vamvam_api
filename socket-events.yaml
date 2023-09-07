@@ -155,6 +155,14 @@ payment:
   successful-payment:
       action: "notifies the driver of the success of a payment"
       data:
+        driverId: string
         bonus: double represents bonus points for the package purchased
         point: double represents package points purchased
         solde: double represents the amount of the package purchased
+point-withdrawal:
+  action: "notifies the driver of the point withdrawal"
+  data:
+    driverId: string
+    bonus: double represents the bonus points withdrawn
+    point: double represents the points withdrawn
+    amount: double represents the amount debited

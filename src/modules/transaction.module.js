@@ -14,7 +14,7 @@ const {
 } = require("../utils/helpers");
 
 function canSubtract(pointSum, bonusSum) {
-  return pointSum + bonusSum !== 0
+  return pointSum + bonusSum !== 0;
 }
 function getTransactionModule({
   modelTrans,
@@ -31,7 +31,7 @@ function getTransactionModule({
   const userModel = modelUser || User;
   const paymentHandler =
     paymentHan || paymentManager(getPaymentService(paymentModel, bundleModel));
-  const genericProps = ["point", "bonus", "userId"];
+  const genericProps = ["point", "bonus", "driverId"];
 
   deliveriesModel.addEventListener("can-delivery", subscriberDeliverers);
   deliveriesModel.addEventListener("point-withdrawal", withdrawal);
@@ -45,7 +45,7 @@ function getTransactionModule({
       return sendResponse(res, errors.notAuthorized);
     }
     if (status === "successful") {
-        next();
+      next();
     } else {
       payment = await paymentModel.findOne({
         where: {
@@ -60,7 +60,7 @@ function getTransactionModule({
   }
 
   async function ensureBundleExists(req, res, next) {
-    const {packId} = req.body;
+    const { packId } = req.body;
     let bundle;
     if (typeof packId !== "string" || packId === "") {
       return sendResponse(res, errors.invalidValues);
@@ -80,7 +80,7 @@ function getTransactionModule({
     const amount = calculateSolde(point, unitPrice);
     let { lastName, firstName, email } = await userModel.findOne({
       where: { id: driverId },
-      attributes: ["firstName", "lastName", "email"]
+      attributes: ["firstName", "lastName", "email"],
     });
     const fullname = lastName + " " + firstName;
     let payload = {
@@ -179,33 +179,33 @@ function getTransactionModule({
     const pickedProperties = propertiesPicker(data);
     createdProps = pickedProperties(genericProps);
     if (createdProps !== undefined) {
-      const { subtract } = await balenceInfos(createdProps.userId);
+      const { subtract } = await balenceInfos(createdProps.driverId);
       if (subtract) {
-        const { bonus, point, type, unitPrice } = await transactionModel.create(
+        const { bonus, point, unitPrice } = await transactionModel.create(
           {
             bonus: createdProps.bonus,
             point: createdProps.point,
             type: staticPaymentProps.debit_type,
             unitPrice: staticPaymentProps.debit_amount,
-            userId: createdProps.userId,
+            driverId: createdProps.driverId,
           }
         );
-        return {
+        res.status(200).json({});
+        deliveriesModel.emitEvent("point-withdrawal", {
           data: {
+            amount: calculateSolde(point, unitPrice),
             bonus,
-            point,
-            type,
-            unitPrice,
+            driverId: createdProps.driverId,
+            point
           },
-          message: responseMessage.successWithdrawal,
-        };
+        });
       } else {
         return {
           message: responseMessage.emptyWallet,
         };
       }
     } else {
-      sendResponse(res, errors.invalidValues);
+      return sendResponse(res, errors.invalidValues);
     }
   }
 

@@ -389,6 +389,13 @@ function deliveryMessageHandler(emitter) {
                     );
                 }
         }
+        function handlePointWithdrawal({data}) {
+            const eventName = "point-withdrawal";
+            const {driverId} = data;
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit(eventName, {data});
+            }
+        }
         emitter.addEventListener("delivery-end", handleEnding);
         emitter.addEventListener("delivery-accepted", handleAcceptation);
         emitter.addEventListener("delivery-cancelled", handleCancellation);
@@ -413,6 +420,7 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener("payment-initiated", handleInitPayment);
         emitter.addEventListener("failure-payment", handleFailurePayment);
         emitter.addEventListener("successful-payment", handleSuccessPayment);
+        emitter.addEventListener("point-withdrawal", handlePointWithdrawal);
         emitter.addEventListener(
             "driver-position-update-failed",
             handlePositionUpdateFailure
