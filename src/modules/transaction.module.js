@@ -45,7 +45,7 @@ function getTransactionModule({
       return sendResponse(res, errors.notAuthorized);
     }
     if (status === "successful") {
-      next();
+        next();
     } else {
       payment = await paymentModel.findOne({
         where: {
@@ -80,7 +80,7 @@ function getTransactionModule({
     const amount = calculateSolde(point, unitPrice);
     let { lastName, firstName, email } = await userModel.findOne({
       where: { id: driverId },
-      attributes: ["firstName", "lastName", "email"],
+      attributes: ["firstName", "lastName", "email"]
     });
     const fullname = lastName + " " + firstName;
     let payload = {

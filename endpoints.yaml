@@ -371,4 +371,3 @@ auth-endpoints:
           solde: double
           bonus: double
           point: double
-            

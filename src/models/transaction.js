@@ -1,4 +1,5 @@
 const {DataTypes} = require("sequelize");
+const {calculateSolde} = require("../utils/helpers")
 
 function defineTransaction (connection) {
     const schema = {
@@ -26,6 +27,32 @@ function defineTransaction (connection) {
         }
     };
     const transaction = connection.define("transaction", schema );
+    transaction.getAllByType= async function ({limit, offset, driverId, type}) {
+        const result = await transaction.findAndCountAll({
+            limit,
+            offset,
+            order: [["createdAt", "DESC"]],
+            where: {
+                driverId: driverId,
+                type: type
+            },
+        });
+        result.rows = result.rows.map(function (row) {
+            const {
+                bonus,
+                createdAt: date,
+                point,
+                unitPrice
+            } = row;
+            return Object.freeze({
+                amount: calculateSolde(point, unitPrice),
+                bonus,
+                date,
+                point
+            });
+        });
+        return result;
+    };
     return transaction;
 }
 

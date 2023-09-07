@@ -349,7 +349,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.initPayment,
                         meta: {eventName},
-                        recieverId: driverId
+                        receiverId: driverId
                     }
                     );
                 }
@@ -364,7 +364,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.failurePayment,
                         meta: {eventName},
-                        recieverId: driverId
+                        receiverId: driverId
                     }
                     );
                 }
@@ -380,7 +380,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.successPayment,
                         meta: {eventName},
-                        recieverId: driverId
+                        receiverId: driverId
                     }
                     );
                 }
