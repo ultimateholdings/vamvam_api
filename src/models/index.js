@@ -371,33 +371,7 @@ Blacklist.invalidateAll = async function () {
     }
 }
 
-Trans.getAllByType= async function ({limit, offset, driverId, type}) {
-    const result = await Trans.findAndCountAll({
-        limit,
-        offset,
-        order: [["createdAt", "DESC"]],
-        where: {
-            driverId: driverId,
-            type: type
-        },
-    });
-    result.rows = result.rows.map(function (row) {
-        const {
-            bonus,
-            createdAt: date,
-            point,
-            unitPrice
-        } = row;
-        return Object.freeze({
-            amount: calculateSolde(point, unitPrice),
-            bonus,
-            date,
-            point
-        });
-    });
-    return result;
-};
-Trans.getAllByTime= async function ({limit, offset, start, end}) {
+Trans.getAllByTime = async function ({limit, offset, start, end}) {
     const result = await Trans.findAndCountAll({
         limit,
         offset,

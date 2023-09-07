@@ -353,7 +353,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.initPayment,
                         meta: {eventName},
-                        recieverId: driverId
+                        receiverId: driverId
                     }
                     );
                 }
@@ -368,7 +368,7 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.failurePayment,
                         meta: {eventName},
-                        recieverId: driverId
+                        receiverId: driverId
                     }
                     );
                 }
@@ -384,10 +384,17 @@ function deliveryMessageHandler(emitter) {
                     {
                         message: eventMessages.successPayment,
                         meta: {eventName},
-                        recieverId: driverId
+                        receiverId: driverId
                     }
                     );
                 }
+        }
+        function handlePointWithdrawal({data}) {
+            const eventName = "point-withdrawal";
+            const {driverId} = data;
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit(eventName, {data});
+            }
         }
         emitter.addEventListener("delivery-end", handleEnding);
         emitter.addEventListener("delivery-accepted", handleAcceptation);
@@ -413,6 +420,7 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener("payment-initiated", handleInitPayment);
         emitter.addEventListener("failure-payment", handleFailurePayment);
         emitter.addEventListener("successful-payment", handleSuccessPayment);
+        emitter.addEventListener("point-withdrawal", handlePointWithdrawal);
         emitter.addEventListener(
             "driver-position-update-failed",
             handlePositionUpdateFailure

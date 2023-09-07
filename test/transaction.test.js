@@ -17,7 +17,6 @@ const {
   listenEvent,
   getToken,
   otpHandler,
-  postData,
   setupServer,
   syncUsers,
   users,
@@ -63,10 +62,10 @@ describe("Transaction test", function () {
     let response;
     let driver = await clientSocketCreator("delivery", tokens[1]);
     const { id: packId } = await Bundle.create(bundles[0]);
-    const  phone_number = "+237683411151"
+    const  phoneNumber = "+237683411151"
     response = await app
       .post("/transaction/init-transaction")
-      .send({ phone_number, packId })
+      .send({ phoneNumber  , packId })
       .set("authorization", "Bearer " + tokens[1]);
     assert.equal(response.status, 200);
     data = await listenEvent({ name: "payment-initiated", socket: driver });
