@@ -11,8 +11,13 @@ const {
     it
 } = require("mocha");
 const {assert} = require("chai");
-const {Delivery, User, connection} = require("../src/models");
-const {deliveryStatuses} = require("../src/utils/config");
+const {
+    Delivery,
+    Settings,
+    User,
+    connection
+} = require("../src/models");
+const {apiSettings, deliveryStatuses} = require("../src/utils/config");
 const {toDbPoint} = require("../src/utils/helpers");
 const {deliveries} = require("./fixtures/deliveries.data");
 const {
@@ -80,6 +85,10 @@ describe("admin features tests", function () {
             acc[key] = clonedUser;
             return acc;
         }, Object.create(null));
+        await Settings.create({
+            type: apiSettings.delivery.value,
+            value: {"driver_search_radius": 2000}
+        });
         deliveryGenerator = (initialState) => generateDBDeliveries({
             clientId: dbUsers.goodUser.id,
             driverId: dbUsers.firstDriver.id,
@@ -123,5 +132,18 @@ describe("admin features tests", function () {
         await app.get("/delivery/analytics")
         .set("authorization", "Bearer " + dbUsers.admin.token);
         assert.equal(response.status, 200);
+    });
+    it("should update a setting", async function () {
+        let data = {
+            type: "delivery",
+            value: {ttl: 5500}
+        }
+        let response = await postData({
+            app,
+            data,
+            url: "/admin/update-settings",
+            token: dbUsers.admin.token
+        });
+        assert.equal(response.body.updated, true);
     });
 });

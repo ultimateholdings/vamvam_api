@@ -2,8 +2,9 @@
 node
 */
 "use strict";
-const {Blacklist, User} = require("../models");
+const {Blacklist, Settings, User} = require("../models");
 const {
+    apiSettings,
     availableRoles,
     errors
 } = require("../utils/config");
@@ -13,12 +14,31 @@ const {
 } = require("../utils/helpers");
 
 function getAdminModule({associatedModels}) {
-    const associations = associatedModels || {Blacklist, User};
+    const associations = associatedModels || {Blacklist, Settings, User};
     const adminTypeMap = {
         registration: availableRoles.registrationManager,
         conflict: availableRoles.conflictManager
     };
 
+    function ensureValidSetting(req, res, next) {
+        let setting = {};
+        let parsedValues;
+        const {type, value} = req.body;
+        if (apiSettings[type] === undefined) {
+            return sendResponse(res, errors.unsupportedType);
+        }
+        setting.type = apiSettings[type].value;
+        setting.value = {};
+        parsedValues = propertiesPicker(value)(Object.keys(apiSettings[type].options));
+        if (parsedValues === undefined) {
+            return sendResponse(res, errors.invalidValues);
+        }
+        Object.entries(parsedValues).forEach(function ([key, val]) {
+            setting.value[apiSettings[type].options[key]] = val;
+        });
+        req.setting = setting;
+        next();
+    }
     async function ensureUserExists(req, res, next) {
         const {id} = req.body;
         let user;
@@ -67,12 +87,33 @@ function getAdminModule({associatedModels}) {
         const newAdmin = await associations.User.create(data);
         res.status(200).json({id: newAdmin.id});
     }
+    async function updateSettings(req, res) {
+        const setting = req.setting;
+        const [updated] = await associations.Settings.updateSettings(setting);
+        res.status(200).json({updated: updated > 0});
+        associations.Settings.emitEvent("settings-update", req.body);
+    }
+    async function getSettings(req, res) {
+        let response;
+        let {type} = req.query;
+        if (apiSettings[type] === undefined && typeof type === "string") {
+            return sendResponse(res, errors.unsupportedType);
+        }
+        response = await associations.Settings.getAll(apiSettings[type]?.value);
+        if (response.length === 1) {
+            response = response[0];
+        }
+        res.status(200).json({settings: response});
+    }
 
     return Object.freeze({
         createNewAdmin,
         ensureUserExists,
+        ensureValidSetting,
+        getSettings,
         invalidateEveryOne,
         invalidateUser,
+        updateSettings,
         validateAdminCreation
     });
 }
