@@ -522,6 +522,7 @@ function getPaymentService(paymentModel, bundleModel) {
             data: {
               point: pack.point,
               bonus: pack.bonus,
+              unitPrice: pack.unitPrice,
               solde: expectedAmount,
               driverId: payment.driverId,
             },
