@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {Op, Transaction, col, fn, where} = require("sequelize");
+const {Op, col, fn, where} = require("sequelize");
 const defineUserModel = require("./user.js");
 const otpModel = require("./otp_request.js");
 const defineDeliveryModel = require("./delivery.js");
@@ -13,9 +13,9 @@ const defineRegistration = require("./driver-registration.js");
 const defineRoomModel = require("./room.model");
 const defineMessageModel = require("./message.model.js");
 const defineUserRoomModel = require("./user_room.model.js");
+const defineSettingsModel = require("./settings.js");
 const defineBlackListModel = require("./blacklist.js");
 const {sequelizeConnection} = require("../utils/db-connector.js");
-const {tokenTtl} = require("../utils/config.js");
 const {calculateSolde} = require("../utils/helpers.js");
 
 const connection = sequelizeConnection();
@@ -31,6 +31,7 @@ const Message = defineMessageModel(connection);
 const Room = defineRoomModel(connection);
 const UserRoom = defineUserRoomModel(connection);
 const Blacklist = defineBlackListModel(connection);
+const Settings = defineSettingsModel(connection);
 Delivery.belongsTo(User, {
     as: "Driver",
     constraints: false,
@@ -115,6 +116,11 @@ User.belongsToMany(Room, {through: UserRoom});
 Room.hasMany(Message, {foreignKey: "roomId"});
 Message.belongsTo(Room, {foreignKey: "roomId"});
 
+Settings.addEventListener("settings-update", function (data) {
+    if(data.type === "delivery") {
+        Delivery.emitEvent("delivery-settings-updated", data.value);
+    }
+});
 Message.getAllByRoom = async function ({
     maxSize,
     offset,
@@ -348,30 +354,7 @@ Delivery.getAll = async function ({
         })
     };
 };
-
-Blacklist.invalidateAll = async function () {
-    const {globalId} = this;
-    const transaction = new Transaction(connection, {
-        isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE
-    });
-    try {
-        await this.truncate({transaction});
-        await this.upsert({
-            minimumIat: new Date(),
-            userId: globalId
-        }, {
-            fields: ["minimumIat"],
-            transaction
-        });
-        await transaction.commit();
-        return {success: true};
-    } catch (error) {
-        await transaction.rollback();
-        return {error, success: false};
-    }
-}
-
-Trans.getAllByTime = async function ({limit, offset, start, end}) {
+Trans.getAllByTime= async function ({limit, offset, start, end}) {
     const result = await Trans.findAndCountAll({
         limit,
         offset,
@@ -427,6 +410,7 @@ module.exports = Object.freeze({
     User,
     Transaction: Trans,
     Payment,
+    Settings,
     UserRoom,
     connection,
     otpRequest

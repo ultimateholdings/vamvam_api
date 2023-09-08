@@ -38,7 +38,7 @@ function buildRoutes({
     router.use("/transaction", rechargeRouter);
     router.use("/driver", registrationRouter);
     router.use("/discussion", chatRouter);
-    router.use("/admin", adminRouter);
+    router.use(adminRouter);
     return router;
 }
 

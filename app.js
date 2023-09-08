@@ -2,7 +2,7 @@ const process = require("process");
 const {Umzug, SequelizeStorage} = require("umzug");
 const {buildServer} = require("./src");
 const buildRoutes = require("./src/routes");
-const {connection, Delivery} = require("./src/models");
+const {connection, Delivery, Settings} = require("./src/models");
 const getSocketManager = require("./src/utils/socket-manager");
 const getDeliveryHandler = require("./src/modules/delivery.socket-handler");
 const registrationHandler = require("./src/modules/driver.socket-handler");
@@ -21,7 +21,14 @@ const socketServer = getSocketManager({
     registrationHandler: registrationHandler(Delivery)
 });
 (async function () {
+    let settings;
     await umzug.up();
+    settings = await Settings.getAll();
+    settings.forEach(function ({type, value}) {
+        if (type === "delivery") {
+            Delivery.emitEvent("delivery-settings-updated", value);
+        }
+    })
 })();
 
 process.on("uncaughtException", function (error) {
