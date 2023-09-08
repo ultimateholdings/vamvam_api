@@ -407,10 +407,6 @@ const responseMessage = {
         fr: "Un portefeuille vide ne peut être débité!"
     }
 }
-const defaultValues = {
-    search_radius: 5500,
-    ttl: 180
-};
 const conflictStatuses = Object.freeze({
     cancelled: "cancelled",
     closed: "close",
@@ -461,7 +457,6 @@ const config = Object.freeze({
     dbSettings: Object.freeze(
         Object.entries(apiSettings).reduce(settingReducer, Object.create(null))
     ),
-    defaultValues: Object.freeze(defaultValues),
     deliveryStatuses,
     errors: Object.freeze(errors),
     eventMessages: Object.freeze(eventMessages),

@@ -1,15 +1,7 @@
 const express = require("express");
 const getAuthModule = require("../modules/auth.module");
 const { errorHandler } = require("../utils/helpers");
-const {carInfosValidator, hashedUploadHandler} = require("../utils/upload");
 const {protectRoute} = require("../utils/middlewares");
-
-const fieldsOptions = {
-    "carInfos": {
-        folderPath: "public/uploads/",
-        validator: carInfosValidator
-    }
-}
 
 function buildAuthRoutes (authModule) {
     const routeModule = authModule || getAuthModule({});

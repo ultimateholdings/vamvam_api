@@ -118,7 +118,10 @@ Message.belongsTo(Room, {foreignKey: "roomId"});
 
 Settings.addEventListener("settings-update", function (data) {
     if(data.type === "delivery") {
-        Delivery.emitEvent("delivery-settings-updated", data.value);
+        Delivery.setSettings(data.value);
+    }
+    if (data.type === "otp") {
+        otpRequest.setSettings(data.value);
     }
 });
 Message.getAllByRoom = async function ({

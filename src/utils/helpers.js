@@ -12,7 +12,7 @@ const {
   defaultValues,
   errors,
   getFirebaseConfig,
-  getOTPConfig,
+  getOTPConfig
 } = require("../utils/config");
 const { ValidationError } = require("sequelize");
 const CustomEmitter = function (name) {
@@ -23,7 +23,7 @@ const {
   TOKEN_EXP: expiration = 3600,
   JWT_SECRET: secret = "test1234butdefault",
   FLW_SECRET_KEY,
-  TEST_FLW_SECRET_KEY,
+  TEST_FLW_SECRET_KEY
 } = process.env;
 
 function calculateSolde(point, unitPrice = 300) {
@@ -87,13 +87,13 @@ function jwtWrapper(expiresIn = expiration) {
       } catch (error) {
         return { errorCode: error.code, valid: false };
       }
-    },
+    }
   };
 }
 function sendResponse(res, content, data = {}) {
   res.status(content.status).send({
     data,
-    message: content.message,
+    message: content.message
   });
 }
 
@@ -107,7 +107,7 @@ function isValidPoint(point) {
 function toDbPoint(point) {
   return {
     coordinates: [point?.latitude, point?.longitude],
-    type: "Point",
+    type: "Point"
   };
 }
 
@@ -140,7 +140,7 @@ function formatDbPoint(dbPoint) {
   if (dbPoint !== null && dbPoint !== undefined) {
     result = {
       latitude: dbPoint.coordinates[0],
-      longitude: dbPoint.coordinates[1],
+      longitude: dbPoint.coordinates[1]
     };
   }
   return result;
@@ -232,11 +232,15 @@ function propertiesPicker(object) {
 
 function getOTPService(model) {
   const config = getOTPConfig();
-  async function sendCode({ phone, signature, type = "auth" }) {
+  async function sendCode({phone, signature, type = "auth"}) {
     let response;
     let content;
     const ttlInSeconds = defaultValues.ttl;
-    response = await model.canRequest({ phone, ttlInSeconds, type });
+    response = await model.canRequest({
+      phone,
+      ttlInSeconds: model.getSettings().ttl,
+      type
+    });
     if (!response) {
       response = cloneObject(errors.ttlNotExpired);
       response.sent = false;
@@ -333,7 +337,6 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
       results: values,
     };
   }
-  
   async function handleValidToken({
     getParams,
     maxPageSize,
@@ -379,7 +382,7 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
     }
     return results;
   }
-  
+
   return async function paginate({
     getParams = cloneObject,
     maxPageSize,
