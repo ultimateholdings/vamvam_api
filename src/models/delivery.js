@@ -140,6 +140,16 @@ function defineDeliveryModel(connection) {
             });
         }
         return delivery.count(query);
+    };
+    delivery.ongoingDeliveries = function (driverId) {
+        return delivery.findAll({where: {
+            driverId,
+            status: {[Op.in]: [
+                deliveryStatuses.started,
+                deliveryStatuses.pendingReception,
+                deliveryStatuses.toBeConfirmed
+            ]}
+        }});
     }
     delivery.addEventListener = function (eventName, func) {
         emitter.on(eventName, func);

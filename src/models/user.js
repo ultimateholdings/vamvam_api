@@ -83,7 +83,14 @@ function defineUserModel(connection) {
         }
     };
     const excludedProps = ["password", "deviceToken"];
-    const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
+    const forbiddenUpdate = [
+        "position",
+        "role",
+        "id",
+        "available",
+        "phone",
+        "password"
+    ];
     const shortDescriptionProps = [
         "id",
         "avatar",

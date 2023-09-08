@@ -540,9 +540,7 @@ const config = Object.freeze({
         return configs[env];
     },
     otpTypes,
-    registrationsRoot: "/registrations/",
     tokenTtl: process.env.TOKEN_EXP,
-    uploadsRoot: "/uploads/",
     userStatuses,
     staticPaymentProps
 });

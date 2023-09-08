@@ -116,6 +116,11 @@ User.belongsToMany(Room, {through: UserRoom});
 Room.hasMany(Message, {foreignKey: "roomId"});
 Message.belongsTo(Room, {foreignKey: "roomId"});
 
+User.getSettings = Delivery.getSettings;
+User.hasOngoingDelivery = async function (driverId) {
+    let result = await Delivery.ongoingDeliveries(driverId);
+    return result.length > 0;
+};
 Settings.addEventListener("settings-update", function (data) {
     if(data.type === "delivery") {
         Delivery.setSettings(data.value);
@@ -300,7 +305,7 @@ Delivery.getAllWithStatus = function (userId, status) {
             }
         }
     });
-}
+};
 
 Delivery.getAll = async function ({
     from,
