@@ -13,6 +13,7 @@ const {
   errors,
   getFirebaseConfig,
   getOTPConfig,
+  getPaymentConfig
 } = require("../utils/config");
 const { ValidationError } = require("sequelize");
 const CustomEmitter = function (name) {
@@ -434,16 +435,14 @@ function sendCloudMessage({ body, meta, title, to }) {
 function getPaymentService(paymentModel, bundleModel) {
   async function initTrans(payload, driverId, packId) {
     let response;
+    const config = getPaymentConfig()
     try {
       response = await fetch(
-        "https://api.flutterwave.com/v3/charges?type=mobile_money_franco",
+        config.url_charge,
         {
           method: "post",
           body: JSON.stringify(payload),
-          headers: {
-            Authorization: `Bearer ${TEST_FLW_SECRET_KEY}`,
-            "Content-Type": "application/json",
-          },
+          headers: config.headers,
         }
       );
     } catch (error) {
@@ -479,6 +478,7 @@ function getPaymentService(paymentModel, bundleModel) {
     let payment;
     let pack;
     let expectedAmount;
+  const config = getPaymentConfig(transactionId);
     try {
       payment = await paymentModel.findOne({
         where: {
@@ -500,13 +500,13 @@ function getPaymentService(paymentModel, bundleModel) {
       });
       expectedAmount = calculateSolde(pack.point, pack.unitPrice);
       response = await fetch(
-        `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
+        config.url_verify,
         {
           method: "get",
           headers: {
-            Authorization: `Bearer ${TEST_FLW_SECRET_KEY}`,
+            Authorization: `Bearer ${config.flw_key}`,
             "Content-Type": "application/json",
-          },
+        }
         }
       );
       if (response.ok) {
@@ -514,7 +514,7 @@ function getPaymentService(paymentModel, bundleModel) {
         if (
           response.data.status === "successful" &&
           response.data.amount >= expectedAmount &&
-          response.data.currency === "XAF"
+          response.data.currency === config.expect_currency
         ) {
           payment.isVerify = true;
           await payment.save();
@@ -523,7 +523,6 @@ function getPaymentService(paymentModel, bundleModel) {
               point: pack.point,
               bonus: pack.bonus,
               unitPrice: pack.unitPrice,
-              solde: expectedAmount,
               driverId: payment.driverId,
             },
             verifiedTrans: true,
@@ -553,7 +552,6 @@ function getPaymentService(paymentModel, bundleModel) {
   }
   return Object.freeze({ initTrans, verifyTrans });
 }
-
 function paymentManager(paymentService) {
   return {
     initTransaction: function (payload, driverId, packId) {

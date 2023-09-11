@@ -42,9 +42,7 @@ describe("Bundle CRUD test", function () {
   });
   it("should return all bunch", async function () {
     let response;
-    let adminToken = await Promise.all([
-      getToken(app, dbUsers.admin.phone),
-    ]);
+    let adminToken = await getToken(app, dbUsers.admin.phone);
     const bunchs = await Bundle.bulkCreate(bundles);
     response = await app
       .get("/bundle")
@@ -68,9 +66,8 @@ describe("Bundle CRUD test", function () {
   it("should return bundle infos", async function () {
     let response;
     let bundle;
-    let [userToken] = await Promise.all([
-      getToken(app, dbUsers.goodUser.phone),
-    ]);
+    let userToken = await getToken(app, dbUsers.goodUser.phone)
+    
     bundle = await Bundle.create(bundles[0]);
     const id = bundle.id;
     response = await app
@@ -90,9 +87,7 @@ describe("Bundle CRUD test", function () {
       point: 20,
       unitPrice: 300,
     };
-    let adminToken = await Promise.all([
-      getToken(app, dbUsers.admin.phone),
-    ]);
+    let adminToken = await getToken(app, dbUsers.admin.phone);
     bundle = await Bundle.create(bundles[5]);
     updateData.id = bundle.id
     response = await app.post("/bundle/update")
@@ -103,9 +98,7 @@ describe("Bundle CRUD test", function () {
   it("should delete bundle", async function(){
     let response;
     let bundle;
-    let adminToken = await Promise.all([
-      getToken(app, dbUsers.admin.phone),
-    ]);
+    let adminToken = await getToken(app, dbUsers.admin.phone);
     bundle = await Bundle.create(bundles[5]);
     const id = bundle.id;
     response = await app

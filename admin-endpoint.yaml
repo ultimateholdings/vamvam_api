@@ -145,6 +145,7 @@ transaction:
   body:
     startDate: Date
     endDate: Date
+    type: string
   response:
     total: double
     data: 
