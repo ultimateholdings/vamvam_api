@@ -354,7 +354,7 @@ Delivery.getAll = async function ({
         })
     };
 };
-Trans.getAllByTime= async function ({limit, offset, start, end}) {
+Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
     const result = await Trans.findAndCountAll({
         limit,
         offset,
@@ -368,7 +368,7 @@ Trans.getAllByTime= async function ({limit, offset, start, end}) {
             }
         ],
         where: {
-            type: "recharge",
+            type: type,
             createdAt: {
               [Op.between]: [start, end],
             }

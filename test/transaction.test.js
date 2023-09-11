@@ -50,9 +50,9 @@ describe("Transaction test", function () {
     ]);
   });
 
-  afterEach(async function () {
-    await connection.drop();
-  });
+  // afterEach(async function () {
+  //   await connection.drop();
+  // });
 
   after(async function () {
     socketServer.close();
@@ -83,16 +83,16 @@ describe("Transaction test", function () {
     response = await app
       .post("/transaction/verify")
       .send(webhookData)
-      .set("authorization", "Bearer " + tokens[1]);
+      .set("authorization", "Bearer " + tokens[1])
+      .set("verif-hash", "12345678918a2c836464vt-X");
     driver = await clientSocketCreator("delivery", tokens[0]);
     await listenEvent({name: "successful-payment", socket: driver});
   });
   it("should return transaction history and wallet infos", async function () {
     let response;
     let transactions;
-    let driverToken = await Promise.all([
-      getToken(app, dbUsers.firstDriver.phone),
-    ]);
+    let driverToken = await getToken(app, dbUsers.firstDriver.phone);
+    
     transactions = bundles.map((bundle) => {
       const { unitPrice, bonus, point } = bundle;
       return {
@@ -143,12 +143,13 @@ describe("Transaction test", function () {
       .send({
         startDate: 1693483365735,
         endDate: Date.now(),
+        type: 'recharge'
       })
       .set("authorization", "Bearer " + tokens[2]);
     assert.equal(response.status, 200);
     assert.equal(response.body.total, transactions.length);
   });
-  it("should return recharge infos", async function () {
+  it("should return recharge summer infos", async function () {
     let response;
     let transactions = bundles.map((bundle) => {
       const { unitPrice, bonus, point } = bundle;

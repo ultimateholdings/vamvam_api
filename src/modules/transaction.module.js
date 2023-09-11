@@ -3,8 +3,8 @@ const {
   errors,
   responseMessage,
   staticPaymentProps,
+  getPaymentConfig
 } = require("../utils/config");
-const { FLW_SECRET_HASH } = process.env;
 const {
   propertiesPicker,
   sendResponse,
@@ -38,7 +38,8 @@ function getTransactionModule({
 
   async function canAccess(req, res, next) {
     let payment;
-    const secretHash = FLW_SECRET_HASH;
+    const config = getPaymentConfig();
+    const secretHash = config.secret_hash;
     const signature = req.headers["verif-hash"];
     const { status, id } = req.body.data;
     if (signature !== secretHash) {
@@ -114,9 +115,16 @@ function getTransactionModule({
         id
       );
       if (verifiedTrans) {
-        await reloadBalance(data);
+        const {bonus, point, unitPrice} = await reloadBalance(data);
         res.status(200).json({});
-        deliveriesModel.emitEvent("successful-payment", { data: data });
+        deliveriesModel.emitEvent("successful-payment", {
+          data: {
+            point,
+            bonus: calculateSolde(bonus, unitPrice),
+            solde: calculateSolde(point, unitPrice),
+            driverId: data.driverId,
+          }
+        });
       } else {
         res.status(401).end();
         deliveriesModel.emitEvent("failure-payment", {
@@ -132,7 +140,7 @@ function getTransactionModule({
     return await transactionModel.create(data);
   }
 
-  async function balenceInfos(driverId) {
+  async function balanceInfos(driverId) {
     let rechargeSum;
     let retraitSum;
     let bonusAdded;
@@ -179,30 +187,26 @@ function getTransactionModule({
     const pickedProperties = propertiesPicker(data);
     createdProps = pickedProperties(genericProps);
     if (createdProps !== undefined) {
-      const { subtract } = await balenceInfos(createdProps.driverId);
+      const { subtract } = await balanceInfos(createdProps.driverId);
       if (subtract) {
-        const { bonus, point, unitPrice } = await transactionModel.create(
-          {
-            bonus: createdProps.bonus,
-            point: createdProps.point,
-            type: staticPaymentProps.debit_type,
-            unitPrice: staticPaymentProps.debit_amount,
-            driverId: createdProps.driverId,
-          }
-        );
+        const { bonus, point, unitPrice } = await transactionModel.create({
+          bonus: createdProps.bonus,
+          point: createdProps.point,
+          type: staticPaymentProps.debit_type,
+          unitPrice: staticPaymentProps.debit_amount,
+          driverId: createdProps.driverId,
+        });
         res.status(200).json({});
         deliveriesModel.emitEvent("point-withdrawal", {
           data: {
             solde: calculateSolde(point, unitPrice),
             bonus,
             driverId: createdProps.driverId,
-            point
+            point,
           },
         });
       } else {
-        return {
-          message: responseMessage.emptyWallet,
-        };
+        return sendResponse(res, errors.emptyWallet);
       }
     } else {
       return sendResponse(res, errors.invalidValues);
@@ -212,7 +216,7 @@ function getTransactionModule({
   async function subscriberDeliverers(data) {
     const users = await Promise.all(
       data.map(async (id) => {
-        const { subtract } = await balenceInfos(id);
+        const { subtract } = await balanceInfos(id);
         if (subtract) {
           return id;
         }
@@ -238,7 +242,7 @@ function getTransactionModule({
 
   async function wallet(req, res) {
     const { id } = req.user.token;
-    let data = await balenceInfos(id);
+    let data = await balanceInfos(id);
     res.status(200).json({
       wallet: data,
     });
@@ -249,7 +253,7 @@ function getTransactionModule({
     const limit = parseInt(req.query.limit) || 8;
     const offset = (page - 1) * limit;
     try {
-      const { startDate, endDate } = req.body;
+      const { startDate, endDate, type } = req.body;
       const start = new Date(startDate);
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
@@ -258,6 +262,7 @@ function getTransactionModule({
         offset,
         start,
         end,
+        type,
       });
       res.status(200).json({
         data: rows,
