@@ -58,6 +58,13 @@ function getUserRouter(userModule) {
         ]),
         errorHandler(routerModule.updateProfile)
     );
+    router.post(
+        "/update-availability",
+        protectRoute,
+        allowRoles([roles.driverRole]),
+        routerModule.ensureCanUpdateAvailability,
+        errorHandler(routerModule.updateAvailabilty)
+    );
     return router;
 }
 

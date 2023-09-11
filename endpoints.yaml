@@ -160,6 +160,13 @@ auth-endpoints:
       type: post
       response:
         updated: boolean
+    /user/update-availabilty:
+      action: update a driver availability
+      type: post
+      body:
+        available: boolean
+      response:
+        updated: boolean
 
   authentication:
     /auth/change-password:

@@ -9,7 +9,6 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const {
-  defaultValues,
   errors,
   getFirebaseConfig,
   getOTPConfig,
@@ -24,7 +23,7 @@ const {
   TOKEN_EXP: expiration = 3600,
   JWT_SECRET: secret = "test1234butdefault",
   FLW_SECRET_KEY,
-  TEST_FLW_SECRET_KEY,
+  TEST_FLW_SECRET_KEY
 } = process.env;
 
 function calculateSolde(point, unitPrice = 300) {
@@ -88,13 +87,13 @@ function jwtWrapper(expiresIn = expiration) {
       } catch (error) {
         return { errorCode: error.code, valid: false };
       }
-    },
+    }
   };
 }
 function sendResponse(res, content, data = {}) {
   res.status(content.status).send({
     data,
-    message: content.message,
+    message: content.message
   });
 }
 
@@ -108,7 +107,7 @@ function isValidPoint(point) {
 function toDbPoint(point) {
   return {
     coordinates: [point?.latitude, point?.longitude],
-    type: "Point",
+    type: "Point"
   };
 }
 
@@ -141,7 +140,7 @@ function formatDbPoint(dbPoint) {
   if (dbPoint !== null && dbPoint !== undefined) {
     result = {
       latitude: dbPoint.coordinates[0],
-      longitude: dbPoint.coordinates[1],
+      longitude: dbPoint.coordinates[1]
     };
   }
   return result;
@@ -233,11 +232,15 @@ function propertiesPicker(object) {
 
 function getOTPService(model) {
   const config = getOTPConfig();
-  async function sendCode({ phone, signature, type = "auth" }) {
+  const getTtl = () => model.getSettings().ttl;
+  async function sendCode({phone, signature, type = "auth"}) {
     let response;
     let content;
-    const ttlInSeconds = defaultValues.ttl;
-    response = await model.canRequest({ phone, ttlInSeconds, type });
+    response = await model.canRequest({
+      phone,
+      ttlInSeconds: getTtl(),
+      type
+    });
     if (!response) {
       response = cloneObject(errors.ttlNotExpired);
       response.sent = false;
@@ -289,8 +292,8 @@ function getOTPService(model) {
       if (response.ok) {
         response = await response.json();
         if (response.verified && response.msisdn === phone) {
-          await model.destroy({ where: { phone, type } });
-          return { verified: true };
+          await model.destroy({where: {phone, type}});
+          return {verified: true};
         }
         response = cloneObject(errors.forbiddenAccess);
         response.verified = false;
@@ -308,7 +311,7 @@ function getOTPService(model) {
     }
   }
 
-  return Object.freeze({ sendCode, verifyCode });
+  return Object.freeze({getTtl, sendCode, verifyCode});
 }
 
 function ressourcePaginator(getRessources, expiration = 3600000) {
@@ -334,7 +337,6 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
       results: values,
     };
   }
-  
   async function handleValidToken({
     getParams,
     maxPageSize,
@@ -380,7 +382,7 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
     }
     return results;
   }
-  
+
   return async function paginate({
     getParams = cloneObject,
     maxPageSize,

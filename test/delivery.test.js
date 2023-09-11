@@ -14,10 +14,12 @@ const {assert} = require("chai");
 const {
     Delivery,
     DeliveryConflict,
+    Transaction,
     User,
     connection
 } = require("../src/models");
 const {
+    bundles,
     loginUser,
     getDatas,
     getToken,
@@ -85,7 +87,7 @@ describe("delivery CRUD test", function () {
         let response = await app.get("/delivery/infos").send({
             id: null
         }).set("authorization", "Bearer " + goodUserRequest.token);
-        assert.equal(response.status, errors.notFound.status);
+        assert.equal(response.status, errors.invalidValues.status);
         response = await app.get("/delivery/infos").send({
             id: goodUserRequest.id
         }).set("authorization", "Bearer " + goodUserRequest.token);
@@ -257,8 +259,14 @@ describe("delivery CRUD test", function () {
             );
         });
         it("should aprove a delivery request", async function () {
+            let purchase = Object.create(null);
+            let response;
             const token2 = await getToken(app, dbUsers.secondDriver.phone);
-            let response = await app.post("/delivery/accept").send({
+            Object.assign(purchase, bundles[0]);
+            purchase.type = "recharge";
+            purchase.driverId = dbUsers.firstDriver.id;
+            await Transaction.create(purchase);
+            response = await app.post("/delivery/accept").send({
                 id: request.id
             }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, 200);

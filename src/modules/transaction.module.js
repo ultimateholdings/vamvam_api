@@ -1,12 +1,10 @@
 const { Transaction, Payment, Bundle, Delivery, User } = require("../models");
 const {
   errors,
-  responseMessage,
   staticPaymentProps,
   getPaymentConfig
 } = require("../utils/config");
 const {
-  propertiesPicker,
   sendResponse,
   getPaymentService,
   paymentManager,
@@ -31,10 +29,8 @@ function getTransactionModule({
   const userModel = modelUser || User;
   const paymentHandler =
     paymentHan || paymentManager(getPaymentService(paymentModel, bundleModel));
-  const genericProps = ["point", "bonus", "driverId"];
 
-  deliveriesModel.addEventListener("can-delivery", subscriberDeliverers);
-  deliveriesModel.addEventListener("point-withdrawal", withdrawal);
+  deliveriesModel.addEventListener("point-withdrawal-requested", withdrawal);
 
   async function canAccess(req, res, next) {
     let payment;
@@ -177,48 +173,28 @@ function getTransactionModule({
     };
   }
 
-  async function withdrawal(req, res) {
-    const { data } = req.body;
-    let createdProps;
-    const pickedProperties = propertiesPicker(data);
-    createdProps = pickedProperties(genericProps);
-    if (createdProps !== undefined) {
-      const { subtract } = await balanceInfos(createdProps.driverId);
-      if (subtract) {
-        const { bonus, point, unitPrice } = await transactionModel.create({
-          bonus: createdProps.bonus,
-          point: createdProps.point,
+  async function withdrawal(data) {
+    let {bonus, driverId, point} = data;
+    try {
+      await transactionModel.create({
+          bonus,
+          driverId,
+          point,
           type: staticPaymentProps.debit_type,
-          unitPrice: staticPaymentProps.debit_amount,
-          driverId: createdProps.driverId,
-        });
-        res.status(200).json({});
-        deliveriesModel.emitEvent("point-withdrawal", {
-          data: {
-            solde: calculateSolde(point, unitPrice),
-            bonus,
-            driverId: createdProps.driverId,
-            point,
-          },
-        });
-      } else {
-        return sendResponse(res, errors.emptyWallet);
-      }
-    } else {
-      return sendResponse(res, errors.invalidValues);
+          unitPrice: staticPaymentProps.debit_amount
+      });
+      deliveriesModel.emitEvent("point-withdrawal-fulfill", {
+        driverId,
+        payload: {
+          amount: point * staticPaymentProps.debit_amount,
+          bonus,
+          point
+        },
+      });
+    } catch (error) {
+      error.desc = "Unhandled exception on driver point widthdrawal request";
+      throw error;
     }
-  }
-
-  async function subscriberDeliverers(data) {
-    const users = await Promise.all(
-      data.map(async (id) => {
-        const { subtract } = await balanceInfos(id);
-        if (subtract) {
-          return id;
-        }
-      })
-    );
-    return users.filter((id) => id !== undefined);
   }
 
   async function transactionHistory(req, res) {
@@ -238,7 +214,7 @@ function getTransactionModule({
 
   async function wallet(req, res) {
     const { id } = req.user.token;
-    let data = await balanceInfos(id);
+    let data = await transactionModel.getDriverBalance(id);
     res.status(200).json({
       wallet: data,
     });
