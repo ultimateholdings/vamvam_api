@@ -50,9 +50,9 @@ describe("Transaction test", function () {
     ]);
   });
 
-  // afterEach(async function () {
-  //   await connection.drop();
-  // });
+  afterEach(async function () {
+    await connection.drop();
+  });
 
   after(async function () {
     socketServer.close();

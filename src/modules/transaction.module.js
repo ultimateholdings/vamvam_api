@@ -115,7 +115,7 @@ function getTransactionModule({
         id
       );
       if (verifiedTrans) {
-        const {bonus, point, unitPrice} = await reloadBalance(data);
+        const {bonus, point, unitPrice} = await transactionModel.create(data);
         res.status(200).json({});
         deliveriesModel.emitEvent("successful-payment", {
           data: {
@@ -134,10 +134,6 @@ function getTransactionModule({
     } catch (error) {
       return sendResponse(res, errors.internalError);
     }
-  }
-
-  async function reloadBalance(data) {
-    return await transactionModel.create(data);
   }
 
   async function balanceInfos(driverId) {
