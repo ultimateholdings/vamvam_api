@@ -442,9 +442,9 @@ const otpTypes = {
 const staticPaymentProps = {
     country: "CM",
     currency: "XAF",
-    tx_ref: "transfer-" + Date.now(),
     debit_amount: 300,
     debit_type: "withdrawal",
+    tx_ref: "transfer-" + Date.now()
 };
 
 const config = Object.freeze({

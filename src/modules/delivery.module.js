@@ -5,9 +5,7 @@ const crypto = require("crypto");
 const {Delivery, DeliveryConflict, User} = require("../models");
 const {
     apiDeliveryStatus,
-    apiSettings,
     conflictStatuses,
-    dbSettings,
     deliveryStatuses,
     errors,
     availableRoles: roles
@@ -65,6 +63,10 @@ async function generateCode(byteSize = 5) {
     return encoder(crypto.randomBytes(byteSize), "Crockford");
 }
 
+/*
+this function was created just to mimic the delivery
+price calculation due to lack of informations
+*/
 function calculatePrice() {
     return 1000;
 }
@@ -117,6 +119,18 @@ function getDeliveryModule({associatedModels, model}) {
             {delivery, name, users}
         );
     }
+
+    function reduceCredit(driverId, balance) {
+        let data;
+        if (balance.point < 1) {
+            data = {bonus: 1, point: 0};
+        } else {
+            data = {bonus: 0, point: 1};
+        }
+        data.driverId = driverId;
+        deliveryModel.emitEvent("point-withdrawal-requested", data);
+    }
+
     async function updateDriverPosition(driverMessage) {
         let {data, driverId} = driverMessage;
         let clients;
@@ -127,9 +141,11 @@ function getDeliveryModule({associatedModels, model}) {
             data = driverMessage.data;
         }
         try {
+/*jslint-disable*/
             if (!isValidLocation(data)) {
                 throw new Error("invalid location datas");
             }
+/*jslint-enable*/
             if (Array.isArray(data)) {
                 position = data.at(-1);
             } else {
@@ -209,7 +225,6 @@ function getDeliveryModule({associatedModels, model}) {
             });
         }
     }
-    
 
     deliveryModel.addEventListener(
         "driver-position-update-requested",
@@ -242,6 +257,17 @@ function getDeliveryModule({associatedModels, model}) {
                 sendResponse(res, errors.forbiddenAccess);
             }
         };
+    }
+
+    async function ensureHasCredit(req, res, next) {
+        const {id} = req.user.token;
+        let balance = await deliveryModel.getDriverBalance(id);
+        if (balance.hasCredit) {
+            req.balance = balance;
+            next();
+        } else {
+            sendResponse(res, errors.cannotPerformAction);
+        }
     }
 
     async function ensureCanReport(req, res, next) {
@@ -384,14 +410,9 @@ function getDeliveryModule({associatedModels, model}) {
         let driver;
         let client;
         let others;
-        const {
-            phone,
-            id: userId
-        } = req.user.token;
-        const {delivery} = req;
-        driver = await associations.User.findOne({
-            where: {id: userId, phone}
-        });
+        const {id, phone} = req.user.token;
+        const {balance, delivery} = req;
+        driver = await associations.User.findOne({where: {id, phone}});
         delivery.status = deliveryStatuses.pendingReception;
         await delivery.save();
         await delivery.setDriver(driver);
@@ -407,6 +428,7 @@ function getDeliveryModule({associatedModels, model}) {
         others = await associations.User.getAllByPhones(
             delivery.getRecipientPhones()
         );
+        reduceCredit(id, balance);
         await createChatRoom(
             delivery,
             [client, driver, ...others]
@@ -514,8 +536,8 @@ function getDeliveryModule({associatedModels, model}) {
         results = await deliveryPagination({
             getParams,
             maxPageSize,
-            skip,
-            pageToken
+            pageToken,
+            skip
         });
         res.status(200).send(results);
     }
@@ -757,7 +779,7 @@ calculation of at delivery */
         let driverData;
         if (role === roles.clientRole) {
             driverData = delivery.Driver.toShortResponse();
-            if(delivery.Driver.position !== null) {
+            if (delivery.Driver.position !== null) {
                 driverData.position = formatDbPoint(delivery.Driver.position);
             }
             result.driver = driverData;
@@ -784,9 +806,9 @@ calculation of at delivery */
         ensureConflictingDelivery,
         ensureDeliveryExists,
         ensureDriverExists,
+        ensureHasCredit,
         ensureInitial,
         ensureNotExpired,
-        getAnalytics,
         getAllPaginated,
         getAnalytics,
         getInfos,

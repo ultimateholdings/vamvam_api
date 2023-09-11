@@ -173,8 +173,9 @@ const webhookData = {
   }
 };
 const otpHandler = {
-  sendCode: () => Promise.resolve({ verified: true }),
-  verifyCode: () => Promise.resolve({ verified: true }),
+  getTtl: () => 180,
+  sendCode: () => Promise.resolve({verified: true}),
+  verifyCode: () => Promise.resolve({verified: true})
 };
 function generateToken(user) {
   return jwt.sign({

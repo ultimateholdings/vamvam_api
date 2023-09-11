@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {Op, col, fn, where} = require("sequelize");
+const {Op, col, fn, literal, where} = require("sequelize");
 const defineUserModel = require("./user.js");
 const otpModel = require("./otp_request.js");
 const defineDeliveryModel = require("./delivery.js");
@@ -406,6 +406,31 @@ Trans.getAllByTime= async function ({limit, offset, start, end}) {
     });
     return result;
 };
+
+Trans.getDriverBalance = async function balanceCalculator(driverId) {
+    let result = await Trans.findAll({
+        attributes: [
+            "type",
+            [fn("SUM", col("point")), "totalPoint"],
+            [fn("SUM", literal("`point` * `unitPrice`" )), "totalAmount"],
+            [fn("SUM", col("bonus")), "totalBonus"],
+        ],
+        group: ["type"],
+        where: {driverId}
+    });
+    result = result.reduce(function (acc, entry) {
+        let factor;
+        const {type, totalPoint, totalAmount, totalBonus} = entry.dataValues;
+        factor = (type === "recharge" ? 1 : -1);
+        acc.bonus += factor * totalBonus;
+        acc.point += factor * totalPoint;
+        acc.solde += factor * totalAmount;
+        return acc;
+    }, { bonus: 0, point: 0, solde: 0});
+    result.hasCredit = result.bonus >= 1 || result.point >= 1;
+    return result;
+};
+Delivery.getDriverBalance = Trans.getDriverBalance;
 
 module.exports = Object.freeze({
     Blacklist,

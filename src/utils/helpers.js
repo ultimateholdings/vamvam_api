@@ -9,7 +9,6 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const {
-  defaultValues,
   errors,
   getFirebaseConfig,
   getOTPConfig
@@ -232,13 +231,13 @@ function propertiesPicker(object) {
 
 function getOTPService(model) {
   const config = getOTPConfig();
+  const getTtl = () => model.getSettings().ttl;
   async function sendCode({phone, signature, type = "auth"}) {
     let response;
     let content;
-    const ttlInSeconds = defaultValues.ttl;
     response = await model.canRequest({
       phone,
-      ttlInSeconds: model.getSettings().ttl,
+      ttlInSeconds: getTtl(),
       type
     });
     if (!response) {
@@ -292,8 +291,8 @@ function getOTPService(model) {
       if (response.ok) {
         response = await response.json();
         if (response.verified && response.msisdn === phone) {
-          await model.destroy({ where: { phone, type } });
-          return { verified: true };
+          await model.destroy({where: {phone, type}});
+          return {verified: true};
         }
         response = cloneObject(errors.forbiddenAccess);
         response.verified = false;
@@ -311,7 +310,7 @@ function getOTPService(model) {
     }
   }
 
-  return Object.freeze({ sendCode, verifyCode });
+  return Object.freeze({getTtl, sendCode, verifyCode});
 }
 
 function ressourcePaginator(getRessources, expiration = 3600000) {

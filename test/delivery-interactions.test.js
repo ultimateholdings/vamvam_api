@@ -12,10 +12,12 @@ const {
     Delivery,
     DeliveryConflict,
     Room,
+    Transaction,
     User,
     connection
 } = require("../src/models");
 const {
+    bundles,
     clientSocketCreator,
     generateToken,
     getToken,
@@ -78,8 +80,12 @@ describe("delivery side effects test", function () {
     });
 
     beforeEach(async function () {
+        let purchase = bundles[0];
+        purchase.type = "recharge";
         await connection.sync({force: true});
         dbUsers = await syncUsers(users, User);
+        purchase.driverId = dbUsers.firstDriver.id;
+        await Transaction.create(purchase);
         setupDatas = await setupDelivery({
             app,
             clientPhone: dbUsers.goodUser.phone,
@@ -179,15 +185,21 @@ describe("delivery side effects test", function () {
                 "authorization",
                 "Bearer " + driverToken
             );
-            data = await new Promise(function (res) {
-                client.on("delivery-accepted", function (data) {
-                    res(data);
-                });
+            data = await listenEvent({
+                close: false,
+                name: "delivery-accepted",
+                socket: client
             });
             assert.deepEqual(data, {
                 deliveryId: request.id,
                 driver: dbUsers.firstDriver.toResponse()
             });
+            data = await listenEvent({
+                close: false,
+                name: "point-widthdrawn",
+                socket: driver
+            });
+            assert.deepEqual(data, {amount: 300, bonus: 0, point: 1});
             data = await Promise.allSettled([
                 listenEvent({
                     name: "room-created",
