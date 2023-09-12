@@ -450,6 +450,7 @@ const staticPaymentProps = {
   tx_ref: "transfer-" + Date.now(),
   debit_amount: 300,
   debit_type: "withdrawal",
+  recharge_point: 0
 };
 
 const config = Object.freeze({
@@ -579,7 +580,7 @@ const config = Object.freeze({
   tokenTtl: process.env.TOKEN_EXP,
   uploadsRoot: "/uploads/",
   userStatuses,
-  staticPaymentProps,
+  staticPaymentProps
 });
 
 module.exports = config;

@@ -84,6 +84,7 @@ function getDeliveryRouter(module) {
         deliveryModule.ensureDeliveryExists,
         deliveryModule.ensureInitial,
         deliveryModule.ensureNotExpired,
+        deliveryModule.ensureHasCredit,
         errorHandler(deliveryModule.acceptDelivery)
     );
     router.post(

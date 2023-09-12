@@ -161,10 +161,17 @@ payment:
         bonus: double represents bonus points for the package purchased
         point: double represents package points purchased
         solde: double represents the amount of the package purchased
-point-withdrawal:
-  action: "notifies the driver of the point withdrawal"
-  data:
-    driverId: string
-    bonus: double represents the bonus points withdrawn
-    point: double represents the points withdrawn
-    solde: double represents the amount debited
+  point-withdrawal:
+    action: "notifies the driver of the point withdrawal"
+    data:
+      driverId: string
+      bonus: double represents the bonus points withdrawn
+      point: double represents the points withdrawn
+      solde: double represents the amount debited
+  incentive-bonus:
+    action: "notifies the driver of the intencive bonus"
+    data:
+      driverId: string
+      amount: double represents the amount add or debited
+      bonus: double represents the bonus add or withdrawn
+      type: recharge or withdrawal represents type of action

@@ -389,12 +389,28 @@ function deliveryMessageHandler(emitter) {
                     );
                 }
         }
-        function handlePointWithdrawal({data}) {
-            const eventName = "point-withdrawal";
-            const {driverId} = data;
+        function handlePointWithdrawal(data) {
+            const eventName = "point-widthdrawn";
+            const {driverId, payload} = data;
             if (connectedUsers[driverId] !== undefined) {
-                connectedUsers[driverId].emit(eventName, {data});
+                connectedUsers[driverId].emit(eventName, payload);
             }
+        }
+        function handleIncentiveBonus(data) {
+            const eventName = "incentive-bonus";
+            const {driverId, payload} = data;
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit(eventName, payload);
+            }else {
+                emitter.emitEvent(
+                    "cloud-message-fallback-requested",
+                    {
+                        message: eventMessages.successPayment,
+                        meta: {eventName, payload: payload},
+                        receiverId: driverId
+                    }
+                    );
+                }
         }
         emitter.addEventListener("delivery-end", handleEnding);
         emitter.addEventListener("delivery-accepted", handleAcceptation);
@@ -420,7 +436,8 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener("payment-initiated", handleInitPayment);
         emitter.addEventListener("failure-payment", handleFailurePayment);
         emitter.addEventListener("successful-payment", handleSuccessPayment);
-        emitter.addEventListener("point-withdrawal", handlePointWithdrawal);
+        emitter.addEventListener("point-withdrawal-fulfill", handlePointWithdrawal);
+        emitter.addEventListener("incentive-bonus", handleIncentiveBonus);
         emitter.addEventListener(
             "driver-position-update-failed",
             handlePositionUpdateFailure

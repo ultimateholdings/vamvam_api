@@ -7,12 +7,19 @@ const {
     formatDbLineString,
     propertiesPicker
 } = require("../utils/helpers");
-const {deliveryStatuses} = require("../utils/config");
+const {apiSettings, dbSettings, deliveryStatuses} = require("../utils/config");
 
 const hiddenProps = ["code", "deliveryMeta"];
 
 function defineDeliveryModel(connection) {
     const emitter = new CustomEmitter();
+    const settings = Object.entries(apiSettings.delivery.defaultValues).reduce(
+        function (acc, [key, value]) {
+            acc[dbSettings[apiSettings.delivery.value].options[key]] = value;
+            return acc;
+        },
+        Object.create(null)
+    );
     const schema = {
         begin: DataTypes.DATE,
         code: DataTypes.STRING,
@@ -36,7 +43,7 @@ function defineDeliveryModel(connection) {
             validate: {
                 max: {
                     args: [5],
-                    msg: "The rating should not be greater than 0"
+                    msg: "The rating should not be greater than 5"
                 },
                 min: {
                     args: [0],
@@ -133,13 +140,29 @@ function defineDeliveryModel(connection) {
             });
         }
         return delivery.count(query);
+    };
+    delivery.ongoingDeliveries = function (driverId) {
+        return delivery.findAll({where: {
+            driverId,
+            status: {[Op.in]: [
+                deliveryStatuses.started,
+                deliveryStatuses.pendingReception,
+                deliveryStatuses.toBeConfirmed
+            ]}
+        }});
     }
     delivery.addEventListener = function (eventName, func) {
         emitter.on(eventName, func);
-    }
+    };
     delivery.emitEvent = function (eventName, data) {
         emitter.emit(eventName, data);
-    }
+    };
+    delivery.getSettings = () => settings;
+    delivery.setSettings = (data) => Object.entries(data).forEach(
+        function ([key, val]) {
+            settings[key] = val;
+        }
+    );
     delivery.updatableProps = updatableProps;
     return delivery;
 }

@@ -70,6 +70,22 @@ describe("Transaction test", function () {
     assert.equal(response.status, 200);
     data = await listenEvent({ name: "payment-initiated", socket: driver });
   });
+  it("should add bonus to driver", async function () {
+    let response;
+    let dataRequest = {
+      driverId: dbUsers.firstDriver.id,
+      bonus: 10, 
+      type: "recharge"
+    }
+    let driver = await clientSocketCreator("delivery", tokens[1]);
+    response = await app
+      .post("/transaction/handle-bonus")
+      .send(dataRequest)
+      .set("authorization", "Bearer " + tokens[2]);
+    assert.equal(response.status, 200);
+    data = await listenEvent({ name: "incentive-bonus", socket: driver });
+    assert.equal(dataRequest.bonus, data.bonus)
+  });
   it("should verify transaction", async function () {
     let response;
     let driver;

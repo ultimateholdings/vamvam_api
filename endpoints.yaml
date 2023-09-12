@@ -160,6 +160,13 @@ auth-endpoints:
       type: post
       response:
         updated: boolean
+    /user/update-availabilty:
+      action: update a driver availability
+      type: post
+      body:
+        available: boolean
+      response:
+        updated: boolean
 
   authentication:
     /auth/change-password:
@@ -384,6 +391,17 @@ auth-endpoints:
         action: "give driver wallet information"
         type: get
         body:
+        response:
+          solde: double
+          bonus: double
+          point: double
+      /transaction/handle-bonus:
+        action: "intencive bonus to driver"
+        type: post
+        body:
+          bonus: double 
+          driverId: string
+          type: string
         response:
           solde: double
           bonus: double

@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {Op, col, fn, where} = require("sequelize");
+const {Op, col, fn, literal, where} = require("sequelize");
 const defineUserModel = require("./user.js");
 const otpModel = require("./otp_request.js");
 const defineDeliveryModel = require("./delivery.js");
@@ -116,9 +116,17 @@ User.belongsToMany(Room, {through: UserRoom});
 Room.hasMany(Message, {foreignKey: "roomId"});
 Message.belongsTo(Room, {foreignKey: "roomId"});
 
+User.getSettings = Delivery.getSettings;
+User.hasOngoingDelivery = async function (driverId) {
+    let result = await Delivery.ongoingDeliveries(driverId);
+    return result.length > 0;
+};
 Settings.addEventListener("settings-update", function (data) {
     if(data.type === "delivery") {
-        Delivery.emitEvent("delivery-settings-updated", data.value);
+        Delivery.setSettings(data.value);
+    }
+    if (data.type === "otp") {
+        otpRequest.setSettings(data.value);
     }
 });
 Message.getAllByRoom = async function ({
@@ -297,7 +305,7 @@ Delivery.getAllWithStatus = function (userId, status) {
             }
         }
     });
-}
+};
 
 Delivery.getAll = async function ({
     from,
@@ -355,7 +363,8 @@ Delivery.getAll = async function ({
     };
 };
 Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
-    const result = await Trans.findAndCountAll({
+    let result;
+    result = await Trans.findAndCountAll({
         limit,
         offset,
         order: [["createdAt", "DESC"]],
@@ -398,6 +407,7 @@ Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
     });
     return result;
 };
+Delivery.getDriverBalance = Trans.getDriverBalance;
 
 module.exports = Object.freeze({
     Blacklist,
