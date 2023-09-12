@@ -73,11 +73,21 @@ function deliveryMessageHandler(emitter) {
             );
         }
 
-        function onPositionUpdateCompleted({clients, driverId}) {
-            connectedUsers[driverId]?.emit("position-updated", true);
-            clients.forEach(function ({id, ...data}) {
-                connectedUsers[id]?.emit("new-driver-position", data);
-            });
+        function onPositionUpdateCompleted(data) {
+            const {deliveryId,driverId, positions, recipients} = data;
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit("position-updated", true);
+            }
+            if (Array.isArray(recipients)) {
+                recipients.forEach(function (id) {
+                    if (connectedUsers[id] !== undefined) {
+                        connectedUsers[id].emit(
+                            "new-driver-position",
+                            {deliveryId, positions}
+                        );
+                    }
+                });
+            }
         }
 
         function handlePositionUpdateFailure(data) {
@@ -96,14 +106,18 @@ function deliveryMessageHandler(emitter) {
 
         function handleFulfilledItinerary(data) {
             const {clientId, driverId, deliveryId, points} = data;
-            connectedUsers[driverId]?.emit?.(
-                "itinerary-update-fulfilled",
-                {deliveryId}
-            );
-            connectedUsers[clientId]?.emit?.(
-                "itinerary-updated",
-                {deliveryId, points}
-            )
+            if (connectedUsers[driverId]) {
+                connectedUsers[driverId].emit(
+                    "itinerary-update-fulfilled",
+                    {deliveryId}
+                );
+            }
+            if (connectedUsers[clientId]) {
+                connectedUsers[clientId].emit(
+                    "itinerary-updated",
+                    {deliveryId, points}
+                );
+            }
         }
 
         function handleAcceptation(data) {

@@ -56,6 +56,7 @@ function getDeliveryRouter(module) {
     router.post(
         "/request",
         protectRoute,
+        deliveryModule.validateContent,
         errorHandler(deliveryModule.requestDelivery)
     );
 

@@ -24,6 +24,7 @@ const {
     getDatas,
     getToken,
     otpHandler,
+    setupServer,
     syncUsers,
     users
 } = require("./fixtures/helper");
@@ -32,7 +33,6 @@ const {
     deliveries,
     deliveryResquestor,
     missoke,
-    setupDeliveryServer
 } = require("./fixtures/deliveries.data");
 const {
     deliveryStatuses,
@@ -50,7 +50,7 @@ describe("delivery CRUD test", function () {
     let dbUsers;
 
     before(function () {
-        const tmp = setupDeliveryServer(otpHandler);
+        const tmp = setupServer(otpHandler);
         server = tmp.server;
         app = tmp.app;
     });

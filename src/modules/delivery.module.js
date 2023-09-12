@@ -45,9 +45,9 @@ function formatBody(deliveryRequest) {
                 }
                 acc[key] = toDbPoint(value);
                 acc.deliveryMeta[key + "Address"] = value.address;
-            } else {
-                acc[key] = value;
+                return acc;
             }
+            acc[key] = value;
             return acc;
         },
         Object.create(null)
@@ -158,15 +158,15 @@ function getDeliveryModule({associatedModels, model}) {
             );
             clients = await deliveryModel.getOngoing(driverId);
             clients = clients ?? [];
-            deliveryModel.emitEvent("driver-position-update-completed", {
-                clients: clients.map(function (delivery) {
-                    const result = Object.create(null);
-                    result.positions = data;
-                    result.id = delivery.clientId;
-                    result.deliveryId = delivery.id;
-                    return result;
-                }),
-                driverId
+            clients.forEach(function (delivery) {
+                const recipients = delivery.getRecipientsId();
+                recipients.push(delivery.clientId);
+                deliveryModel.emitEvent("driver-position-update-completed", {
+                    deliveryId: delivery.id,
+                    driverId,
+                    positions: data,
+                    recipients
+                });
             });
         } catch (error) {
             deliveryModel.emitEvent("driver-position-update-failed", {
@@ -302,6 +302,27 @@ function getDeliveryModule({associatedModels, model}) {
         next();
     }
 
+    async function validateContent(req, res, next) {
+        let body;
+        let tmp;
+        try {
+            body = formatBody(propertiesPicker(req.body)(
+                deliveryModel?.updatableProps ?? []
+            ));
+        } catch (error) {
+            tmp = {content: error.message};
+            return sendResponse(res, errors.invalidLocation, tmp);
+        }
+        try {
+            body.recipientInfos = await getOtherInfos(body.recipientInfos);
+        } catch (error) {
+            tmp = {content: error.message};
+            return sendResponse(res, errors.invalidValues, tmp);
+        }
+        req.body = body;
+        next();
+    }
+
     function ensureCanTerminate(req, res, next) {
         const {started} = deliveryStatuses;
         const {id} = req.user.token;
@@ -404,6 +425,45 @@ function getDeliveryModule({associatedModels, model}) {
         }
         req.driver = driver;
         next();
+    }
+
+    async function getOtherInfos(request) {
+        let main = {};
+        let others = [];
+        let otherUsers = [];
+        if (typeof request?.phone === "string" && typeof request?.name === "string") {
+            main = {phone: request.phone, name: request.name};
+            otherUsers.push(request.phone);
+        }
+        if (Array.isArray(request?.otherPhones) && request.otherPhones.every(
+            (phone) => typeof phone === "string"
+        )) {
+            request.otherPhones.forEach(function (phone) {
+                otherUsers.push(phone);
+                others.push({phone});
+            });
+        }
+        otherUsers = await associations.User.getAllByPhones(otherUsers);
+        otherUsers.forEach(function (user) {
+            let tmp;
+            if (user.phone === main.phone) {
+                tmp = user.toShortResponse();
+                tmp.firstName = main.name;
+                main = tmp;
+            } else {
+                tmp = others.findIndex(
+                    (other) => other.phone === user.phone
+                );
+                others[tmp] = user.toShortResponse();
+            }
+        });
+        if (
+            Object.keys(main).length === 0 &&
+            Object.keys(others).length === 0
+        ) {
+            throw new Error("Invalid values sent " + JSON.stringify(request));
+        }
+        return {main, others};
     }
 
     async function acceptDelivery(req, res) {
@@ -605,16 +665,8 @@ calculation of at delivery */
     async function requestDelivery(req, res) {
         const {id, phone} = req.user.token;
         let user;
-        let body;
+        let {body} = req;
         let tmp;
-        try {
-            body = formatBody(propertiesPicker(req.body)(
-                deliveryModel?.updatableProps ?? []
-            ));
-        } catch (error) {
-            tmp = {content: error.message};
-            return sendResponse(res, errors.invalidLocation, tmp);
-        }
         user = await associations.User.findOne({where: {id, phone}});
         tmp = await generateCode();
         body.price = calculatePrice();
@@ -823,6 +875,7 @@ calculation of at delivery */
         requestDelivery,
         signalReception,
         terminateDelivery,
+        validateContent,
         verifyConflictingDelivery
     });
 }

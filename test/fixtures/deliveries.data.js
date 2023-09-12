@@ -21,7 +21,7 @@ const deliveries = [
         packageType: "Fragile",
         recipientInfos: {
             name: "Kamga Nouhou",
-            otherPhones: ["+4399903940380", "+4309504i900054905"],
+            otherPhones: ["+23909843850383534", "+4309504i900054905"],
             phone: "+29820923023209932023"
         }
     },
@@ -138,19 +138,34 @@ function deliveryResquestor(tokenGetter, model) {
     return Object.freeze({requestDelivery, setupDelivery});
 }
 
-function setupDeliveryServer(otpHandler) {
-    let app;
-    let server;
-    const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));
-    server = buildServer(buildRouter({authRoutes}));
-    app = supertest.agent(server);
-    return Object.freeze({app, server});
+function generateDBDeliveries({
+    clientId,
+    dbPointFormatter,
+    driverId,
+    initialState
+}) {
+    return deliveries.map(function (delivery) {
+        const result = Object.create(null);
+        Object.assign(result, delivery);
+        result.departure = dbPointFormatter(delivery.departure);
+        result.destination = dbPointFormatter(delivery.destination);
+        result.deliveryMeta = {
+            departureAddress: delivery.departure.address,
+            destinationAddress: delivery.destination.address
+        };
+        result.price = 1000;
+        result.clientId = clientId;
+        result.driverId = driverId;
+        result.status = initialState;
+        result.code = "230293-sdfs";
+        return result;
+    });
 }
 module.exports = Object.freeze({
     badDelevery,
     deliveries,
     deliveryResquestor,
+    generateDBDeliveries,
     missoke,
-    positions,
-    setupDeliveryServer
+    positions
 });
