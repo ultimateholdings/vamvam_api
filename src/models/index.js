@@ -363,7 +363,8 @@ Delivery.getAll = async function ({
     };
 };
 Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
-    const result = await Trans.findAndCountAll({
+    let result;
+    result = await Trans.findAndCountAll({
         limit,
         offset,
         order: [["createdAt", "DESC"]],
@@ -404,30 +405,6 @@ Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
             lastName
         });
     });
-    return result;
-};
-
-Trans.getDriverBalance = async function balanceCalculator(driverId) {
-    let result = await Trans.findAll({
-        attributes: [
-            "type",
-            [fn("SUM", col("point")), "totalPoint"],
-            [fn("SUM", literal("`point` * `unitPrice`" )), "totalAmount"],
-            [fn("SUM", col("bonus")), "totalBonus"],
-        ],
-        group: ["type"],
-        where: {driverId}
-    });
-    result = result.reduce(function (acc, entry) {
-        let factor;
-        const {type, totalPoint, totalAmount, totalBonus} = entry.dataValues;
-        factor = (type === "recharge" ? 1 : -1);
-        acc.bonus += factor * totalBonus;
-        acc.point += factor * totalPoint;
-        acc.solde += factor * totalAmount;
-        return acc;
-    }, { bonus: 0, point: 0, solde: 0});
-    result.hasCredit = result.bonus >= 1 || result.point >= 1;
     return result;
 };
 Delivery.getDriverBalance = Trans.getDriverBalance;

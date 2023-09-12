@@ -395,3 +395,14 @@ auth-endpoints:
           solde: double
           bonus: double
           point: double
+      /transaction/handle-bonus:
+        action: "intencive bonus to driver"
+        type: post
+        body:
+          bonus: double 
+          driverId: string
+          type: string
+        response:
+          solde: double
+          bonus: double
+          point: double

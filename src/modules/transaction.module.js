@@ -132,47 +132,6 @@ function getTransactionModule({
     }
   }
 
-  async function balanceInfos(driverId) {
-    let rechargeSum;
-    let retraitSum;
-    let bonusAdded;
-    let bonusWithdraw;
-    rechargeSum = await transactionModel.sum("point", {
-      where: {
-        driverId: driverId,
-        type: "recharge",
-      },
-    });
-    retraitSum = await transactionModel.sum("point", {
-      where: {
-        driverId: driverId,
-        type: "withdrawal",
-      },
-    });
-    bonusAdded = await transactionModel.sum("bonus", {
-      where: {
-        driverId: driverId,
-        type: "recharge",
-      },
-    });
-    bonusWithdraw = await transactionModel.sum("bonus", {
-      where: {
-        driverId: driverId,
-        type: "withdrawal",
-      },
-    });
-    const pointSum = rechargeSum - retraitSum;
-    const bonusSum = bonusAdded - bonusWithdraw;
-    const solde = calculateSolde(pointSum);
-    const subtract = canSubtract(pointSum, bonusSum);
-    return {
-      point: pointSum,
-      bonus: bonusSum,
-      solde: solde,
-      subtract: subtract,
-    };
-  }
-
   async function withdrawal(data) {
     let {bonus, driverId, point} = data;
     try {
@@ -197,26 +156,51 @@ function getTransactionModule({
     }
   }
 
+  async function incentiveBonus(req, res){
+    const {bonus, driverId, type} = req.body;
+    try {
+      await transactionModel.create({
+        bonus,
+        driverId,
+        point: staticPaymentProps.recharge_point,
+        type: type,
+        unitPrice: staticPaymentProps.debit_amount
+    });
+    res.status(200).json({});
+    deliveriesModel.emitEvent("incentive-bonus", {
+      driverId,
+      payload: {
+        amount: bonus * staticPaymentProps.debit_amount,
+        bonus,
+        type
+      },
+    });
+    } catch (error) {
+      return sendResponse(res, errors.internalError);
+    }
+  }
+
   async function transactionHistory(req, res) {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 8;
     const offset = (page - 1) * limit;
-    const { id: driverId } = req.user.token;
-    const { type } = req.body;
-    let { rows } = await transactionModel.getAllByType({
+    const {id} = req.user.token;
+    const {type} = req.body;
+    let {rows} = await transactionModel.getAllByType({
       limit,
       offset,
-      driverId,
+      id,
       type,
     });
     res.status(200).json(rows);
   }
 
   async function wallet(req, res) {
+    let data;
     const { id } = req.user.token;
-    let data = await transactionModel.getDriverBalance(id);
+    data = await transactionModel.getDriverBalance(id);
     res.status(200).json({
-      wallet: data,
+      wallet: data
     });
   }
 
@@ -245,25 +229,13 @@ function getTransactionModule({
     }
   }
 
-  async function rechargeInfos(req, res) {
+  async function creditSumInfos(req, res) {
     try {
-      let rechargeSum;
-      let bonusSum;
-      rechargeSum = await transactionModel.sum("point", {
-        where: {
-          type: "recharge",
-        },
-      });
-      bonusSum = await transactionModel.sum("bonus", {
-        where: {
-          type: "recharge",
-        },
-      });
-      const solde = calculateSolde(rechargeSum);
+      const {point, bonus, solde} = await transactionModel.getDriverBalance();
       res.status(200).json({
-        point: rechargeSum,
-        bonus: bonusSum,
-        solde: solde,
+        bonus,
+        point,
+        solde
       });
     } catch (error) {
       sendResponse(res, errors.internalError);
@@ -277,7 +249,8 @@ function getTransactionModule({
     finalizePayment,
     wallet,
     rechargeHistory,
-    rechargeInfos,
+    creditSumInfos,
+    incentiveBonus
   });
 }
 module.exports = getTransactionModule;

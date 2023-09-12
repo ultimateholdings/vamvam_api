@@ -187,6 +187,7 @@ function generateToken(user) {
 
 function setupInterceptor() {
   const otpBaseUrl = "https://api.ng.termii.com";
+  const paymentBaseUrl = "https://api.flutterwave.com";
   const { badUser, firstDriver, goodUser } = users;
   nock(otpBaseUrl)
     .post(/otp\/send/, (body) => body.to === badUser.phone)
