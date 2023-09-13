@@ -1,10 +1,5 @@
 /*jslint node*/
 require("dotenv").config();
-const supertest = require("supertest");
-const {buildServer} = require("../../src");
-const buildRouter = require("../../src/routes");
-const buildAuthRoutes = require("../../src/routes/auth.route");
-const getAuthModule = require("../../src/modules/auth.module");
 
 const deliveries = [
     {

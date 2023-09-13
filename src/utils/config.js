@@ -354,6 +354,16 @@ const eventMessages = {
             title: "Nouvelle livraison"
         }
     },
+    newInvitation: {
+        en: {
+            body: "You have been invited to track a delivery",
+            title: "New Invitation"
+        },
+        fr: {
+            body: "Vous avez été invité à suivre une livraison",
+            title: "Nouvelle Invitation"
+        }
+    },
     newRoom: {
         en: {
             body: "Now you can talk to your delivery contact.",

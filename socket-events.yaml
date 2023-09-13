@@ -79,7 +79,7 @@ delivery:
       action: "notify the client that the driver has accepted his delivery"
       data:
         deliveryId: string
-        driver: userData
+        driver: shortUserData
     delivery-cancelled:
       action: "notify the driver that the client has cancelled a delivery"
       data: string representing the delivery Id

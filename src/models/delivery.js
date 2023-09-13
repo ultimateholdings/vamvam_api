@@ -149,7 +149,7 @@ function defineDeliveryModel(connection) {
         if (Array.isArray(others)) {
             others.forEach(function(user) {
                 if (typeof user.phone === "string") {
-                    result.push(phone);
+                    result.push(user.phone);
                 }
             });
         }

@@ -80,20 +80,10 @@ function getDeliveryModule({associatedModels, model}) {
         deliveryStatuses.toBeConfirmed,
         deliveryStatuses.started
     ];
-
-    deliveryModel.addEventListener(
-        "chat-room-requested",
-        async function ({userId}) {
-            const user = await associations.User.findOne({
-                where: {id: userId}
-            });
-            const rooms = await user?.getRooms();
-            deliveryModel.emitEvent(
-                "user-rooms-request-fulfilled",
-                {rooms: rooms ?? [], userId}
-            );
-        }
-    );
+    
+    function notifyListeners(eventName, payload) {
+        deliveryModel.emitEvent(eventName, payload);
+    }
 
     async function notifyNearbyDrivers({
         by = 5500,
@@ -140,6 +130,7 @@ function getDeliveryModule({associatedModels, model}) {
         let {data, driverId} = driverMessage;
         let deliveries;
         let position;
+        let updated;
         try {
             data = JSON.parse(data.toString());
         } catch (ignore) {
@@ -157,23 +148,30 @@ function getDeliveryModule({associatedModels, model}) {
                 position = data;
             }
             position = toDbPoint(position);
-            await associations.User.update(
+            [updated] = await associations.User.update(
                 {position},
                 {where: {id: driverId}}
             );
             deliveries = await deliveryModel.getOngoing(driverId);
             deliveries = deliveries ?? [];
-            deliveryModel.emitEvent(
+            notifyListeners(
                 "driver-position-update-completed",
-                driverId
+                {userId: driverId, payload: {updated: updated > 0}}
             );
             deliveries.forEach(function (delivery) {
                 const recipients = delivery.getRecipientsId();
                 recipients.push(delivery.clientId);
-                deliveryModel.emitEvent("driver-position-updated", {
-                    deliveryId: delivery.id,
-                    positions: data,
-                    recipients
+                recipients.forEach(function (userId) {
+                    notifyListeners(
+                        "driver-position-updated",
+                        {
+                            userId,
+                            payload: {
+                                deliveryId: delivery.id,
+                                positions: data
+                            }
+                        }
+                    )
                 });
             });
         } catch (error) {
@@ -186,6 +184,7 @@ function getDeliveryModule({associatedModels, model}) {
     }
 
     async function updateDeliveryItinerary(data) {
+        let others;
         const {deliveryId, driverId, points} = data;
         const delivery = await deliveryModel.findOne({
             where: {driverId, id: deliveryId}
@@ -200,15 +199,18 @@ function getDeliveryModule({associatedModels, model}) {
         if (Array.isArray(points) && points.every(isValidLocation)) {
             delivery.route = toDbLineString(points);
             await delivery.save();
-            deliveryModel.emitEvent(
+            others = delivery.getRecipientsId();
+            others.push(delivery.clientId);
+            notifyListeners(
                 "itinerary-update-fulfilled",
-                {
-                    clientId: delivery.clientId,
-                    deliveryId,
-                    driverId,
-                    points
-                }
+                {userId: driverId, payload: {updated: true}}
             );
+            others.forEach(function (userId) {
+                notifyListeners("itinerary-updated", {
+                    userId,
+                    payload: {deliveryId, points}
+                });
+            });
         } else {
             data.error = errors.invalidValues;
             return deliveryModel.emitEvent(
@@ -257,7 +259,7 @@ function getDeliveryModule({associatedModels, model}) {
             const {delivery} = req;
             const isExternal = allowedExternals.includes(role);
             let isInvited = delivery.getRecipientsId()
-            const isInvolved = (delivery.clientId === id) || (
+            let isInvolved = (delivery.clientId === id) || (
                 delivery.driverId === id
             );
             isInvited = (
@@ -350,7 +352,6 @@ function getDeliveryModule({associatedModels, model}) {
         if (delivery.code !== code) {
             return sendResponse(res, errors.invalidCode);
         }
-        req.canTerminate = true;
         next();
     }
 
@@ -482,9 +483,10 @@ function getDeliveryModule({associatedModels, model}) {
         let driver;
         let client;
         let others;
-        const {id, phone} = req.user.token;
+        let notification;
+        const {id} = req.user.token;
         const {balance, delivery} = req;
-        driver = await associations.User.findOne({where: {id, phone}});
+        driver = await associations.User.findOne({where: {id}});
         delivery.status = deliveryStatuses.pendingReception;
         await delivery.save();
         await delivery.setDriver(driver);
@@ -492,14 +494,27 @@ function getDeliveryModule({associatedModels, model}) {
             accepted: true
         });
         client = await delivery.getClient();
-        deliveryModel?.emitEvent("delivery-accepted", {
-            clientId: delivery.clientId,
-            deliveryId: delivery.id,
-            driver: driver.toResponse()
-        });
         others = await associations.User.getAllByPhones(
             delivery.getRecipientPhones()
         );
+        notification = {
+            userId: delivery.clientId,
+            payload: {
+                deliveryId: delivery.id,
+                driver: driver.toShortResponse()
+            }
+        };
+        notifyListeners("delivery-accepted", notification);
+        notification = {
+            payload: delivery.toResponse()
+        };
+        notification.payload.driver = driver.toShortResponse();
+        notification.payload.client = client.toShortResponse();
+        notification.payload.invited = true;
+        others.forEach(function (user) {
+            notification.userId = user.id;
+            notifyListeners("new-invitation", notification);
+        });
         reduceCredit(id, balance);
         await createChatRoom(
             delivery,
@@ -779,27 +794,25 @@ calculation of at delivery */
     }
 
     async function terminateDelivery(req, res) {
-        const {canTerminate, delivery} = req;
+        const {delivery} = req;
         const {id} = req.user.token;
-        if (canTerminate === true) {
-            delivery.status = deliveryStatuses.terminated;
-            delivery.end = new Date().toISOString();
-            await delivery.save();
-            res.status(200).send({
-                terminated: true
-            });
-            deliveryModel?.emitEvent(
-                "delivery-end",
-                {clientId: delivery.clientId, deliveryId: delivery.id}
-            );
-            await associations.User.update({available: true}, {where: {id}});
-        } else {
-            return sendResponse(
-                res,
-                errors.cannotPerformAction,
-                {canTerminate}
-            );
-        }
+        const members = delivery.getRecipientsId();
+        delivery.status = deliveryStatuses.terminated;
+        delivery.end = new Date().toISOString();
+        await delivery.save();
+        res.status(200).send({
+            terminated: true
+        });
+        members.push(delivery.clientId);
+        members.forEach(function (userId) {
+            notifyListeners("delivery-end", {userId, payload: delivery.id});
+        });
+        members.push(delivery.driverId);
+        notifyListeners(
+            "room-deletion-requested",
+            {deliveryId: delivery.id, members}
+        );
+        await associations.User.update({available: true}, {where: {id}});
     }
 
     async function verifyConflictingDelivery(req, res) {
