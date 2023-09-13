@@ -35,6 +35,7 @@ function deliveryMessageHandler(emitter) {
                         {messagesId, userId: socket.user.id}
                     );
                 } else {
+                    debugger;
                     socket.emit(
                         "messages-read-fail",
                         errors.invalidValues.message
@@ -73,11 +74,8 @@ function deliveryMessageHandler(emitter) {
             );
         }
 
-        function onPositionUpdateCompleted(data) {
-            const {deliveryId,driverId, positions, recipients} = data;
-            if (connectedUsers[driverId] !== undefined) {
-                connectedUsers[driverId].emit("position-updated", true);
-            }
+        function handleNewDriverPosition(data) {
+            const {deliveryId, positions, recipients} = data;
             if (Array.isArray(recipients)) {
                 recipients.forEach(function (id) {
                     if (connectedUsers[id] !== undefined) {
@@ -87,6 +85,12 @@ function deliveryMessageHandler(emitter) {
                         );
                     }
                 });
+            }
+        }
+
+        function onPositionUpdateCompleted(data) {
+            if (connectedUsers[data] !== undefined) {
+                connectedUsers[data].emit("position-updated", true);
             }
         }
 
@@ -355,6 +359,10 @@ function deliveryMessageHandler(emitter) {
         emitter?.addEventListener(
             "driver-position-update-completed",
             onPositionUpdateCompleted
+        );
+        emitter?.addEventListener(
+            "driver-position-updated",
+            handleNewDriverPosition
         );
 
         function handleInitPayment({driverId}) {

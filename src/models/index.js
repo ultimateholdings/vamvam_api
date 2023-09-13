@@ -282,12 +282,22 @@ Room.getUserRooms = async function (userId) {
     });
 }
 
-Delivery.getAllWithStatus = function (userId, status) {
-    const clause = [
-        {clientId: {[Op.eq]: userId}},
-        {driverId: {[Op.eq]: userId}}
-    ];
+Delivery.getAllWithStatus = function ({userId, status, includeOther = false}) {
     let statusClause;
+    let clause = [{driverId: {[Op.eq]: userId}}];
+    if (includeOther) {
+        clause.unshift({
+            [Op.or]: [
+                {clientId: {[Op.eq]: userId}},
+                where(
+                    fn("JSON_SEARCH", col("recipientInfos"), "one", userId),
+                    {[Op.not] : null}
+                ),
+            ]
+        });
+    } else {
+        clause.unshift({clientId: {[Op.eq]: userId}});
+    }
     if (Array.isArray(status)) {
         statusClause = {[Op.in]: status}
     } else {

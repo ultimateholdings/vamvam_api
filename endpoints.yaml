@@ -33,6 +33,7 @@ deliveryData:
   driver: shortUserData
   end: Date
   id: string
+  invited: boolean
   note: double
   packageType: string
   recipientInfos: JSON

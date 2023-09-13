@@ -133,7 +133,7 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function updateDriverPosition(driverMessage) {
         let {data, driverId} = driverMessage;
-        let clients;
+        let deliveries;
         let position;
         try {
             data = JSON.parse(data.toString());
@@ -156,14 +156,17 @@ function getDeliveryModule({associatedModels, model}) {
                 {position},
                 {where: {id: driverId}}
             );
-            clients = await deliveryModel.getOngoing(driverId);
-            clients = clients ?? [];
-            clients.forEach(function (delivery) {
+            deliveries = await deliveryModel.getOngoing(driverId);
+            deliveries = deliveries ?? [];
+            deliveryModel.emitEvent(
+                "driver-position-update-completed",
+                driverId
+            );
+            deliveries.forEach(function (delivery) {
                 const recipients = delivery.getRecipientsId();
                 recipients.push(delivery.clientId);
-                deliveryModel.emitEvent("driver-position-update-completed", {
+                deliveryModel.emitEvent("driver-position-updated", {
                     deliveryId: delivery.id,
-                    driverId,
                     positions: data,
                     recipients
                 });
@@ -800,33 +803,35 @@ calculation of at delivery */
 
     async function getOngoingDeliveries(req, res) {
         let {id, role} = req.user.token;
-        let deliveries = await deliveryModel.getAllWithStatus(
-            id,
-            [
+        let deliveries = await deliveryModel.getAllWithStatus({
+            includeOther: true,
+            status: [
                 deliveryStatuses.started,
                 deliveryStatuses.pendingReception,
                 deliveryStatuses.toBeConfirmed
-            ]
+            ],
+            userId: id
+        }
         );
         deliveries = deliveries.map(
-            (delivery) => toDeliveryResponse(delivery, role)
+            (delivery) => formatResponse({delivery, id, role})
         );
         res.status(200).json({deliveries});
     }
 
     async function getTerminatedDeliveries(req, res) {
         let {id, role} = req.user.token;
-        let deliveries = await deliveryModel.getAllWithStatus(
-            id,
-            deliveryStatuses.terminated
-        );
+        let deliveries = await deliveryModel.getAllWithStatus({
+            userId: id,
+            status: deliveryStatuses.terminated
+        });
         deliveries = deliveries.map(
-            (delivery) => toDeliveryResponse(delivery, role)
+            (delivery) => formatResponse({delivery, id, role})
         );
         res.status(200).json({deliveries});
     }
 
-    function toDeliveryResponse(delivery, role) {
+    function formatResponse({delivery, id, role}) {
         const result = delivery.toResponse();
         let driverData;
         if (role === roles.clientRole) {
@@ -834,8 +839,12 @@ calculation of at delivery */
             if (delivery.Driver.position !== null) {
                 driverData.position = formatDbPoint(delivery.Driver.position);
             }
+            result.invited = true;
+            if (delivery.clientId === id) {
+                result.invited = false;
+                result.code = delivery.code;
+            }
             result.driver = driverData;
-            result.code = delivery.code;
         } else {
             result.client = delivery.Client.toShortResponse();
             if (delivery.status === deliveryStatuses.terminated) {

@@ -144,7 +144,7 @@ function generateDBDeliveries({
     driverId,
     initialState
 }) {
-    return deliveries.map(function (delivery) {
+    return deliveries.map(function (delivery, index) {
         const result = Object.create(null);
         Object.assign(result, delivery);
         result.departure = dbPointFormatter(delivery.departure);
@@ -156,7 +156,11 @@ function generateDBDeliveries({
         result.price = 1000;
         result.clientId = clientId;
         result.driverId = driverId;
-        result.status = initialState;
+        result.status = (
+            typeof initialState	=== "function"
+            ? initialState(index)
+            : initialState
+        );
         result.code = "230293-sdfs";
         return result;
     });

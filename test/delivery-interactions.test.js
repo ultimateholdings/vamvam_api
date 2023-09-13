@@ -20,9 +20,7 @@ const {
     bundles,
     clientSocketCreator,
     generateToken,
-    getToken,
     listenEvent,
-    loginUser,
     otpHandler,
     postData,
     setupServer,
@@ -31,7 +29,6 @@ const {
 } = require("./fixtures/helper");
 const {
     deliveries,
-    deliveryResquestor,
     generateDBDeliveries,
     missoke
 } = require("./fixtures/deliveries.data");
@@ -40,11 +37,6 @@ const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
 const getConflictHandler = require("../src/modules/conflict.socket-handler");
 const {deliveryStatuses, errors} = require("../src/utils/config");
 const {toDbPoint} = require("../src/utils/helpers");
-
-const {
-    requestDelivery,
-    setupDelivery
-} = deliveryResquestor(getToken, Delivery);
 
 function updatePosition(socket, position) {
     socket.emit("new-position", position);
@@ -96,11 +88,12 @@ describe("delivery side effects test", function () {
             clientId: dbUsers.goodUser.id,
             dbPointFormatter: toDbPoint,
             driverId: dbUsers.firstDriver.id,
-            initialState: deliveryStatuses.initial
+            initialState:  (index) => (
+                index === 0
+                ? deliveryStatuses.started
+                : deliveryStatuses.initial
+            )
         }));
-        await Delivery.update({
-            status: deliveryStatuses.started
-        }, {where: {id: testDeliveries[0].id}});
     });
 
     afterEach(async function () {
