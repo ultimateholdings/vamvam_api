@@ -75,6 +75,11 @@ function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
     const associations = associatedModels || {DeliveryConflict, User};
     const deliveryPagination = ressourcePaginator(deliveryModel.getAll);
+    const ongoingState = [
+        deliveryStatuses.pendingReception,
+        deliveryStatuses.toBeConfirmed,
+        deliveryStatuses.started
+    ];
 
     deliveryModel.addEventListener(
         "chat-room-requested",
@@ -250,11 +255,20 @@ function getDeliveryModule({associatedModels, model}) {
         return function verifyAccess(req, res, next) {
             const {id, role} = req.user.token;
             const {delivery} = req;
-            let isInvolved = (delivery.clientId === id) || (
+            const isExternal = allowedExternals.includes(role);
+            let isInvited = delivery.getRecipientsId()
+            const isInvolved = (delivery.clientId === id) || (
                 delivery.driverId === id
             );
-            isInvolved = isInvolved && (id !== null || id !== undefined);
-            if (allowedExternals.includes(role) || isInvolved) {
+            isInvited = (
+                isInvited.includes(id) &&
+                ongoingState.includes(delivery.status)
+            );
+            isInvolved = isInvolved && (typeof id === "string");
+            if (isExternal || isInvolved || isInvited) {
+                req.isExternal = isExternal;
+                req.isInvolved = isInvolved;
+                req.isInvited = isInvited;
                 next();
             } else {
                 sendResponse(res, errors.forbiddenAccess);
@@ -278,12 +292,7 @@ function getDeliveryModule({associatedModels, model}) {
         let {lastPosition} = req.body;
         const {delivery} = req;
         const {role} = req.user.token;
-        const allowedStatus = [
-            deliveryStatuses.pendingReception,
-            deliveryStatuses.toBeConfirmed,
-            deliveryStatuses.started
-        ];
-        if (!allowedStatus.includes(delivery.status)) {
+        if (!ongoingState.includes(delivery.status)) {
             return sendResponse(res, errors.cannotPerformAction);
         }
         conflict = await associations.DeliveryConflict.findOne({
@@ -626,17 +635,31 @@ function getDeliveryModule({associatedModels, model}) {
     }
 
     async function getInfos(req, res) {
-        let {delivery} = req;
+        const {id, role} = req.user.token;
+        const {delivery, isExternal, isInvited} = req;
+        let response;
         let client;
         let driver;
-        const code = delivery.code;
         client = await delivery.getClient();
         driver = await delivery.getDriver();
-        delivery = delivery.toResponse();
-        delivery.code = code;
-        delivery.client = client;
-        delivery.driver = driver;
-        res.status(200).send(delivery);
+        client = client.toShortResponse();
+        driver = driver.toShortResponse();
+        response = delivery.toResponse();
+        response.invited = isInvited;
+        if (isExternal || isInvited) {
+            response.client = client;
+            response.driver = driver;
+        }
+        if (isExternal || client.id === id) {
+            response.code = delivery.code;
+        }
+        if (role === roles.clientRole) {
+            response.driver = driver;
+        }
+        if (role === roles.driverRole) {
+            response.client = client;
+        }
+        res.status(200).send(response);
     }
 
 /*This function is actually a placeholder for the price
@@ -805,11 +828,7 @@ calculation of at delivery */
         let {id, role} = req.user.token;
         let deliveries = await deliveryModel.getAllWithStatus({
             includeOther: true,
-            status: [
-                deliveryStatuses.started,
-                deliveryStatuses.pendingReception,
-                deliveryStatuses.toBeConfirmed
-            ],
+            status: ongoingState,
             userId: id
         }
         );
