@@ -172,6 +172,11 @@ payment:
     action: "notifies the driver of the intencive bonus"
     data:
       driverId: string
-      amount: double represents the amount add or debited
-      bonus: double represents the bonus add or withdrawn
-      type: recharge or withdrawal represents type of action
+      amount: double represents the amount add
+      bonus: double represents the bonus add
+  bonus-withdrawal:
+    action: "notifies the driver of the intencive bonus"
+    data:
+      driverId: string
+      amount: double represents the amount debited
+      bonus: double represents the bonus ithdrawn

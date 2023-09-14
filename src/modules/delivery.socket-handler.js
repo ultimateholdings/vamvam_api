@@ -412,6 +412,22 @@ function deliveryMessageHandler(emitter) {
                     );
                 }
         }
+        function handleWithdrawelBonus(data) {
+            const eventName = "bonus-withdrawal";
+            const {driverId, payload} = data;
+            if (connectedUsers[driverId] !== undefined) {
+                connectedUsers[driverId].emit(eventName, payload);
+            }else {
+                emitter.emitEvent(
+                    "cloud-message-fallback-requested",
+                    {
+                        message: eventMessages.successPayment,
+                        meta: {eventName, payload: payload},
+                        receiverId: driverId
+                    }
+                    );
+                }
+        }
         emitter.addEventListener("delivery-end", handleEnding);
         emitter.addEventListener("delivery-accepted", handleAcceptation);
         emitter.addEventListener("delivery-cancelled", handleCancellation);
@@ -438,6 +454,7 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener("successful-payment", handleSuccessPayment);
         emitter.addEventListener("point-withdrawal-fulfill", handlePointWithdrawal);
         emitter.addEventListener("incentive-bonus", handleIncentiveBonus);
+        emitter.addEventListener("bonus-withdrawal", handleWithdrawelBonus);
         emitter.addEventListener(
             "driver-position-update-failed",
             handlePositionUpdateFailure
