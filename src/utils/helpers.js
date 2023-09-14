@@ -444,7 +444,10 @@ function getPaymentService(paymentModel, bundleModel) {
         {
           method: "post",
           body: JSON.stringify(payload),
-          headers: config.headers,
+          headers: {
+            Authorization: `Bearer ${config.flw_key}`,
+            "Content-Type": "application/json",
+        }
         }
       );
     } catch (error) {

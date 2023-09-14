@@ -11,9 +11,6 @@ const {
   calculateSolde,
 } = require("../utils/helpers");
 
-function canSubtract(pointSum, bonusSum) {
-  return pointSum + bonusSum !== 0;
-}
 function getTransactionModule({
   modelTrans,
   modelPay,
@@ -167,14 +164,23 @@ function getTransactionModule({
         unitPrice: staticPaymentProps.debit_amount
     });
     res.status(200).json({});
-    deliveriesModel.emitEvent("incentive-bonus", {
-      driverId,
-      payload: {
-        amount: bonus * staticPaymentProps.debit_amount,
-        bonus,
-        type
-      },
-    });
+    if( type === "recharge"){
+      deliveriesModel.emitEvent("incentive-bonus", {
+        driverId,
+        payload: {
+          amount: bonus * staticPaymentProps.debit_amount,
+          bonus
+        },
+      });
+    } else {
+      deliveriesModel.emitEvent("bonus-withdrawal", {
+        driverId,
+        payload: {
+          amount: bonus * staticPaymentProps.debit_amount,
+          bonus
+        },
+      });
+    }
     } catch (error) {
       return sendResponse(res, errors.internalError);
     }
