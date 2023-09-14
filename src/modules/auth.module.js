@@ -226,6 +226,9 @@ function getAuthModule({
             });
             userExists = false;
         }
+        if (currentUser?.status !== authModel.statuses?.activated) {
+            return sendResponse(res, errors.inactiveAccount);
+        }
         handleAuthSuccess(res, currentUser, userExists);
     }
 

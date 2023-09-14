@@ -134,6 +134,9 @@ auth-endpoints:
       settings: (OTPSettingsData || DeliverySettingsData)[]
 
   user:
+    /user/logout:
+      action: logout a user
+      type: post
     /user/infos :
       action: get user informations
       type: get

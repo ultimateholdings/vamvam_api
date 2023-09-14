@@ -6,7 +6,8 @@ const {Blacklist, Settings, User} = require("../models");
 const {
     apiSettings,
     availableRoles,
-    errors
+    errors,
+    userStatuses
 } = require("../utils/config");
 const {
     propertiesPicker,
@@ -39,6 +40,7 @@ function getAdminModule({associatedModels}) {
         req.setting = setting;
         next();
     }
+
     async function ensureUserExists(req, res, next) {
         const {id} = req.body;
         let user;
@@ -76,23 +78,46 @@ function getAdminModule({associatedModels}) {
             requestedUser.id,
             newDate
         );
+        requestedUser.status = userStatuses.inactive;
+        await requestedUser.save();
         res.status(200).json({invalidated: true});
     }
+
+    async function logoutUser(req, res) {
+        const {id} = req.user.token;
+        const newDate = new Date();
+        await associations.Blacklist.invalidateUser(
+            id,
+            newDate
+        );
+        res.status(200).json();
+    }
+
+    async function activateUser(req, res) {
+        const {requestedUser} = req;
+        requestedUser.status = userStatuses.activated;
+        await requestedUser.save();
+        res.status(200).json({activated: true});
+    }
+
     async function invalidateEveryOne(_, res) {
         await associations.Blacklist.invalidateAll();
         res.status(200).json({invalidated: true});
     }
+
     async function createNewAdmin(req, res) {
         const {data} = req;
         const newAdmin = await associations.User.create(data);
         res.status(200).json({id: newAdmin.id});
     }
+
     async function updateSettings(req, res) {
         const setting = req.setting;
         const [updated] = await associations.Settings.updateSettings(setting);
         res.status(200).json({updated: updated > 0});
         associations.Settings.emitEvent("settings-update", req.body);
     }
+
     async function getSettings(req, res) {
         let response;
         let {type} = req.query;
@@ -107,12 +132,14 @@ function getAdminModule({associatedModels}) {
     }
 
     return Object.freeze({
+        activateUser,
         createNewAdmin,
         ensureUserExists,
         ensureValidSetting,
         getSettings,
         invalidateEveryOne,
         invalidateUser,
+        logoutUser,
         updateSettings,
         validateAdminCreation
     });
