@@ -28,14 +28,30 @@ const apiRoles = {
     driver: availableRoles.driverRole,
     registration: availableRoles.registrationManager
 };
+const defaultConflicts = [
+    {code: "level_1", en: "outage", fr: "panne"},
+    {code: "level_2", en: "accident", fr: "accident"},
+    {code: "level_3", en: "dispute", fr: "litige"},
+    {code: "level_4", en: "assault", fr: "agression"},
+    {code: "level_5", en: "non-payment", fr: "défaut de paiement"}
+];
+const defaultPackageType = [
+    {code: "type_1", en: "fragile", fr: "fragile"},
+    {code: "type_2", en: "solid", fr: "solide"},
+    {code: "type_3", en: "sensitive", fr: "délicat"}
+];
 const apiSettings = {
     delivery: {
         value: "delivery-settings",
         defaultValues: {
+            delivery_conflicts: defaultConflicts,
+            delivery_packages: defaultPackageType,
             driver_search_radius: 5500,
             delivery_ttl: 180
         },
         options: {
+            conflict_types: "delivery_conflicts",
+            package_types: "delivery_packages",
             search_radius: "driver_search_radius",
             ttl: "delivery_ttl"
         }
@@ -150,7 +166,7 @@ const errors = {
             en: "Something went wrong while processing your request",
             fr: "Un problème s'est produit lors du traitement de votre demande"
         },
-        status: 501
+        status: 500
     },
     invalidCode: {
         message: {
@@ -491,7 +507,7 @@ const config = Object.freeze({
             otp_verify
         } = process.env;
         return Object.freeze({
-            getSendingBody: function (receiver, signature) {
+            getSendingBody: function (receiver, signature = "") {
                 return {
                     api_key: otp_key,
                     channel: "generic",

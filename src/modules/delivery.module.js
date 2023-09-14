@@ -75,6 +75,9 @@ function getDeliveryModule({associatedModels, model}) {
     const deliveryModel = model || Delivery;
     const associations = associatedModels || {DeliveryConflict, User};
     const deliveryPagination = ressourcePaginator(deliveryModel.getAll);
+    const terminatedPagination = ressourcePaginator(
+        deliveryModel.getTerminated
+    );
     const ongoingState = [
         deliveryStatuses.pendingReception,
         deliveryStatuses.toBeConfirmed,
@@ -291,11 +294,19 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function ensureCanReport(req, res, next) {
         let conflict;
-        let {lastPosition} = req.body;
+        let {conflictType, lastPosition} = req.body;
         const {delivery} = req;
         const {role} = req.user.token;
+        const allowedTypes = deliveryModel.getSettings().conflict_types;
         if (!ongoingState.includes(delivery.status)) {
             return sendResponse(res, errors.cannotPerformAction);
+        }
+        if (!allowedTypes.some((type) => type.code === conflictType)) {
+            return sendResponse(
+                res,
+                errors.unsupportedType,
+                {prop: "conflictType"}
+            );
         }
         conflict = await associations.DeliveryConflict.findOne({
             where: {deliveryId: delivery.id}
@@ -319,6 +330,7 @@ function getDeliveryModule({associatedModels, model}) {
     async function validateContent(req, res, next) {
         let body;
         let tmp;
+        let allowedTypes = Delivery.getSettings().package_types;
         try {
             body = formatBody(propertiesPicker(req.body)(
                 deliveryModel?.updatableProps ?? []
@@ -332,6 +344,13 @@ function getDeliveryModule({associatedModels, model}) {
         } catch (error) {
             tmp = {content: error.message};
             return sendResponse(res, errors.invalidValues, tmp);
+        }
+        if (!allowedTypes.some((type) => type.code === body.packageType)) {
+            return sendResponse(
+                res,
+                errors.unsupportedType,
+                {prop: "packageType"}
+            );
         }
         req.body = body;
         next();
@@ -839,12 +858,7 @@ calculation of at delivery */
 
     async function getOngoingDeliveries(req, res) {
         let {id, role} = req.user.token;
-        let deliveries = await deliveryModel.getAllWithStatus({
-            includeOther: true,
-            status: ongoingState,
-            userId: id
-        }
-        );
+        let deliveries = await deliveryModel.withStatuses(id, ongoingState);
         deliveries = deliveries.map(
             (delivery) => formatResponse({delivery, id, role})
         );
@@ -852,15 +866,32 @@ calculation of at delivery */
     }
 
     async function getTerminatedDeliveries(req, res) {
+        let response;
         let {id, role} = req.user.token;
-        let deliveries = await deliveryModel.getAllWithStatus({
-            userId: id,
-            status: deliveryStatuses.terminated
+        let {maxPageSize, skip} = req.query;
+        const pageToken = req.headers["page-token"];
+        const getParams = function (params) {
+            params.userId = id;
+            return params;
+        };
+        skip = Number.parseInt(skip, 10);
+        maxPageSize = Number.parseInt(maxPageSize, 10);
+        if (!Number.isFinite(maxPageSize)) {
+            maxPageSize = 10;
+        }
+        if (!Number.isFinite(skip)) {
+            skip = undefined;
+        }
+        response = await terminatedPagination({
+            getParams,
+            maxPageSize,
+            skip,
+            pageToken
         });
-        deliveries = deliveries.map(
+        response.results = response.results.map(
             (delivery) => formatResponse({delivery, id, role})
         );
-        res.status(200).json({deliveries});
+        res.status(200).json(response);
     }
 
     function formatResponse({delivery, id, role}) {

@@ -374,7 +374,7 @@ describe("delivery CRUD test", function () {
             token: dbUsers.goodUser.token,
             url: "/delivery/terminated"
         });
-        assert.equal(response.body.deliveries.length, 2);
+        assert.equal(response.body.results.length, 2);
     });
     it(
         "should allow a recipient to fetch ongoing deliveries",

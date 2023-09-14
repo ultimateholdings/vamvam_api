@@ -1,6 +1,7 @@
 /*jslint node*/
 require("dotenv").config();
-
+const {apiSettings} = require("../../src/utils/config");
+const packageTypes = apiSettings.delivery.defaultValues.delivery_packages;
 const deliveries = [
     {
         departure: {
@@ -13,7 +14,7 @@ const deliveries = [
             latitude: 4.0731928,
             longitude: 9.7133626
         },
-        packageType: "Fragile",
+        packageType: packageTypes[0].code,
         recipientInfos: {
             name: "Kamga Nouhou",
             otherPhones: ["+23909843850383534", "+4309504i900054905"],
@@ -31,7 +32,7 @@ const deliveries = [
             latitude: 4.0861186,
             longitude: 9.7578306
         },
-        packageType: "Fragile",
+        packageType: packageTypes[1].code,
         recipientInfos: {
             name: "Kam Massock",
             otherPhones: ["+23489489440380", "+430757848745934905"],
@@ -49,7 +50,7 @@ const deliveries = [
             latitude: 4.070708,
             longitude: 9.683527
         },
-        packageType: "Fragile",
+        packageType: packageTypes[0].code,
         recipientInfos: {
             name: "Mbouta Mbezoa",
             otherPhones: ["+7838349834940380", "+08308934900054905"],

@@ -216,15 +216,16 @@ auth-endpoints:
     /delivery/started:
       action: get started deliveries informations
       type: get
-      body:
-        id: string
       response: deliveryData[]
 
     /delivery/terminated:
       action: get ended deliveries informations
       type: get
-      body:
-        id: string
+      queryString:
+        maxPageSize: number
+        skip: number
+      headers:
+        page-token: string
       response: deliveryData[]
 
     /delivery/price :

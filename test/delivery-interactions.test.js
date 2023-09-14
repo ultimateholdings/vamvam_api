@@ -35,7 +35,7 @@ const {
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
 const getConflictHandler = require("../src/modules/conflict.socket-handler");
-const {deliveryStatuses, errors} = require("../src/utils/config");
+const {apiSettings, deliveryStatuses, errors} = require("../src/utils/config");
 const {toDbPoint} = require("../src/utils/helpers");
 
 function updatePosition(socket, position) {
@@ -401,23 +401,22 @@ describe("delivery side effects test", function () {
     });
     describe("conflict tests", function () {
         let message;
-        let managerToken;
         let conflict;
+        let types = apiSettings.delivery.defaultValues.delivery_conflicts;
         beforeEach(async function () {
             await Delivery.update({
                 status: deliveryStatuses.pendingReception,
                 driverId: dbUsers.firstDriver.id
             }, {where: {id: testDeliveries[2].id}});
-            managerToken = dbUsers.conflictManager.token;
             message = {
                 lastPosition: missoke,
                 reporter: dbUsers.firstDriver.toResponse(),
-                type: "Package damaged"
+                type: types[0].code
             };
             conflict = await DeliveryConflict.create({
                 deliveryId: testDeliveries[2].id,
                 lastLocation: toDbPoint(missoke),
-                type: "Package damaged"
+                type: types[1].code
             });
         });
         it(
