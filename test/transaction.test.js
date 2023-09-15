@@ -70,7 +70,6 @@ describe("Transaction test", function () {
       .send({ phoneNumber, packId })
       .set("authorization", "Bearer " + tokens[1]);
     assert.equal(response.status, 200);
-    // data = await listenEvent({ name: "payment-initiated", socket: driver });
   });
   it("should add bonus to driver", async function () {
     let response;

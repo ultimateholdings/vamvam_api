@@ -86,42 +86,40 @@ function getTransactionModule({
       country: staticPaymentProps.country,
       tx_ref: staticPaymentProps.tx_ref,
     };
-    const { init, code, message } = await paymentHandler.initTransaction(
+    const {init, code, message} = await paymentHandler.initTransaction(
       payload,
       driverId,
       packId
     );
     if (init === true) {
       res.status(200).send({});
-      deliveriesModel.emitEvent("payment-initiated", {
-        driverId: driverId,
-      });
     } else {
-      res.status(code).send({ message });
+      res.status(code).send({message});
     }
   }
 
   async function finalizePayment(req, res) {
-    const { id } = req.body.data;
+    const {id} = req.body.data;
     try {
-      const { verifiedTrans, data } = await paymentHandler.verifyTransaction(
+      const {verifiedTrans, data} = await paymentHandler.verifyTransaction(
         id
       );
       if (verifiedTrans) {
         const {bonus, point, unitPrice} = await transactionModel.create(data);
         res.status(200).json({});
         deliveriesModel.emitEvent("successful-payment", {
-          data: {
+          payload: {
             point,
             bonus: calculateSolde(bonus, unitPrice),
             solde: calculateSolde(point, unitPrice),
-            driverId: data.driverId,
-          }
+          },
+          userId: data.driverId
         });
       } else {
         res.status(401).end();
         deliveriesModel.emitEvent("failure-payment", {
-          driverId: driverId,
+          payload: {},
+          userId: driverId,
         });
       }
     } catch (error) {
@@ -140,12 +138,12 @@ function getTransactionModule({
           unitPrice: staticPaymentProps.debit_amount
       });
       deliveriesModel.emitEvent("point-withdrawal-fulfill", {
-        driverId,
         payload: {
           amount: point * staticPaymentProps.debit_amount,
           bonus,
           point
         },
+        userId: driverId
       });
     } catch (error) {
       error.desc = "Unhandled exception on driver point widthdrawal request";
@@ -166,19 +164,19 @@ function getTransactionModule({
     res.status(200).json({});
     if( type === "recharge"){
       deliveriesModel.emitEvent("incentive-bonus", {
-        driverId,
         payload: {
           amount: bonus * staticPaymentProps.debit_amount,
           bonus
         },
+        userId: driverId
       });
     } else {
       deliveriesModel.emitEvent("bonus-withdrawal", {
-        driverId,
         payload: {
           amount: bonus * staticPaymentProps.debit_amount,
           bonus
         },
+        userId: driverId
       });
     }
     } catch (error) {
