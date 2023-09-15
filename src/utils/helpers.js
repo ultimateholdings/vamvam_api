@@ -21,9 +21,7 @@ const CustomEmitter = function (name) {
 CustomEmitter.prototype = EventEmitter.prototype;
 const {
   TOKEN_EXP: expiration = 3600,
-  JWT_SECRET: secret = "test1234butdefault",
-  FLW_SECRET_KEY,
-  TEST_FLW_SECRET_KEY
+  JWT_SECRET: secret = "test1234butdefault"
 } = process.env;
 
 function calculateSolde(point, unitPrice = 300) {

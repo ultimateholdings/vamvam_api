@@ -21,6 +21,11 @@ function getAdminRouter(module) {
         errorHandler(adminModule.getSettings)
     );
     router.post(
+        "/user/logout",
+        protectRoute,
+        errorHandler(adminModule.logoutUser)
+    )
+    router.post(
         "/admin/revoke-all",
         protectRoute,
         allowRoles([availableRoles.adminRole]),
@@ -28,11 +33,18 @@ function getAdminRouter(module) {
         errorHandler(adminModule.invalidateEveryOne)
     );
     router.post(
-        "/admin/revoke-user",
+        "/admin/block-user",
         protectRoute,
         allowRoles([availableRoles.adminRole]),
         adminModule.ensureUserExists,
         errorHandler(adminModule.invalidateUser)
+    );
+    router.post(
+        "/admin/activate-user",
+        protectRoute,
+        allowRoles([availableRoles.adminRole]),
+        adminModule.ensureUserExists,
+        errorHandler(adminModule.activateUser)
     );
     router.post(
         "/admin/new-admin",

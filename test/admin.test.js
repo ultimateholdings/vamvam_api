@@ -19,7 +19,7 @@ const {
 } = require("../src/models");
 const {apiSettings, deliveryStatuses} = require("../src/utils/config");
 const {toDbPoint} = require("../src/utils/helpers");
-const {deliveries} = require("./fixtures/deliveries.data");
+const {generateDBDeliveries} = require("./fixtures/deliveries.data");
 const {
     generateToken,
     otpHandler,
@@ -29,27 +29,6 @@ const {
     syncInstances
 } = require("./fixtures/helper");
 
-function generateDBDeliveries({
-    clientId,
-    driverId,
-    initialState = deliveryStatuses.cancelled
-}) {
-    return deliveries.map(function (delivery) {
-        const result = Object.create(null);
-        Object.assign(result, delivery);
-        result.departure = toDbPoint(delivery.departure);
-        result.destination = toDbPoint(delivery.destination);
-        result.deliveryMeta = {
-            departureAdress: delivery.departure.address,
-            destinationAdress: delivery.destination.address
-        };
-        result.price = 1000;
-        result.clientId = clientId;
-        result.driverId = driverId;
-        result.status = initialState;
-        return result;
-    });
-}
 const newAdmins = [
     {
         phoneNumber: "+234093059540955",
@@ -91,6 +70,7 @@ describe("admin features tests", function () {
         });
         deliveryGenerator = (initialState) => generateDBDeliveries({
             clientId: dbUsers.goodUser.id,
+            dbPointFormatter: toDbPoint,
             driverId: dbUsers.firstDriver.id,
             initialState
         });
@@ -98,7 +78,7 @@ describe("admin features tests", function () {
     afterEach(async function () {
         await connection.drop();
     });
-    it("should create a registration", async function () {
+    it("should create a registration manager", async function () {
         let response;
         let data = newAdmins[0];
         data.type = "registration";

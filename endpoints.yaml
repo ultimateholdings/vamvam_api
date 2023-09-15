@@ -33,6 +33,7 @@ deliveryData:
   driver: shortUserData
   end: Date
   id: string
+  invited: boolean
   note: double
   packageType: string
   recipientInfos: JSON
@@ -133,6 +134,9 @@ auth-endpoints:
       settings: (OTPSettingsData || DeliverySettingsData)[]
 
   user:
+    /user/logout:
+      action: logout a user
+      type: post
     /user/infos :
       action: get user informations
       type: get
@@ -212,15 +216,16 @@ auth-endpoints:
     /delivery/started:
       action: get started deliveries informations
       type: get
-      body:
-        id: string
       response: deliveryData[]
 
     /delivery/terminated:
       action: get ended deliveries informations
       type: get
-      body:
-        id: string
+      queryString:
+        maxPageSize: number
+        skip: number
+      headers:
+        page-token: string
       response: deliveryData[]
 
     /delivery/price :

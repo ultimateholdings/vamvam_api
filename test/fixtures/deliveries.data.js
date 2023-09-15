@@ -1,11 +1,7 @@
 /*jslint node*/
 require("dotenv").config();
-const supertest = require("supertest");
-const {buildServer} = require("../../src");
-const buildRouter = require("../../src/routes");
-const buildAuthRoutes = require("../../src/routes/auth.route");
-const getAuthModule = require("../../src/modules/auth.module");
-
+const {apiSettings} = require("../../src/utils/config");
+const packageTypes = apiSettings.delivery.defaultValues.delivery_packages;
 const deliveries = [
     {
         departure: {
@@ -18,10 +14,10 @@ const deliveries = [
             latitude: 4.0731928,
             longitude: 9.7133626
         },
-        packageType: "Fragile",
+        packageType: packageTypes[0].code,
         recipientInfos: {
             name: "Kamga Nouhou",
-            otherPhones: ["+4399903940380", "+4309504i900054905"],
+            otherPhones: ["+23909843850383534", "+4309504i900054905"],
             phone: "+29820923023209932023"
         }
     },
@@ -36,7 +32,7 @@ const deliveries = [
             latitude: 4.0861186,
             longitude: 9.7578306
         },
-        packageType: "Fragile",
+        packageType: packageTypes[1].code,
         recipientInfos: {
             name: "Kam Massock",
             otherPhones: ["+23489489440380", "+430757848745934905"],
@@ -54,7 +50,7 @@ const deliveries = [
             latitude: 4.070708,
             longitude: 9.683527
         },
-        packageType: "Fragile",
+        packageType: packageTypes[0].code,
         recipientInfos: {
             name: "Mbouta Mbezoa",
             otherPhones: ["+7838349834940380", "+08308934900054905"],
@@ -138,19 +134,38 @@ function deliveryResquestor(tokenGetter, model) {
     return Object.freeze({requestDelivery, setupDelivery});
 }
 
-function setupDeliveryServer(otpHandler) {
-    let app;
-    let server;
-    const authRoutes = buildAuthRoutes(getAuthModule({otpHandler}));
-    server = buildServer(buildRouter({authRoutes}));
-    app = supertest.agent(server);
-    return Object.freeze({app, server});
+function generateDBDeliveries({
+    clientId,
+    dbPointFormatter,
+    driverId,
+    initialState
+}) {
+    return deliveries.map(function (delivery, index) {
+        const result = Object.create(null);
+        Object.assign(result, delivery);
+        result.departure = dbPointFormatter(delivery.departure);
+        result.destination = dbPointFormatter(delivery.destination);
+        result.deliveryMeta = {
+            departureAddress: delivery.departure.address,
+            destinationAddress: delivery.destination.address
+        };
+        result.price = 1000;
+        result.clientId = clientId;
+        result.driverId = driverId;
+        result.status = (
+            typeof initialState	=== "function"
+            ? initialState(index)
+            : initialState
+        );
+        result.code = "230293-sdfs";
+        return result;
+    });
 }
 module.exports = Object.freeze({
     badDelevery,
     deliveries,
     deliveryResquestor,
+    generateDBDeliveries,
     missoke,
-    positions,
-    setupDeliveryServer
+    positions
 });

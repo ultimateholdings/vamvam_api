@@ -248,7 +248,7 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
     user.statuses = userStatuses;
 /*jslint-disable*/
     user.getAllByPhones = function (phoneList) {
-        return this.findAll({
+        return user.findAll({
             where: {
                 phone: {[Op.in]: phoneList}
             }

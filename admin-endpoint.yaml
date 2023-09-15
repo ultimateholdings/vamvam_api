@@ -28,8 +28,13 @@ conflict-manager:
       assigned: boolean
   
 admin-manager:
-  /admin/revoke-user:
-    action: "invalidate a user token"
+  /admin/block-user:
+    action: "block a user account"
+    type: post
+    body:
+      id: string
+  /admin/activate-user:
+    action: "activate a user account"
     type: post
     body:
       id: string

@@ -73,13 +73,6 @@ function deliveryMessageHandler(emitter) {
             );
         }
 
-        function onPositionUpdateCompleted({clients, driverId}) {
-            connectedUsers[driverId]?.emit("position-updated", true);
-            clients.forEach(function ({id, ...data}) {
-                connectedUsers[id]?.emit("new-driver-position", data);
-            });
-        }
-
         function handlePositionUpdateFailure(data) {
             const {driverId, ...rest} = data;
             connectedUsers[driverId]?.emit("position-update-failed", rest);
@@ -94,35 +87,25 @@ function deliveryMessageHandler(emitter) {
             }
         }
 
-        function handleFulfilledItinerary(data) {
-            const {clientId, driverId, deliveryId, points} = data;
-            connectedUsers[driverId]?.emit?.(
-                "itinerary-update-fulfilled",
-                {deliveryId}
-            );
-            connectedUsers[clientId]?.emit?.(
-                "itinerary-updated",
-                {deliveryId, points}
-            )
-        }
-
-        function handleAcceptation(data) {
-            const {clientId, deliveryId, driver} = data;
-            const eventName = "delivery-accepted";
-            if (connectedUsers[clientId] !== undefined) {
-                connectedUsers[clientId].emit(
+        function handleNotification({data, eventName, fallbackMessage}) {
+            const {userId, payload} = data;
+            debugger;
+            if (connectedUsers[userId] !== undefined) {
+                connectedUsers[userId].emit(
                     eventName,
-                    {deliveryId, driver}
+                    payload
                 );
             } else {
-                emitter.emitEvent(
-                    "cloud-message-fallback-requested",
-                    {
-                        message: eventMessages.deliveryAccepted,
-                        meta: {eventName, payload: {deliveryId, driver}},
-                        receiverId: clientId
-                    }
-                );
+                if (fallbackMessage !== undefined && fallbackMessage !== null) {
+                    emitter.emitEvent(
+                        "cloud-message-fallback-requested",
+                        {
+                            message: fallbackMessage,
+                            meta: {eventName, payload},
+                            receiverId: userId
+                        }
+                    );
+                }
             }
         }
 
@@ -138,23 +121,6 @@ function deliveryMessageHandler(emitter) {
                         message: eventMessages.newAssignment,
                         meta: {eventName, payload: assignment},
                         receiverId: driverId
-                    }
-                );
-            }
-        }
-
-        function handleEnding(data) {
-            const {clientId, deliveryId} = data;
-            const eventName = "delivery-end";
-            if (connectedUsers[clientId] !== undefined) {
-                connectedUsers[clientId].emit(eventName, deliveryId);
-            } else {
-                emitter.emitEvent(
-                    "cloud-message-fallback-requested",
-                    {
-                        message: eventMessages.deliveryEnd,
-                        meta: {eventName, payload: deliveryId},
-                        receiverId: clientId
                     }
                 );
             }
@@ -292,29 +258,24 @@ function deliveryMessageHandler(emitter) {
             }
         }
 
-        function handleRoomDeleted({id, name, users}) {
+        function handleRoomDeleted({payload, userId}) {
             const eventName = "room-deleted";
-            let room;
-            if (Array.isArray(users)) {
-                users.forEach(function (userId) {
-                    if (connectedUsers[userId] !== undefined) {
-                        connectedUsers[userId].emit(eventName, {id, name});
-                        connectedUsers[userId].leave(id);
-                    } else {
-                        room = {id, name};
-                        emitter.emitEvent(
-                            "cloud-message-fallback-requested",
-                            {
-                                message: eventMessages.withSameTitle(
-                                    name,
-                                    eventMessages.roomDeletedBody
-                                ),
-                                meta: {eventName, payload: room},
-                                receiverId: userId
-                            }
-                        );
+            debugger;
+            if (connectedUsers[userId] !== undefined) {
+                connectedUsers[userId].emit(eventName, payload);
+                connectedUsers[userId].leave(payload.id);
+            } else {
+                emitter.emitEvent(
+                    "cloud-message-fallback-requested",
+                    {
+                        message: eventMessages.withSameTitle(
+                            payload.name,
+                            eventMessages.roomDeletedBody
+                        ),
+                        meta: {eventName, payload},
+                        receiverId: userId
                     }
-                });
+                );
             }
         }
         
@@ -338,10 +299,6 @@ function deliveryMessageHandler(emitter) {
             });
         }
 
-        emitter?.addEventListener(
-            "driver-position-update-completed",
-            onPositionUpdateCompleted
-        );
 
         function handleInitPayment({driverId}) {
             const eventName = "payment-initiated";
@@ -428,8 +385,59 @@ function deliveryMessageHandler(emitter) {
                     );
                 }
         }
-        emitter.addEventListener("delivery-end", handleEnding);
-        emitter.addEventListener("delivery-accepted", handleAcceptation);
+        emitter.addEventListener(
+            "delivery-accepted",
+            (data) => handleNotification({
+                data,
+                eventName: "delivery-accepted",
+                fallbackMessage: eventMessages.deliveryAccepted
+            })
+        );
+        emitter.addEventListener(
+            "new-invitation",
+            (data) => handleNotification({
+                data,
+                eventName: "new-invitation",
+                fallbackMessage: eventMessages.newInvitation
+            })
+        );
+
+        emitter?.addEventListener(
+            "driver-position-update-completed",
+            (data) => handleNotification({
+                data,
+                eventName: "position-updated"
+            })
+        );
+        emitter.addEventListener(
+            "driver-position-updated",
+            (data) => handleNotification({
+                data,
+                eventName: "new-driver-position"
+            })
+        );
+        emitter.addEventListener(
+            "itinerary-updated",
+            (data) => handleNotification({
+                data,
+                eventName: "itinerary-updated"
+            })
+        );
+        emitter.addEventListener(
+            "itinerary-update-fulfilled",
+            (data) => handleNotification({
+                data,
+                eventName: "itinerary-update-fulfilled"
+            })
+        );
+        emitter.addEventListener(
+            "delivery-end",
+            (data) => handleNotification({
+                data,
+                eventName: "delivery-end",
+                fallbackMessage: eventMessages.deliveryEnd
+            })
+        );
         emitter.addEventListener("delivery-cancelled", handleCancellation);
         emitter.addEventListener("delivery-recieved", handleReception);
         emitter.addEventListener("delivery-started", handleBegining);
@@ -441,10 +449,6 @@ function deliveryMessageHandler(emitter) {
         emitter.addEventListener("messages-read-fulfill", handleReadMessages);
         emitter.addEventListener("new-message-sent", handleNewMessage);
         emitter.addEventListener("room-deleted", handleRoomDeleted);
-        emitter.addEventListener(
-            "itinerary-update-fulfilled",
-            handleFulfilledItinerary
-        );
         emitter.addEventListener(
             "itinerary-update-rejected",
             handleRejectedItinerary

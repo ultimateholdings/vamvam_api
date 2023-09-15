@@ -21,9 +21,12 @@ const {
 const {
     bundles,
     loginUser,
+    generateToken,
     getDatas,
     getToken,
     otpHandler,
+    postData,
+    setupServer,
     syncUsers,
     users
 } = require("./fixtures/helper");
@@ -31,8 +34,8 @@ const {
     badDelevery,
     deliveries,
     deliveryResquestor,
+    generateDBDeliveries,
     missoke,
-    setupDeliveryServer
 } = require("./fixtures/deliveries.data");
 const {
     deliveryStatuses,
@@ -48,9 +51,10 @@ describe("delivery CRUD test", function () {
     let server;
     let app;
     let dbUsers;
+    let testDeliveries;
 
     before(function () {
-        const tmp = setupDeliveryServer(otpHandler);
+        const tmp = setupServer(otpHandler);
         server = tmp.server;
         app = tmp.app;
     });
@@ -58,6 +62,21 @@ describe("delivery CRUD test", function () {
     beforeEach(async function () {
         await connection.sync({force: true});
         dbUsers = await syncUsers(users, User);
+        dbUsers = Object.entries(dbUsers).reduce(function (acc, [key, user]) {
+            user.token = generateToken(user);
+            acc[key] = user;
+            return acc;
+        }, Object.create(null));
+        testDeliveries = await Delivery.bulkCreate(generateDBDeliveries({
+            clientId: dbUsers.goodUser.id,
+            dbPointFormatter: toDbPoint,
+            driverId: dbUsers.firstDriver.id,
+            initialState:  (index) => (
+                index === 0
+                ? deliveryStatuses.started
+                : deliveryStatuses.initial
+            )
+        }));
     });
 
     afterEach(async function () {
@@ -70,79 +89,74 @@ describe("delivery CRUD test", function () {
 
 
     it("should return a 440 status on invalid location", async function () {
-        let response = await requestDelivery({
+        let response = await postData({
             app,
             data: badDelevery,
-            phone: dbUsers.goodUser.phone
+            token: dbUsers.goodUser.token,
+            url: "/delivery/request"
         });
         assert.equal(response.status, errors.invalidLocation.status);
     });
 
     it("should provide the infos of a delivery", async function () {
-        const goodUserRequest = await requestDelivery({
+        let response = await getDatas({
             app,
-            data: deliveries[0],
-            phone: dbUsers.goodUser.phone
+            data: {id: null},
+            token: dbUsers.goodUser.token,
+            url: "/delivery/infos"
         });
-        let response = await app.get("/delivery/infos").send({
-            id: null
-        }).set("authorization", "Bearer " + goodUserRequest.token);
         assert.equal(response.status, errors.invalidValues.status);
-        response = await app.get("/delivery/infos").send({
-            id: goodUserRequest.id
-        }).set("authorization", "Bearer " + goodUserRequest.token);
+        response = await getDatas({
+            app,
+            data: {id: testDeliveries[0].id},
+            token: dbUsers.goodUser.token,
+            url: "/delivery/infos"
+        });
         assert.equal(response.status, 200);
-        assert.equal(response.body.client.phone, dbUsers.goodUser.phone);
+        assert.equal(response.body.driver.phone, dbUsers.firstDriver.phone);
     });
 
     it(
         "should not allow a client to fetch another one's delivery",
         async function () {
-            const goodUserRequest = await requestDelivery({
+            let response = await getDatas({
                 app,
-                data: deliveries[0],
-                phone: dbUsers.goodUser.phone
+                data: {id: testDeliveries[0].id},
+                token: dbUsers.secondDriver.token,
+                url: "/delivery/infos"
             });
-            const secondUserRequest = await requestDelivery({
-                app,
-                data: deliveries[1],
-                phone: dbUsers.firstDriver.phone
-            });
-            let response = await app.get("/delivery/infos").send({
-                id: secondUserRequest.id
-            }).set("authorization", "Bearer " + goodUserRequest.token);
             assert.equal(response.status, errors.forbiddenAccess.status);
         }
     );
     it("should allow a rate a delivery once terminated", async function () {
         let response;
-        const {driverToken, request} = await setupDelivery({
+        const ratingData = {
+            id: testDeliveries[0].id,
+            note: 4
+        };
+        response = await postData({
             app,
-            clientPhone: dbUsers.goodUser.phone,
-            delivery: deliveries[0],
-            driverData: dbUsers.firstDriver,
-            initialState: deliveryStatuses.started
+            data: ratingData,
+            token: dbUsers.goodUser.token,
+            url: "/delivery/rate"
         });
-        response = await app.post("/delivery/rate").send({
-            id: request.id,
-            note: 4
-        }).set("authorization", "Bearer " + request.token);
         assert.equal(response.status, errors.cannotPerformAction.status);
-        await app.post("/delivery/verify-code").send({
-            code: request.code,
-            id: request.id
-        }).set("authorization", "Bearer " + driverToken);
-        response = await app.post("/delivery/rate").send({
-            id: request.id,
-            note: 4
-        }).set("authorization", "Bearer " + request.token);
+        testDeliveries[0].status = deliveryStatuses.terminated;
+        await testDeliveries[0].save();
+        response = await postData({
+            app,
+            data: ratingData,
+            token: dbUsers.goodUser.token,
+            url: "/delivery/rate"
+        });
         assert.equal(response.status, 200);
-        response = await app.post("/delivery/rate").send({
-            id: request.id,
-            note: 4
-        }).set("authorization", "Bearer " + request.token);
+        response = await postData({
+            app,
+            data: ratingData,
+            token: dbUsers.goodUser.token,
+            url: "/delivery/rate"
+        });
         assert.equal(response.status, errors.alreadyRated.status);
-
     });
 
     it(
@@ -150,25 +164,23 @@ describe("delivery CRUD test", function () {
         async function () {
             //Note: goodUser is a client so he cannot verify the code
             let response;
-            const {request} = await setupDelivery({
+            const verificationData = {
+                code: testDeliveries[0].code,
+                id: testDeliveries[0].id
+            };
+            response = await postData({
                 app,
-                clientPhone: dbUsers.goodUser.phone,
-                delivery: deliveries[0],
-                driverData: dbUsers.firstDriver,
-                initialState: deliveryStatuses.started
+                data: verificationData,
+                token: dbUsers.goodUser.token,
+                url: "/delivery/verify-code"
             });
-            const secondDriverToken = await getToken(
-                app,
-                dbUsers.secondDriver.phone
-            );
-            response = await app.post("/delivery/verify-code").send({
-                code: request.code,
-                id: request.id
-            }).set("authorization", "Bearer " + request.token);
             assert.equal(response.status, errors.forbiddenAccess.status);
-            response = await app.post("/delivery/verify-code").send(
-                request
-            ).set("authorization", "Bearer " + secondDriverToken);
+            response = await postData({
+                app,
+                data: verificationData,
+                token: dbUsers.secondDriver.token,
+                url: "/delivery/verify-code"
+            });
             assert.equal(response.status, errors.forbiddenAccess.status);
         }
     );
@@ -177,56 +189,49 @@ describe("delivery CRUD test", function () {
         "should not verify a delivery which isn't in started status",
         async function () {
             let response;
-            const {driverToken, request} = await setupDelivery({
+            const data = {
+                code: testDeliveries[1].code,
+                id: testDeliveries[1].id
+            };
+            response = await postData({
                 app,
-                clientPhone: dbUsers.goodUser.phone,
-                delivery: deliveries[0],
-                driverData: dbUsers.firstDriver,
-                initialState: deliveryStatuses.terminated
+                data,
+                token: dbUsers.firstDriver.token,
+                url: "/delivery/verify-code"
             });
-            response = await app.post("/delivery/verify-code").send(
-                request
-            ).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, errors.cannotPerformAction.status);
         }
     );
 
     it("should enable a manager to archive a conflict", async function () {
-        const endPoint = "/delivery/conflict/archive";
-        const token = await loginUser(
-            app,
-            dbUsers.conflictManager.phone,
-            "aSimplePass"
-        );
+        const url = "/delivery/conflict/archive";
         let response;
-        const {request} = await setupDelivery({
-            app,
-            clientPhone: dbUsers.goodUser.phone,
-            delivery: deliveries[0],
-            driverData: dbUsers.firstDriver,
-            initialState: deliveryStatuses.inConflict
-        });
         const conflict = await DeliveryConflict.create({
-            deliveryId: request.id,
+            deliveryId: testDeliveries[0].id,
             type: "Package damaged",
             lastLocation: toDbPoint(missoke)
         });
-        response = await app.post(endPoint).send({
-            id: conflict.id
-        }).set("authorization", "Bearer " + token);
+        const data = {id: conflict.id};
+        testDeliveries[0].status = deliveryStatuses.inConflict;
+        await testDeliveries[0].save();
+        response = await postData({
+            app,
+            data,
+            token: dbUsers.conflictManager.token,
+            url
+        });
         assert.equal(response.status, 200);
-        response = await app.post(endPoint).send({
-            id: conflict.id
-        }).set("authorization", "Bearer " + token);
+        response = await postData({
+            app,
+            data,
+            token: dbUsers.conflictManager.token,
+            url
+        });
         assert.equal(response.status, errors.cannotPerformAction.status);
     });
 
     it("should provide the list of nearby drivers", async function () {
-        const token = await loginUser(
-            app,
-            dbUsers.conflictManager.phone,
-            "aSimplePass"
-        );
+        const url = "/user/drivers";
         let response;
         dbUsers.firstDriver.position = toDbPoint(deliveries[0].departure);
         dbUsers.firstDriver.available = false;
@@ -238,154 +243,166 @@ describe("delivery CRUD test", function () {
             dbUsers.firstDriver.save(),
             dbUsers.secondDriver.save()
         ]);
-        response = await app.get("/user/drivers").send({
-            from: deliveries[0].departure
-        }).set("authorization", "Bearer " + token);
+        response = await getDatas({
+            app,
+            data: {from: deliveries[0].departure},
+            token: dbUsers.conflictManager.token,
+            url
+        });
         assert.equal(response.body.result[0].id, dbUsers.secondDriver.id);
     });
 
     describe("delivery state mutation tests", function () {
-        let request;
-        let driverToken;
+        let data;
         beforeEach(async function () {
-            request = await requestDelivery({
-                app,
-                data: deliveries[0],
-                phone: dbUsers.goodUser.phone
-            });
-            driverToken = await getToken(
-                app,
-                dbUsers.firstDriver.phone
-            );
-        });
-        it("should aprove a delivery request", async function () {
-            let purchase = Object.create(null);
-            let response;
-            const token2 = await getToken(app, dbUsers.secondDriver.phone);
+            const purchase = Object.create(null);
             Object.assign(purchase, bundles[0]);
             purchase.type = "recharge";
             purchase.driverId = dbUsers.firstDriver.id;
+            testDeliveries[1].driverId = null;
+            await testDeliveries[1].save();
             await Transaction.create(purchase);
-            response = await app.post("/delivery/accept").send({
-                id: request.id
-            }).set("authorization", "Bearer " + driverToken);
+            data = {id: testDeliveries[1].id};
+        });
+        it("should aprove a delivery request", async function () {
+            const url = "/delivery/accept";
+            let response = await postData({
+                app,
+                data,
+                token: dbUsers.firstDriver.token,
+                url
+            });
             assert.equal(response.status, 200);
-            response = await app.post("/delivery/accept").send({
-                id: request.id
-            }).set("authorization", "Bearer " + token2);
+            response = await postData({
+                app,
+                data,
+                token: dbUsers.firstDriver.token,
+                url
+            });
             assert.equal(response.status, errors.alreadyAssigned.status);
         });
 
         it(
             "should not approve a delivery if it's been cancelled",
             async function () {
-                let response = await app.post("/delivery/cancel").send({
-                    id: request.id
-                }).set("authorization", "Bearer " + request.token);
+                let response = await postData({
+                    app,
+                    data,
+                    token: dbUsers.goodUser.token,
+                    url: "/delivery/cancel"
+                });
                 assert.equal(response.status, 200);
-                response = await app.post("/delivery/accept").send({
-                    id: request.id
-                }).set("authorization", "Bearer " + driverToken);
+                response = await postData({
+                    app,
+                    data,
+                    token: dbUsers.firstDriver.token,
+                    url: "/delivery/accept"
+                });
                 assert.equal(response.status, errors.alreadyCancelled.status);
             }
         );
 
         it("should signal the package reception", async function () {
+            const url = "/delivery/signal-on-site";
             let response;
-            await Delivery.update({driverId: dbUsers.firstDriver.id}, {
-                where: {id: request.id}
+            testDeliveries[1].driverId = dbUsers.firstDriver.id;
+            await testDeliveries[1].save();
+            response = await postData({
+                app,
+                data,
+                token: dbUsers.firstDriver.token,
+                url
             });
-            response = await app.post("/delivery/signal-on-site").send({
-                id: request.id
-            }).set("authorization", "Bearer " + driverToken);
             assert.equal(response.status, errors.cannotPerformAction.status);
-            await Delivery.update(
-                {status: deliveryStatuses.pendingReception},
-                {where: {id: request.id}}
-            );
-            response = await app.post("/delivery/signal-on-site").send({
-                id: request.id
-            }).set("authorization", "Bearer " + driverToken);
-            assert.equal(response.status, 200);
-            response = await Delivery.findOne({where: {id: request.id}});
+            testDeliveries[1].status = deliveryStatuses.pendingReception;
+            await testDeliveries[1].save();
+            response = await postData({
+                app,
+                data,
+                token: dbUsers.firstDriver.token,
+                url
+            });assert.equal(response.status, 200);
+            response = await Delivery.findOne({where: data});
             assert.equal(response.status, deliveryStatuses.toBeConfirmed);
         });
-
+        
         it("should confirm package deposit", async function () {
+            const url = "/delivery/confirm-deposit";
             let response;
-            await Delivery.update({
-                driverId: dbUsers.firstDriver.id,
-                status: deliveryStatuses.pendingReception
-            }, {where: {id: request.id}});
-            response = await app.post("/delivery/confirm-deposit").send({
-                id: request.id
-            }).set("authorization", "Bearer " + request.token);
+            testDeliveries[1].status = deliveryStatuses.pendingReception;
+            testDeliveries[1].driverId = dbUsers.firstDriver.id;
+            await testDeliveries[1].save();
+            response = await postData({
+                app,
+                data,
+                token: dbUsers.goodUser.token,
+                url
+            });
             assert.equal(response.status, errors.cannotPerformAction.status);
-            await app.post("/delivery/signal-on-site").send({
-                id: request.id
-            }).set("authorization", "Bearer " + driverToken);
-            response = await app.post("/delivery/confirm-deposit").send({
-                id: request.id
-            }).set("authorization", "Bearer " + request.token);
+            testDeliveries[1].status = deliveryStatuses.toBeConfirmed;
+            await testDeliveries[1].save();
+            response = await postData({
+                app,
+                data,
+                token: dbUsers.goodUser.token,
+                url
+            });
             assert.equal(response.status, 200);
-            response = await Delivery.findOne({where: {id: request.id}});
+            response = await Delivery.findOne({where: data});
             assert.equal(response.status, deliveryStatuses.started);
             assert.isNotNull(response.begin);
         });
     });
-    describe("delivery listing tests", function () {
-        function setDelivery({clientId, delivery, driverId, status}) {
-            const meta = {};
-            meta.destinationAddress = delivery.destination.address;
-            meta.departureAddress = delivery.departure.address;
-            delivery.clientId = clientId;
-            delivery.driverId = driverId;
-            delivery.status = status;
-            delivery.deliveryMeta = meta;
-            delivery.departure = toDbPoint(delivery.departure);
-            delivery.destination = toDbPoint(delivery.destination);
-            delivery.begin = new Date();
-            delivery.end = new Date();
-            delivery.price = 1000;
-            delivery.code = "woieowieri323424";
-            return delivery;
-        }
-        let settedDeliveries;
-        let clientToken
-        beforeEach(async function () {
-            settedDeliveries = deliveries.map(function (delivery, index) {
-                let result = setDelivery({
-                    clientId: dbUsers.goodUser.id,
-                    delivery,
-                    driverId: dbUsers.firstDriver.id,
-                    status: deliveryStatuses.terminated
-                });
-                if (index % 2 === 0) {
-                    result.driverId = dbUsers.secondDriver.id;
-                } else {
-                    result.status = deliveryStatuses.started
-                }
-                return result;
-            });
-            settedDeliveries = await Delivery.bulkCreate(settedDeliveries);
-            clientToken = await getToken(app, dbUsers.goodUser.phone);
+    it("should provide all ongoing deliveries", async function () {
+        let response = await getDatas({
+            app,
+            token: dbUsers.goodUser.token,
+            url: "/delivery/started"
         });
-        it("should provide all started deliveries", async function () {
-            let response = await getDatas({
+        assert.equal(response.body.deliveries.length, 1);
+    });
+    it("should provide all terminated deliveries", async function () {
+        let response;
+        testDeliveries[1].status = deliveryStatuses.terminated;
+        testDeliveries[2].status = deliveryStatuses.terminated;
+        await Promise.all([
+            testDeliveries[1].save(),
+            testDeliveries[2].save(),
+        ])
+        response = await getDatas({
+            app,
+            token: dbUsers.goodUser.token,
+            url: "/delivery/terminated"
+        });
+        assert.equal(response.body.results.length, 2);
+    });
+    it(
+        "should allow a recipient to fetch ongoing deliveries",
+        async function () {
+            /** Note that badUser phone is included in deliveries[0]
+             * as a recipient
+             */
+            let response;
+            const request = await postData({
                 app,
-                token: clientToken,
+                data: deliveries[0],
+                token: dbUsers.goodUser.token,
+                url: "/delivery/request"
+            });
+            await Delivery.update(
+                {
+                    driverId: dbUsers.firstDriver.id,
+                    status: deliveryStatuses.toBeConfirmed
+                },
+                {where: {id: request.body.id}}
+            );
+            response = await getDatas({
+                app,
+                token: dbUsers.badUser.token,
                 url: "/delivery/started"
             });
             assert.equal(response.body.deliveries.length, 1);
-        });
-        it("should provide all terminated deliveries", async function () {
-            let response = await getDatas({
-                app,
-                token: clientToken,
-                url: "/delivery/terminated"
-            });
-            assert.equal(response.body.deliveries.length, 2);
-        });
-    });
+        }
+    );
 
 });
