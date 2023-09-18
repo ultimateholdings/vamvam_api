@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {errors, eventMessages} = require("../utils/config");
+const {errors, eventMessages} = require("../utils/system-messages");
 const {socketAuthenticator} = require("../utils/middlewares");
 
 function deliveryMessageHandler(emitter) {

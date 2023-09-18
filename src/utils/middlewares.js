@@ -1,10 +1,10 @@
 /*jslint node */
 const {jwtWrapper, sendResponse} = require("../utils/helpers");
-const {errors} = require("../utils/config");
+const {errors} = require("../utils/system-messages");
 const {Blacklist} = require("../models");
-
-/*jslint-disable*/
+let routeProtector;
 function routeProtectionFactory(model) {
+    const jwtHandler = jwtWrapper();
     async function isRevoked(payload) {
         let issuedAt;
         let minimumIat;
@@ -20,17 +20,21 @@ function routeProtectionFactory(model) {
         }
         return false;
     }
+    function parseToken(headers) {
+        let result = headers.authorization ?? "";
+        result = result.trim().split(" ");
+        return result.at(-1);
+    }
     async function protectRoute(req, res, next) {
-        const [, token] = (req.headers.authorization || "").split(" ");
-        const jwtHandler = jwtWrapper();
+        const token = parseToken(req.headers);
         let payload;
         let revoked;
-        if (token === null || token === undefined) {
+        if (token.length === 0) {
             return sendResponse(res, errors.notAuthorized);
         }
         try {
             payload = await jwtHandler.verify(token);
-            if(payload.valid === false) {
+            if (payload.valid === false) {
                 return sendResponse(res, errors.tokenInvalid);
             }
             revoked = await isRevoked(payload.token);
@@ -40,50 +44,42 @@ function routeProtectionFactory(model) {
             req.user = payload;
             next();
         } catch (error) {
-            return sendResponse(res,errors.notAuthorized, error);
+            return sendResponse(res, errors.notAuthorized, error);
         }
     }
-    return Object.freeze(protectRoute);
-}
-/*jslint-enable*/
-function socketAuthenticator(allowedRoles = ["driver", "client"]) {
-    const jwtHandler = jwtWrapper();
-    const err = new Error("Forbidden Access");
-    err.data = errors.notAuthorized.message;
-    return async function authenticateSocket(socket, next) {
-        const [, token] = (socket.handshake.headers.authorization ?? "").split(" ");
-        let payload;
-        if (token === undefined || token === null) {
-            next(err);
-        } else {
-            try {
-                payload = await jwtHandler.verify(token);
-                if (Array.isArray(allowedRoles) && allowedRoles.includes(
-                    payload.token.role
-                )) {
-                    socket.user = payload.token;
-                    next();
-                } else {
+    function socketAuthenticator(allowedRoles = ["driver", "client"]) {
+        const err = new Error("Forbidden Access");
+        err.data = errors.notAuthorized.message;
+        return async function authenticateSocket(socket, next) {
+            const token = parseToken(socket.handshake.headers);
+            let payload;
+            let revoked;
+            if (token.length === 0) {
+                next(err);
+            } else {
+                try {
+                    payload = await jwtHandler.verify(token);
+                    revoked = await isRevoked(payload.token);
+                    if (revoked) {
+                        return next(err);
+                    }
+                    if (
+                        Array.isArray(allowedRoles) &&
+                        allowedRoles.includes(payload.token.role)
+                    ) {
+                        socket.user = payload.token;
+                        return next();
+                    }
                     err.data = errors.forbiddenAccess.message;
                     next(err);
+                } catch (error) {
+                    error.data = errors.invalidCredentials.message;
+                    next(error);
                 }
-            } catch (error) {
-                error.data = errors.invalidCredentials.message;
-                next(error);
             }
-        }
-
-    };
-}
-
-function verifyValidId(req, res, next) {
-    const {id} = req.body;
-    const {message, status} = errors.invalidValues;
-    if (id === null || id === undefined) {
-        res.status(status).json({message});
-    } else {
-        next();
+        };
     }
+    return Object.freeze({protectRoute, socketAuthenticator});
 }
 
 function allowRoles(roles = []) {
@@ -97,13 +93,10 @@ function allowRoles(roles = []) {
     };
 }
 
-
+routeProtector = routeProtectionFactory(Blacklist);
 
 module.exports = Object.freeze({
     allowRoles,
-/*jslint-disable*/
-    protectRoute: routeProtectionFactory(Blacklist),
-/*jslint-enable*/
-    socketAuthenticator,
-    verifyValidId
+    protectRoute: routeProtector.protectRoute,
+    socketAuthenticator: routeProtector.socketAuthenticator
 });

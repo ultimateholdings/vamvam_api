@@ -3,11 +3,11 @@ node
 */
 const crypto = require("crypto");
 const {Delivery, DeliveryConflict, User} = require("../models");
+const {errors} = require("../utils/system-messages");
 const {
     apiDeliveryStatus,
     conflictStatuses,
     deliveryStatuses,
-    errors,
     availableRoles: roles
 } = require("../utils/config");
 const {

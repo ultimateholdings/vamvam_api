@@ -3,9 +3,9 @@ node
 */
 "use strict";
 const {User, otpRequest} = require("../models");
+const {errors} = require("../utils/system-messages");
 const {
     availableRoles,
-    errors,
     otpTypes
 } = require("../utils/config");
 const {

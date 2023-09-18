@@ -9,10 +9,8 @@ const {
     sendResponse,
     toDbPoint
 } = require("../utils/helpers");
-const {
-    apiRoles,
-    errors
-} = require("../utils/config");
+const {errors} = require("../utils/system-messages");
+const {apiRoles} = require("../utils/config");
 
 
 function getUserModule({

@@ -3,7 +3,7 @@ node
 */
 const {Delivery, Message, Room} = require("../models");
 const {ressourcePaginator, sendResponse} = require("../utils/helpers");
-const {errors} = require("../utils/config");
+const {errors} = require("../utils/system-messages");
 
 function getChatModule({deliveryModel, messageModel, roomModel}) {
     const deliveriesModel = deliveryModel || Delivery;

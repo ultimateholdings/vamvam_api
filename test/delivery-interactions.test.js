@@ -35,7 +35,8 @@ const {
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
 const getConflictHandler = require("../src/modules/conflict.socket-handler");
-const {apiSettings, deliveryStatuses, errors} = require("../src/utils/config");
+const {apiSettings, deliveryStatuses} = require("../src/utils/config");
+const {errors} = require("../src/utils/system-messages");
 const {toDbPoint} = require("../src/utils/helpers");
 
 function updatePosition(socket, position) {

@@ -14,7 +14,7 @@ const {
 } = require("mocha");
 const {assert} = require("chai");
 const {User, connection} = require("../src/models");
-const {errors} = require("../src/utils/config");
+const {errors} = require("../src/utils/system-messages");
 const {getFileHash} = require("../src/utils/helpers");
 const {
     getToken,

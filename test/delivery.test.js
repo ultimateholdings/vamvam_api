@@ -33,20 +33,13 @@ const {
 const {
     badDelevery,
     deliveries,
-    deliveryResquestor,
     generateDBDeliveries,
     missoke,
 } = require("./fixtures/deliveries.data");
-const {
-    deliveryStatuses,
-    errors
-} = require("../src/utils/config");
+const {deliveryStatuses} = require("../src/utils/config");
+const {errors} = require("../src/utils/system-messages");
 const {toDbPoint} = require("../src/utils/helpers");
 
-const {
-    requestDelivery,
-    setupDelivery
-} = deliveryResquestor(getToken, Delivery);
 describe("delivery CRUD test", function () {
     let server;
     let app;

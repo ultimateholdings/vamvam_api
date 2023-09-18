@@ -29,7 +29,7 @@ const {
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
 const registrationHandler = require("../src/modules/driver.socket-handler");
-const {errors} = require("../src/utils/config");
+const {errors} = require("../src/utils/system-messages");
 const {fileExists, getFileHash} = require("../src/utils/helpers");
 
 describe("registration tests", function () {

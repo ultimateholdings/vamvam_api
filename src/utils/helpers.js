@@ -2,27 +2,27 @@
 node, this
 */
 "use strict";
-const { EventEmitter } = require("node:events");
+const {EventEmitter} = require("node:events");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const {errors} = require("../utils/system-messages");
 const {
-  errors,
   getFirebaseConfig,
   getOTPConfig,
   getPaymentConfig
 } = require("../utils/config");
-const { ValidationError } = require("sequelize");
+const {ValidationError} = require("sequelize");
 const CustomEmitter = function (name) {
   this.name = name;
 };
-CustomEmitter.prototype = EventEmitter.prototype;
 const {
   TOKEN_EXP: expiration = 3600,
   JWT_SECRET: secret = "test1234butdefault"
 } = process.env;
+CustomEmitter.prototype = EventEmitter.prototype;
 
 function calculateSolde(point, unitPrice = 300) {
   return point * unitPrice;
