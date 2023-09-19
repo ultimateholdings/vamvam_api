@@ -130,25 +130,21 @@ function getTransactionModule({
 
   async function withdrawal(data) {
     let {bonus, driverId, point} = data;
-    try {
-      await transactionModel.create({
-          bonus,
-          driverId,
-          point,
-          type: staticPaymentProps.debit_type,
-          unitPrice: staticPaymentProps.debit_amount
-      });
-      deliveriesModel.emitEvent("point-withdrawal-fulfill", {
-        payload: {
-          amount: point * staticPaymentProps.debit_amount,
-          bonus,
-          point
-        },
-        userId: driverId
-      });
-    } catch (error) {
-      return sendResponse(res, errors.withdrawingExeption)
-    }
+    await transactionModel.create({
+        bonus,
+        driverId,
+        point,
+        type: staticPaymentProps.debit_type,
+        unitPrice: staticPaymentProps.debit_amount
+    });
+    deliveriesModel.emitEvent("point-withdrawal-fulfill", {
+      payload: {
+        amount: point * staticPaymentProps.debit_amount,
+        bonus,
+        point
+      },
+      userId: driverId
+    });
   }
 
   async function incentiveBonus(req, res){

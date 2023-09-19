@@ -125,6 +125,13 @@ chat:
       action: "mark a list of message identifier as read"
       data: string[]
   server-sent:
+    user-joined-room:
+      action: "notify a user that a new user has been added in a room in which he's a member"
+      data:
+        room:
+          id: string
+          name: string
+        user: shortUserData
     room-deleted:
       action: "notify a user that a room he is part of has been deleted"
       data:

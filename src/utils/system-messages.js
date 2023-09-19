@@ -222,6 +222,16 @@ const errors = {
 };
 
 const eventMessages = {
+    addBonus: {
+        en: {
+            title:"Incentive bonus!",
+            body: "You have received yy bonus points "
+        },
+        fr: {
+            title:"Prime d'encouragement!",
+            body: "Vous avez reçus yy points bonus"
+        }
+    },
     deliveryAccepted: {
         en: {
             body: "A driver is available for your delivery",
@@ -343,6 +353,16 @@ const eventMessages = {
             title: "Nouvelle discussion"
         }
     },
+    removeBonus: {
+        en: {
+            title:"Withdrawal of bonus points!",
+            body: "Your account has been debited with xx bonus points"
+        },
+        fr: {
+            title:"Retrait de point bonus!",
+            body: "Votre compte a été débité de xx points bonus"
+        }
+    },
     roomDeletedBody: {
         en: "This discussion is now archived due to the end of the delivery",
         fr:
@@ -350,8 +370,14 @@ const eventMessages = {
         " de la livraison."
     },
     successPayment: {
-        en: "Successful payment!",
-        fr: "Paiement effectuer avec succès!"
+        en: {
+            title:"Successful payment!",
+            body: "You have topped up your account by amount XAF"
+        },
+        fr: {
+            title:"Paiement effectuer avec succès!",
+            body: "Vous avez rechargé votre compte de amount XAF"
+        }
     },
     userJoined: {
         en: {

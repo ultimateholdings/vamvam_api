@@ -29,21 +29,7 @@ function deliveryMessageHandler(emitter) {
                 positionUpdateHandler(socket, data);
             });
             socket.on("messages-read", function (data) {
-                let messagesId = tryParse(data);
-                if (
-                    Array.isArray(messagesId) &&
-                    messagesId.every((id) => typeof id === "string")
-                ) {
-                    emitter.emitEvent(
-                        "messages-read-request",
-                        {messagesId, userId: socket.user.id}
-                    );
-                } else {
-                    socket.emit(
-                        "messages-read-fail",
-                        errors.invalidValues.message
-                    );
-                }
+                locationUpdateHandler(socket, data);
             });
             socket.on("itinerary-changed", function (data) {
                 itineraryUpdateHandler(socket, data);
@@ -69,6 +55,24 @@ function deliveryMessageHandler(emitter) {
                 "delivery-itinerary-update-requested",
                 {payload: message, userId: id}
             );
+        }
+
+        function locationUpdateHandler(socket, data) {
+            let messagesId = tryParse(data);
+            if (
+                Array.isArray(messagesId) &&
+                messagesId.every((id) => typeof id === "string")
+            ) {
+                emitter.emitEvent(
+                    "messages-read-request",
+                    {messagesId, userId: socket.user.id}
+                );
+            } else {
+                socket.emit(
+                    "messages-read-fail",
+                    errors.invalidValues.message
+                );
+            }
         }
 
         function handleNotificationWithUserData({
@@ -295,39 +299,36 @@ function deliveryMessageHandler(emitter) {
         );
         emitter.addEventListener(
             "successful-payment",
-            function(data){
-                eventMessages.successPayment.en.body = eventMessages.successPayment.en.body.replace("amount", data.payload.amount),
-                eventMessages.successPayment.fr.body = eventMessages.successPayment.fr.body.replace("amount", data.payload.amount),
-                handleNotification({
-                    data,
-                    eventName: "successful-payment",
-                    fallbackMessage: eventMessages.successPayment
-                })
-            }
+            (data) => handleNotification({
+                data,
+                eventName: "successful-payment",
+                fallbackMessage: eventMessages.withTransfomedBody(
+                    eventMessages.successPayment,
+                    (body) => body.replace("amount", data.payload.bonus)
+                )
+            })
         );
         emitter.addEventListener(
             "incentive-bonus",
-            function(data){
-                eventMessages.addBonus.en.body = eventMessages.addBonus.en.body.replace("yy", data.payload.bonus),
-                eventMessages.addBonus.fr.body = eventMessages.addBonus.fr.body.replace("yy", data.payload.bonus),
-                handleNotification({
-                    data,
-                    eventName: "incentive-bonus",
-                    fallbackMessage: eventMessages.addBonus
-                })
-            }
+            (data) => handleNotification({
+                data,
+                eventName: "incentive-bonus",
+                fallbackMessage: eventMessages.withTransfomedBody(
+                    eventMessages.addBonus,
+                    (body) => body.replace("yy", data.payload.bonus)
+                )
+            })
         );
         emitter.addEventListener(
             "bonus-withdrawal",
-            function(data){
-                eventMessages.removeBonus.en.body = eventMessages.removeBonus.en.body.replace("xx", data.payload.bonus),
-                eventMessages.removeBonus.fr.body = eventMessages.removeBonus.fr.body.replace("xx", data.payload.bonus),
-                handleNotification({
-                    data,
-                    eventName: "incentive-bonus",
-                    fallbackMessage: eventMessages.removeBonus
-                })
-            }
+            (data) => handleNotification({
+                data,
+                eventName: "bonus-widthdrawal",
+                fallbackMessage: eventMessages.withTransfomedBody(
+                    eventMessages.removeBonus,
+                    (body) => body.replace("xx", data.payload.bonus)
+                )
+            })
         );
         emitter.addEventListener(
             "driver-position-update-failed",
