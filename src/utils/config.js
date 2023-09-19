@@ -283,10 +283,27 @@ const errors = {
             fr: "le type que vous avez fourni n'est pas encore pris en charge"
         },
         status: 414
+    },
+    withdrawingExeption: {
+        message:{
+            en: "Error when withdrawing a delivery point",
+            fr: "Erreur survenu lors du retrait du point de livraison"
+        },
+        status: 500
     }
 };
 
 const eventMessages = {
+    addBonus: {
+        en: {
+            title:"Incentive bonus!",
+            body: "You have received yy bonus points "
+        },
+        fr: {
+            title:"Prime d'encouragement!",
+            body: "Vous avez reçus yy points bonus"
+        }
+    },
     deliveryAccepted: {
         en: {
             body: "A driver is available for your delivery",
@@ -341,12 +358,14 @@ const eventMessages = {
         }
     },
     failurePayment: {
-        en: "Failed payment!",
-        fr: "Echec du paiement!"
-    },
-    initPayment: {
-        en: "Payment initiated!",
-        fr: "Paiement initialisé!"
+        en: {
+            title:"Failed payment!",
+            body: "You have tried to top up your account without success"
+        },
+        fr: {
+            title:"Echec du paiement!",
+            body: "Vous avez essayé de recharger votre compte sans succès"
+        }
     },
     newAssignment: {
         en: {
@@ -408,6 +427,16 @@ const eventMessages = {
             title: "Nouvelle discussion"
         }
     },
+    removeBonus: {
+        en: {
+            title:"Withdrawal of bonus points!",
+            body: "Your account has been debited with xx bonus points"
+        },
+        fr: {
+            title:"Retrait de point bonus!",
+            body: "Votre compte a été débité de xx points bonus"
+        }
+    },
     roomDeletedBody: {
         en: "This discussion is now archived due to the end of the delivery",
         fr:
@@ -415,8 +444,14 @@ const eventMessages = {
         " de la livraison."
     },
     successPayment: {
-        en: "Successful payment!",
-        fr: "Paiement effectuer avec succès!"
+        en: {
+            title:"Successful payment!",
+            body: "You have topped up your account by amount XAF"
+        },
+        fr: {
+            title:"Paiement effectuer avec succès!",
+            body: "Vous avez rechargé votre compte de amount XAF"
+        }
     },
     withSameContent(title, body) {
         return {
@@ -569,5 +604,4 @@ const config = Object.freeze({
     tokenTtl: process.env.TOKEN_EXP,
     userStatuses
 });
-
 module.exports = config;

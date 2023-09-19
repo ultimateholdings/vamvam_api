@@ -169,3 +169,8 @@ transaction:
     solde: double
     bonus: double
     point: double
+/transaction/handle-bonus:
+  action: "manages the addition and withdrawal of bonuses"
+  type: post
+  body:
+  response:

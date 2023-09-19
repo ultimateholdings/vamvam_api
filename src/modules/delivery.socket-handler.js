@@ -289,31 +289,45 @@ function deliveryMessageHandler(emitter) {
             "failure-payment",
             (data) => handleNotification({
                 data,
-                eventName: "failure-payment"
+                eventName: "failure-payment",
+                fallbackMessage: eventMessages.failurePayment
             })
         );
         emitter.addEventListener(
             "successful-payment",
-            (data) => handleNotification({
-                data,
-                eventName: "successful-payment"
-            })
+            function(data){
+                eventMessages.successPayment.en.body = eventMessages.successPayment.en.body.replace("amount", data.payload.amount),
+                eventMessages.successPayment.fr.body = eventMessages.successPayment.fr.body.replace("amount", data.payload.amount),
+                handleNotification({
+                    data,
+                    eventName: "successful-payment",
+                    fallbackMessage: eventMessages.successPayment
+                })
+            }
         );
         emitter.addEventListener(
             "incentive-bonus",
-            (data) => handleNotification({
-                data,
-                eventName: "incentive-bonus"
-                //TODO: implement the incentive-bonus fallback message
-            })
+            function(data){
+                eventMessages.addBonus.en.body = eventMessages.addBonus.en.body.replace("yy", data.payload.bonus),
+                eventMessages.addBonus.fr.body = eventMessages.addBonus.fr.body.replace("yy", data.payload.bonus),
+                handleNotification({
+                    data,
+                    eventName: "incentive-bonus",
+                    fallbackMessage: eventMessages.addBonus
+                })
+            }
         );
         emitter.addEventListener(
             "bonus-withdrawal",
-            (data) => handleNotification({
-                data,
-                eventName: "bonus-widthdrawal"
-                //TODO: implement the bonus widthdrawal fallback message
-            })
+            function(data){
+                eventMessages.removeBonus.en.body = eventMessages.removeBonus.en.body.replace("xx", data.payload.bonus),
+                eventMessages.removeBonus.fr.body = eventMessages.removeBonus.fr.body.replace("xx", data.payload.bonus),
+                handleNotification({
+                    data,
+                    eventName: "incentive-bonus",
+                    fallbackMessage: eventMessages.removeBonus
+                })
+            }
         );
         emitter.addEventListener(
             "driver-position-update-failed",

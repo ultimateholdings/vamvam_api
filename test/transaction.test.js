@@ -62,7 +62,6 @@ describe("Transaction test", function () {
   });
   it("should recharge with good props", async function () {
     let response;
-    // let driver = await clientSocketCreator("delivery", tokens[1]);
     const { id: packId } = await Bundle.create(bundles[0]);
     const phoneNumber = "+237683411151";
     response = await app

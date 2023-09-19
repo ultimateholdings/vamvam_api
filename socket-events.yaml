@@ -151,35 +151,33 @@ chat:
       data: messageData
 
 payment:
-  payment-initiated:
-      action: "notifies driver of payment initiation"
-      data: 
   failure-payment:
       action: "notifies driver of payment failure"
       data: 
+        userId: string
   successful-payment:
       action: "notifies the driver of the success of a payment"
       data:
-        driverId: string
+        userId: string
         bonus: double represents bonus points for the package purchased
         point: double represents package points purchased
-        solde: double represents the amount of the package purchased
-  point-withdrawal:
+        amount: double represents the amount of the package purchased
+  point-widthdrawn:
     action: "notifies the driver of the point withdrawal"
     data:
-      driverId: string
+      userId: string
       bonus: double represents the bonus points withdrawn
       point: double represents the points withdrawn
-      solde: double represents the amount debited
+      amount: double represents the amount debited
   incentive-bonus:
-    action: "notifies the driver of the intencive bonus"
+    action: "notifies the driver of the add bonus"
     data:
-      driverId: string
+      userId: string
       amount: double represents the amount add
       bonus: double represents the bonus add
   bonus-withdrawal:
-    action: "notifies the driver of the intencive bonus"
+    action: "notifies the driver of the add bonus"
     data:
-      driverId: string
+      userId: string
       amount: double represents the amount debited
       bonus: double represents the bonus ithdrawn

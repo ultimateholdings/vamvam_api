@@ -48,7 +48,8 @@ function getTransactionModule({
         },
       });
       deliveriesModel.emitEvent("failure-payment", {
-        driverId: payment.driverId,
+        payload:{},
+        userId: payment.driverId,
       });
     }
   }
@@ -111,7 +112,7 @@ function getTransactionModule({
           payload: {
             point,
             bonus: calculateSolde(bonus, unitPrice),
-            solde: calculateSolde(point, unitPrice),
+            amount: calculateSolde(point, unitPrice),
           },
           userId: data.driverId
         });
@@ -146,8 +147,7 @@ function getTransactionModule({
         userId: driverId
       });
     } catch (error) {
-      error.desc = "Unhandled exception on driver point widthdrawal request";
-      throw error;
+      return sendResponse(res, errors.withdrawingExeption)
     }
   }
 
