@@ -7,12 +7,19 @@ const {
     formatDbLineString,
     propertiesPicker
 } = require("../utils/helpers");
-const {deliveryStatuses} = require("../utils/config");
+const {apiSettings, dbSettings, deliveryStatuses} = require("../utils/config");
 
 const hiddenProps = ["code", "deliveryMeta"];
 
 function defineDeliveryModel(connection) {
     const emitter = new CustomEmitter();
+    const settings = Object.entries(apiSettings.delivery.defaultValues).reduce(
+        function (acc, [key, value]) {
+            acc[dbSettings[apiSettings.delivery.value].options[key]] = value;
+            return acc;
+        },
+        Object.create(null)
+    );
     const schema = {
         begin: DataTypes.DATE,
         code: DataTypes.STRING,
@@ -36,7 +43,7 @@ function defineDeliveryModel(connection) {
             validate: {
                 max: {
                     args: [5],
-                    msg: "The rating should not be greater than 0"
+                    msg: "The rating should not be greater than 5"
                 },
                 min: {
                     args: [0],
@@ -71,6 +78,7 @@ function defineDeliveryModel(connection) {
         const allowedProps = Object.keys(schema).filter(
             (key) => !hiddenProps.includes(key)
         );
+        let recipientInfos = {otherPhones: []};
         let result = this.dataValues;
         if (typeof result.deliveryMeta === "object") {
             result.destination = {
@@ -87,6 +95,20 @@ function defineDeliveryModel(connection) {
         if (result.route !== null) {
             result.route = formatDbLineString(result.route);
         }
+        recipientInfos.name = (
+            result.recipientInfos?.main?.firstName
+            ?? result.recipientInfos?.main?.name
+            ?? ""
+        );
+        recipientInfos.phone = result.recipientInfos?.main?.phone ?? "";
+        if (Array.isArray(result.recipientInfos.others)) {
+            result.recipientInfos.others.forEach(function (data) {
+                if (typeof data.phone === "string") {
+                    recipientInfos.otherPhones.push(data.phone);
+                }
+            });
+        }
+        result.recipientInfos = recipientInfos;
         return propertiesPicker(result)(allowedProps);
     };
 /*jslint-disable*/
@@ -104,16 +126,50 @@ function defineDeliveryModel(connection) {
     };
 /*jslint-enable*/
     delivery.prototype.getRecipientPhones = function () {
+/*
+    these 4 properties are used to enable background compatibility
+    of models due to the fact that recipientInfos structure changed
+*/
         let {
             phone,
+            main,
+            others,
             otherPhones
         } = this.dataValues.recipientInfos;
-        const result = [phone];
+        let result = [];
+        if (typeof phone === "string") {
+            result.push(phone);
+        }
         if (Array.isArray(otherPhones)) {
             result.push(...otherPhones);
         }
+        if (typeof main?.phone === "string") {
+            result.push(main.phone);
+        }
+        if (Array.isArray(others)) {
+            others.forEach(function(user) {
+                if (typeof user.phone === "string") {
+                    result.push(user.phone);
+                }
+            });
+        }
         return result;
-    }
+    };
+    delivery.prototype.getRecipientsId = function () {
+        let {main, others} = this.dataValues.recipientInfos;
+        const result = [];
+        if (typeof main?.id === "string") {
+            result.push(main.id);
+        }
+        if (Array.isArray(others)) {
+            others.forEach(function (user) {
+                if (typeof user.id === "string") {
+                    result.push(user.id);
+                }
+            });
+        }
+        return result;
+    };
     delivery.getAllStats = function ({from, to}) {
         let query = {
             attributes: ["status"],
@@ -133,13 +189,29 @@ function defineDeliveryModel(connection) {
             });
         }
         return delivery.count(query);
+    };
+    delivery.ongoingDeliveries = function (driverId) {
+        return delivery.findAll({where: {
+            driverId,
+            status: {[Op.in]: [
+                deliveryStatuses.started,
+                deliveryStatuses.pendingReception,
+                deliveryStatuses.toBeConfirmed
+            ]}
+        }});
     }
     delivery.addEventListener = function (eventName, func) {
         emitter.on(eventName, func);
-    }
+    };
     delivery.emitEvent = function (eventName, data) {
         emitter.emit(eventName, data);
-    }
+    };
+    delivery.getSettings = () => settings;
+    delivery.setSettings = (data) => Object.entries(data).forEach(
+        function ([key, val]) {
+            settings[key] = val;
+        }
+    );
     delivery.updatableProps = updatableProps;
     return delivery;
 }

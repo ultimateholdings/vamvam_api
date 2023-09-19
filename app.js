@@ -25,9 +25,7 @@ const socketServer = getSocketManager({
     await umzug.up();
     settings = await Settings.getAll();
     settings.forEach(function ({type, value}) {
-        if (type === "delivery") {
-            Delivery.emitEvent("delivery-settings-updated", value);
-        }
+        Settings.emitEvent("settings-update", {type, value});
     })
 })();
 

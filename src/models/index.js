@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {Op, col, fn, where} = require("sequelize");
+const {Op, col, fn, literal, where} = require("sequelize");
 const defineUserModel = require("./user.js");
 const otpModel = require("./otp_request.js");
 const defineDeliveryModel = require("./delivery.js");
@@ -16,8 +16,10 @@ const defineUserRoomModel = require("./user_room.model.js");
 const defineSettingsModel = require("./settings.js");
 const defineBlackListModel = require("./blacklist.js");
 const {sequelizeConnection} = require("../utils/db-connector.js");
+const {deliveryStatuses} = require("../utils/config.js");
 const {calculateSolde} = require("../utils/helpers.js");
 
+const order = [["createdAt", "DESC"]];
 const connection = sequelizeConnection();
 const User = defineUserModel(connection);
 const otpRequest = otpModel(connection);
@@ -116,9 +118,17 @@ User.belongsToMany(Room, {through: UserRoom});
 Room.hasMany(Message, {foreignKey: "roomId"});
 Message.belongsTo(Room, {foreignKey: "roomId"});
 
+User.getSettings = Delivery.getSettings;
+User.hasOngoingDelivery = async function (driverId) {
+    let result = await Delivery.ongoingDeliveries(driverId);
+    return result.length > 0;
+};
 Settings.addEventListener("settings-update", function (data) {
     if(data.type === "delivery") {
-        Delivery.emitEvent("delivery-settings-updated", data.value);
+        Delivery.setSettings(data.value);
+    }
+    if (data.type === "otp") {
+        otpRequest.setSettings(data.value);
     }
 });
 Message.getAllByRoom = async function ({
@@ -274,30 +284,83 @@ Room.getUserRooms = async function (userId) {
     });
 }
 
-Delivery.getAllWithStatus = function (userId, status) {
-    const clause = [
-        {clientId: {[Op.eq]: userId}},
-        {driverId: {[Op.eq]: userId}}
-    ];
-    let statusClause;
-    if (Array.isArray(status)) {
-        statusClause = {[Op.in]: status}
-    } else {
-        statusClause = status
-    }
+function getDeliveries({clause, limit, offset, order}) {
     return Delivery.findAll({
         include: [
             {as: "Client", model: User, required: true},
             {as: "Driver", model: User, required: true}
         ],
-        where: {
-            [Op.and]: {
-                [Op.or]: clause,
-                status: statusClause
-            }
-        }
+        limit,
+        offset,
+        order,
+        where: clause
     });
-}
+};
+
+Delivery.withStatuses = function (userId, statuses) {
+    const recipientClause = where(
+        fn("JSON_SEARCH", col("recipientInfos"), "one", userId),
+        {[Op.not]: null}
+    );
+    const clause = {
+        [Op.and]: [
+            {status: {[Op.in]: statuses}},
+            {
+                [Op.or]: [
+                    {driverId: {[Op.eq]: userId}},
+                    {
+                        [Op.or]: [
+                            {clientId: {[Op.eq]: userId}},
+                            recipientClause
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+    return getDeliveries({order, clause})
+};
+
+Delivery.getTerminated = async function ({
+    maxSize = 10,
+    offset = 0,
+    userId
+}) {
+    let results;
+    let formerLastId;
+    const query = {order};
+    query.limit = (
+        offset > 0
+        ? maxSize + 1
+        : maxSize
+    );
+    query.offset = (
+        offset > 0
+        ? offset -1
+        : offset
+    );
+    query.clause = {
+        [Op.and]: [
+            {status: deliveryStatuses.terminated},
+            {
+                [Op.or]: [
+                    {clientId: {[Op.eq]: userId}},
+                    {driverId: {[Op.eq]: userId}}
+                ]
+            }
+        ]
+    };
+    results = await getDeliveries(query);
+    if (offset > 0) {
+        formerLastId = results.shift();
+        formerLastId = formerLastId?.id;
+    }
+    return {
+        formerLastId,
+        lastId: results.at(-1)?.id,
+        values: results
+    };
+};
 
 Delivery.getAll = async function ({
     from,
@@ -312,7 +375,7 @@ Delivery.getAll = async function ({
     query = {
         include: [
             {as: "Client", model: User, required: true},
-            {as: "Driver", model: User, required: true},
+            {as: "Driver", model: User},
         ],
         limit: (offset > 0 ? maxSize + 1: maxSize),
         offset: (offset > 0 ? offset - 1: offset),
@@ -355,7 +418,8 @@ Delivery.getAll = async function ({
     };
 };
 Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
-    const result = await Trans.findAndCountAll({
+    let result;
+    result = await Trans.findAndCountAll({
         limit,
         offset,
         order: [["createdAt", "DESC"]],
@@ -398,6 +462,7 @@ Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
     });
     return result;
 };
+Delivery.getDriverBalance = Trans.getDriverBalance;
 
 module.exports = Object.freeze({
     Blacklist,

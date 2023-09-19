@@ -5,7 +5,6 @@ node
 const {User, otpRequest} = require("../models");
 const {
     availableRoles,
-    defaultValues,
     errors,
     otpTypes
 } = require("../utils/config");
@@ -147,7 +146,7 @@ function getAuthModule({
         const {phoneNumber: phone, signature} = req.body;
         const response = await authOtpHandler.sendCode({phone, signature});
         if (response.sent === true) {
-            res.status(200).send({sent: true, ttl: defaultValues.ttl});
+            res.status(200).send({sent: true, ttl: authOtpHandler.getTtl()});
         } else {
             sendResponse(res, response);
         }
@@ -161,7 +160,7 @@ function getAuthModule({
             type: otpTypes.reset
         });
         if (response.sent === true) {
-            res.status(200).send({sent: true, ttl: defaultValues.ttl});
+            res.status(200).send({sent: true, ttl: authOtpHandler.getTtl()});
         } else {
             return sendResponse(res, response);
         }
@@ -226,6 +225,9 @@ function getAuthModule({
                 status: authModel.statuses?.activated
             });
             userExists = false;
+        }
+        if (currentUser?.status !== authModel.statuses?.activated) {
+            return sendResponse(res, errors.inactiveAccount);
         }
         handleAuthSuccess(res, currentUser, userExists);
     }

@@ -12,36 +12,31 @@ const {
     Delivery,
     DeliveryConflict,
     Room,
+    Transaction,
     User,
     connection
 } = require("../src/models");
 const {
+    bundles,
     clientSocketCreator,
     generateToken,
-    getToken,
     listenEvent,
-    loginUser,
     otpHandler,
     postData,
     setupServer,
-    syncUsers,
+    syncInstances,
     users
 } = require("./fixtures/helper");
 const {
     deliveries,
-    deliveryResquestor,
+    generateDBDeliveries,
     missoke
 } = require("./fixtures/deliveries.data");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
 const getConflictHandler = require("../src/modules/conflict.socket-handler");
-const {deliveryStatuses, errors} = require("../src/utils/config");
+const {apiSettings, deliveryStatuses, errors} = require("../src/utils/config");
 const {toDbPoint} = require("../src/utils/helpers");
-
-const {
-    requestDelivery,
-    setupDelivery
-} = deliveryResquestor(getToken, Delivery);
 
 function updatePosition(socket, position) {
     socket.emit("new-position", position);
@@ -52,10 +47,11 @@ function updatePosition(socket, position) {
     });
 }
 function updateItinerary({deliveryId, points, socket}) {
-    return new Promise(function (res, rej) {
-        socket.emit("itinerary-changed", {deliveryId, points});
-        socket.on("itinerary-update-fulfilled", res);
-        setTimeout(() => rej("Timeout Exceeded !!!"), 1500);
+    socket.emit("itinerary-changed", {deliveryId, points});
+    return listenEvent({
+        close: false,
+        name: "itinerary-update-fulfilled",
+        socket
     });
 }
 
@@ -64,7 +60,7 @@ describe("delivery side effects test", function () {
     let app;
     let dbUsers;
     let socketServer;
-    let setupDatas;
+    let testDeliveries;
 
     before(function () {
         const tmp = setupServer(otpHandler);
@@ -78,15 +74,27 @@ describe("delivery side effects test", function () {
     });
 
     beforeEach(async function () {
+        let purchase = bundles[0];
+        purchase.type = "recharge";
         await connection.sync({force: true});
-        dbUsers = await syncUsers(users, User);
-        setupDatas = await setupDelivery({
-            app,
-            clientPhone: dbUsers.goodUser.phone,
-            delivery: deliveries[0],
-            driverData: dbUsers.firstDriver,
-            initialState: deliveryStatuses.started
-        });
+        dbUsers = await syncInstances(users, User, "phone");
+        dbUsers = Object.entries(dbUsers).reduce(function (acc, [key, user]) {
+            user.token = generateToken(user);
+            acc[key] = user;
+            return acc;
+        }, Object.create(null));
+        purchase.driverId = dbUsers.firstDriver.id;
+        await Transaction.create(purchase);
+        testDeliveries = await Delivery.bulkCreate(generateDBDeliveries({
+            clientId: dbUsers.goodUser.id,
+            dbPointFormatter: toDbPoint,
+            driverId: dbUsers.firstDriver.id,
+            initialState:  (index) => (
+                index === 0
+                ? deliveryStatuses.started
+                : deliveryStatuses.initial
+            )
+        }));
     });
 
     afterEach(async function () {
@@ -105,98 +113,94 @@ describe("delivery side effects test", function () {
             assert.deepEqual(error.data, errors.notAuthorized.message);
         }
     });
-
-    it("should notify the client on delivery's ending", async function () {
-        let data;
-        const {driverToken, request} = setupDatas;
-        const client = await clientSocketCreator("delivery", request.token);
-        await app.post("/delivery/verify-code").send(request).set(
-            "authorization",
-            "Bearer " + driverToken
-        );
-        data = await new Promise(function (res) {
-            client.on("delivery-end", function (data) {
-                client.close();
-                res(data);
-            });
+    describe("delivery initialization interactions", function () {
+        let initialRequest;
+        const nearByPoint = { /* Near to the first delivery departure */
+        latitude: 4.092361,
+        longitude: 9.745081
+    };
+    const farPoint = {
+        latitude: 3.989972,
+        longitude: 9.799537
+    };
+    beforeEach(async function () {
+        initialRequest = await postData({
+            app,
+            data: deliveries[0],
+            token: dbUsers.goodUser.token,
+            url: "/delivery/request"
         });
-        assert.equal(data, request.id);
+        initialRequest = initialRequest.body;
     });
-
     it(
-        "should notify a client when a driver update his position",
+        "should notify the client & the recipients on driver position's update",
         async function () {
             let data;
-            const {driverToken, request} = setupDatas;
-            const [client] = await Promise.all([
-                clientSocketCreator("delivery", request.token),
-                clientSocketCreator("delivery", driverToken).then(
-                    function (driver) {
-                        driver.emit("new-position", missoke);
-                    }
-                )
+            const [client, driver, other] = await Promise.all([
+                clientSocketCreator("delivery", dbUsers.goodUser.token),
+                clientSocketCreator("delivery", dbUsers.secondDriver.token),
+                clientSocketCreator("delivery", dbUsers.badUser.token)
             ]);
-            data = await listenEvent({
-                name: "new-driver-position",
-                socket: client
-            });
-            assert.deepEqual(data, {
-                deliveryId: request.id,
-                positions: missoke
-            });
-            data = await User.findOne({where: {id: dbUsers.firstDriver.id}});
-            assert.deepEqual(data.position, {
-                coordinates: [missoke.latitude, missoke.longitude],
-                type: "Point"
-            });
+            await Delivery.update({
+                status: deliveryStatuses.pendingReception,
+                driverId: dbUsers.secondDriver.id
+            }, {where: {id: initialRequest.id}});
+            await updatePosition(driver, missoke);
+            data = await Promise.allSettled([
+                listenEvent({name: "new-driver-position", socket: client}),
+                listenEvent({name: "new-driver-position", socket: other})
+            ]);
+            assert.deepEqual(
+                data.map((response) => response.value),
+                Array(2).fill({
+                    deliveryId: initialRequest.id,
+                    positions: missoke
+                })
+            );
+            data = await User.findOne({where: {id: dbUsers.secondDriver.id}});
+            assert.deepEqual(data.position, toDbPoint(missoke));
         }
     );
-    describe("delivery initialization interactions", function () {
-        let request;
-        const nearByPoint = {
-            latitude: 4.0470347,
-            longitude: 9.6971706
-        };
-        const farPoint = {
-            latitude: 3.989972,
-            longitude: 9.799537
-        };
-        beforeEach(async function () {
-            request = await requestDelivery({
-                app,
-                data: deliveries[1],
-                phone: dbUsers.goodUser.phone
-            });
-        });
-        it("should notify a client on driver approval", async function () {
+    it("should notify a client on driver approval", async function () {
             let data;
-            const {driverToken} = setupDatas;
-            const [client, driver] = await Promise.all([
-                clientSocketCreator("delivery", request.token),
-                clientSocketCreator("delivery", driverToken)
+            const [client, driver, other] = await Promise.all([
+                clientSocketCreator("delivery", dbUsers.goodUser.token),
+                clientSocketCreator("delivery", dbUsers.firstDriver.token),
+                clientSocketCreator("delivery", dbUsers.badUser.token)
             ]);
-            await app.post("/delivery/accept").send(request).set(
-                "authorization",
-                "Bearer " + driverToken
-            );
-            data = await new Promise(function (res) {
-                client.on("delivery-accepted", function (data) {
-                    res(data);
-                });
-            });
-            assert.deepEqual(data, {
-                deliveryId: request.id,
-                driver: dbUsers.firstDriver.toResponse()
-            });
-            data = await Promise.allSettled([
+            data = await postData({
+                app,
+                data: {id: initialRequest.id},
+                token: dbUsers.firstDriver.token,
+                url: "/delivery/accept"
+            })
+            data = await Promise.all([
                 listenEvent({
-                    name: "room-created",
+                    close: false,
+                    name: "delivery-accepted",
                     socket: client
                 }),
                 listenEvent({
-                    name: "room-created",
-                    socket: driver
+                    close: false,
+                    name: "new-invitation",
+                    socket: other
                 })
+            ]);
+            assert.deepEqual(data[0], {
+                deliveryId: initialRequest.id,
+                driver: dbUsers.firstDriver.toShortResponse()
+            });
+            assert.deepEqual(data[1].id, initialRequest.id);
+            data = await listenEvent({
+                close: false,
+                name: "point-widthdrawn",
+                socket: driver
+            });
+            assert.deepEqual(data, {amount: 300, bonus: 0, point: 1});
+            data = await Promise.allSettled([
+                listenEvent({name: "room-created", socket: client}),
+                listenEvent({name: "room-created", socket: driver}),
+                listenEvent({name: "room-created", socket: other})
             ]);
             assert.isTrue(data.every((item) => item.value?.id !== undefined));
             assert.deepEqual(data[0].value, data[1].value);
@@ -206,61 +210,57 @@ describe("delivery side effects test", function () {
 
         it("should notify a driver on client cancellation", async function () {
             let data;
-            const {driverToken} = setupDatas;
             const driverSocket = await clientSocketCreator(
                 "delivery",
-                driverToken
+                dbUsers.firstDriver.token
             );
             dbUsers.firstDriver.position = toDbPoint(nearByPoint);
             await dbUsers.firstDriver.save();
-            await app.post("/delivery/cancel").send(request).set(
+            await app.post("/delivery/cancel").send({id: initialRequest.id}).set(
                 "authorization",
-                "Bearer " + request.token
+                "Bearer " + dbUsers.goodUser.token
             );
             data = await listenEvent({
                 name: "delivery-cancelled",
                 socket: driverSocket
             });
-            assert.equal(data, request.id);
+            assert.equal(data.id, initialRequest.id);
         });
         it("should notify the client on driver reception", async function () {
-            let data;
-            const {driverToken} = setupDatas;
-            const client = await clientSocketCreator("delivery", request.token);
+            let data = {id: initialRequest.id};
+            const client = await clientSocketCreator(
+                "delivery",
+                dbUsers.goodUser.token
+            );
             await Delivery.update({
                 driverId: dbUsers.firstDriver.id,
                 status: deliveryStatuses.pendingReception
-            }, {where: {id: request.id}});
-            await app.post("/delivery/signal-on-site").send(request).set(
+            }, {where: data});
+            await app.post("/delivery/signal-on-site").send(data).set(
                 "authorization",
-                "Bearer " + driverToken
+                "Bearer " + dbUsers.firstDriver.token
             );
             data = await listenEvent({
                 name: "driver-on-site",
                 socket: client
             });
-            assert.equal(data, request.id);
+            assert.equal(data, initialRequest.id);
         });
         it(
             "should notify delivery's begining on client confirmation",
             async function () {
-                let data;
-                const {driverToken} = setupDatas;
-                const client = await clientSocketCreator(
-                    "delivery",
-                    request.token
-                );
-                const driverSocket = await clientSocketCreator(
-                    "delivery",
-                    driverToken
-                );
+                let data = {id: initialRequest.id};
+                const [client, driverSocket] = await Promise.all([
+                    clientSocketCreator("delivery", dbUsers.goodUser.token),
+                    clientSocketCreator("delivery", dbUsers.firstDriver.token),
+                ]);
                 await Delivery.update({
                     driverId: dbUsers.firstDriver.id,
                     status: deliveryStatuses.toBeConfirmed
-                }, {where: {id: request.id}});
-                await app.post("/delivery/confirm-deposit").send(request).set(
+                }, {where: data});
+                await app.post("/delivery/confirm-deposit").send(data).set(
                     "authorization",
-                    "Bearer " + request.token
+                    "Bearer " + dbUsers.goodUser.token
                 );
                 data = await Promise.all([
                     listenEvent({
@@ -272,7 +272,7 @@ describe("delivery side effects test", function () {
                         socket: driverSocket
                     })
                 ]);
-                assert.deepEqual(data, new Array(2).fill(request.id));
+                assert.deepEqual(data, new Array(2).fill(initialRequest.id));
             }
         );
         it(
@@ -280,22 +280,17 @@ describe("delivery side effects test", function () {
             async function () {
                 let data;
                 let delivery;
-                let [client, firstDriver, secondDriver] = await Promise.all([
-                    getToken(app, dbUsers.goodUser.phone),
-                    getToken(app, dbUsers.firstDriver.phone),
-                    getToken(app, dbUsers.secondDriver.phone)
-                ]);
-                [firstDriver, secondDriver] = await Promise.all([
-                    clientSocketCreator("delivery", firstDriver),
-                    clientSocketCreator("delivery", secondDriver)
+                let [firstDriver, secondDriver] = await Promise.all([
+                    clientSocketCreator("delivery", dbUsers.firstDriver.token),
+                    clientSocketCreator("delivery", dbUsers.secondDriver.token)
                 ]);
                 await Promise.all([
                     updatePosition(firstDriver, nearByPoint),
                     updatePosition(secondDriver, farPoint)
                 ]);
-                request = await app.post("/delivery/request").send(
-                    deliveries[1]
-                ).set("authorization", "Bearer " + client);
+                initialRequest = await app.post("/delivery/request").send(
+                    deliveries[0]
+                ).set("authorization", "Bearer " + dbUsers.goodUser.token);
                 data = await Promise.allSettled([
                     listenEvent({
                         name: "new-delivery",
@@ -307,7 +302,7 @@ describe("delivery side effects test", function () {
                     })
                 ]);
                 delivery = await Delivery.findOne(
-                    {where: {id: request.body.id}}
+                    {where: {id: initialRequest.body.id}}
                 );
                 delivery = delivery.toResponse();
                 delivery.client = dbUsers.goodUser.toShortResponse();
@@ -324,137 +319,118 @@ describe("delivery side effects test", function () {
                 {latitude: 4.045502, longitude: 9.714724},
                 {latitude: 4.046626, longitude: 9.716999}
             ];
-            request = setupDatas.request;
-            const [client, driver] = await Promise.all([
-                clientSocketCreator("delivery", request.token),
-                clientSocketCreator("delivery", setupDatas.driverToken)
+            const [client, driver, other] = await Promise.all([
+                clientSocketCreator("delivery", dbUsers.goodUser.token),
+                clientSocketCreator("delivery", dbUsers.firstDriver.token),
+                clientSocketCreator("delivery", dbUsers.badUser.token)
             ]);
+            await Delivery.update({
+                status: deliveryStatuses.pendingReception,
+                driverId: dbUsers.firstDriver.id
+            }, {where: {id: initialRequest.id}});
             await updateItinerary({
-                deliveryId: request.id,
+                deliveryId: initialRequest.id,
                 points: route,
                 socket: driver
             });
-            data = await listenEvent({
-                name: "itinerary-updated",
-                socket: client
-            });
-            assert.deepEqual(data, {deliveryId: request.id, points: route});
+            data = await Promise.all([
+                listenEvent({name: "itinerary-updated", socket: client}),
+                listenEvent({name: "itinerary-updated", socket: other})
+            ]);
+            assert.deepEqual(data, Array(2).fill(
+                {deliveryId: initialRequest.id, points: route}
+            ));
         });
 
         it(
             "should notify the client on delivery closed",
             async function () {
                 let data;
-                const driverToken = await getToken(
-                    app,
-                    dbUsers.firstDriver.phone
-                );
-                request = await requestDelivery({
-                    app,
-                    data: deliveries[0],
-                    phone: dbUsers.goodUser.phone
+                const [client, driver, other] = await Promise.all([
+                    clientSocketCreator("delivery", dbUsers.goodUser.token),
+                    clientSocketCreator("delivery", dbUsers.firstDriver.token),
+                    clientSocketCreator("delivery", dbUsers.badUser.token)
+                ]);
+                const room = await Room.create({
+                    name: "hello world",
+                    deliveryId: initialRequest.id
                 });
-                const [client, driver] = await Promise.all([
-                    clientSocketCreator("delivery", request.token),
-                    clientSocketCreator("delivery", driverToken)
-                ]);
-                const delivery = await Delivery.findOne(
-                    {where: {id: request.id}}
-                );
-                const room = await Room.create({name: "hello world"});
-                await room.setUsers([
-                    dbUsers.firstDriver,
-                    dbUsers.goodUser
-                ]);
-                await room.setDelivery(delivery);
-                delivery.status = deliveryStatuses.started;
-                delivery.driverId = dbUsers.firstDriver.id;
-                await delivery.save();
+                await Delivery.update({
+                    status: deliveryStatuses.started,
+                    driverId: dbUsers.firstDriver.id
+                }, {where: {id: initialRequest.id}});
                 data = await postData({
                     app,
                     data: {
-                        code: request.code,
-                        id: request.id
+                        code: initialRequest.code,
+                        id: initialRequest.id
                     },
-                    token: driverToken,
+                    token: dbUsers.firstDriver.token,
                     url: "/delivery/verify-code"
                 });
-                data = await listenEvent({
-                    close: false,
-                    name: "delivery-end",
-                    socket: client
-                });
-                assert.equal(data, request.id);
+                data = await Promise.all([
+                    listenEvent(
+                        {close: false, name: "delivery-end", socket: client}
+                    ),
+                    listenEvent(
+                        {close: false, name: "delivery-end", socket: other}
+                    )
+                ]);
+                assert.deepEqual(data, Array(2).fill(initialRequest.id));
                 data = await Promise.allSettled([
                     listenEvent({name: "room-deleted", socket: client}),
-                    listenEvent({name: "room-deleted", socket: driver})
+                    listenEvent({name: "room-deleted", socket: driver}),
+                    listenEvent({name: "room-deleted", socket: other})
                 ]);
-                assert.isTrue(data.every(
-                    (result) => result.value !== undefined
-                ));
+                assert.deepEqual(
+                    data.map((result) => result.value),
+                    Array(3).fill({id: room.id, name: room.name})
+                );
             }
         );
     });
     describe("conflict tests", function () {
         let message;
-        let request;
-        let driverToken;
-        let managerToken;
         let conflict;
+        let types = apiSettings.delivery.defaultValues.delivery_conflicts;
         beforeEach(async function () {
-            const deliveryDatas = await setupDelivery({
-                app,
-                clientPhone: dbUsers.goodUser.phone,
-                delivery: deliveries[0],
-                driverData: dbUsers.firstDriver,
-                initialState: deliveryStatuses.pendingReception
-            });
-            managerToken = await loginUser(
-                app,
-                dbUsers.conflictManager.phone,
-                "aSimplePass"
-            );
+            await Delivery.update({
+                status: deliveryStatuses.pendingReception,
+                driverId: dbUsers.firstDriver.id
+            }, {where: {id: testDeliveries[2].id}});
             message = {
                 lastPosition: missoke,
                 reporter: dbUsers.firstDriver.toResponse(),
-                type: "Package damaged"
+                type: types[0].code
             };
-            request = deliveryDatas.request;
-            driverToken = deliveryDatas.driverToken;
             conflict = await DeliveryConflict.create({
-                deliveryId: request.id,
+                deliveryId: testDeliveries[2].id,
                 lastLocation: toDbPoint(missoke),
-                type: "Package damaged"
+                type: types[1].code
             });
-            request.delivery = await Delivery.findOne(
-                {where: {id: request.id}}
-            );
         });
         it(
             "should notify the manager and client on conflict",
             async function () {
-                let data;
-                let client;
-                let conflictManager = generateToken(
-                    dbUsers.conflictManager
-                );
-                const delivery = setupDatas.request;
-                await Delivery.update(
-                    {status: deliveryStatuses.started},
-                    {where: {id: delivery.id}}
-                );
-                [client, conflictManager] = await Promise.all([
-                    await clientSocketCreator(
-                        "delivery",
-                        generateToken(dbUsers.goodUser)
-                    ),
-                    await clientSocketCreator("conflict", conflictManager)
-                ]);
-                await app.post("/delivery/conflict/report").send({
+                let data = {
                     conflictType: message.type,
-                    id: delivery.id,
+                    id: testDeliveries[0].id,
                     lastPosition: missoke
-                }).set("authorization", "Bearer " + setupDatas.driverToken);
+                };
+                let [client, conflictManager] = await Promise.all([
+                    await clientSocketCreator(
+                        "delivery", dbUsers.goodUser.token
+                    ),
+                    await clientSocketCreator(
+                        "conflict", dbUsers.conflictManager.token
+                    )
+                ]);
+                data = await postData({
+                    app,
+                    data,
+                    token: dbUsers.firstDriver.token,
+                    url: "/delivery/conflict/report"
+                });
                 data = await Promise.all([
                     listenEvent({
                         name: "new-conflict",
@@ -462,32 +438,39 @@ describe("delivery side effects test", function () {
                     }),
                     listenEvent({name: "new-conflict", socket: client})
                 ]);
+                conflict = await DeliveryConflict.findOne({where: {
+                    deliveryId: testDeliveries[0].id
+                }});
+                message.id = conflict.id;
                 message.delivery = await Delivery.findOne(
-                    {where: {id: delivery.id}}
+                    {where: {id: testDeliveries[0].id}}
                 );
                 message.delivery = message.delivery.toResponse();
-                message.reporter = dbUsers.firstDriver.toResponse();
-                assert.deepEqual(data, [message, delivery.id]);
+                message.reporter = dbUsers.firstDriver.toShortResponse();
+                assert.deepEqual(data, [message, testDeliveries[0].id]);
             }
         );
 
         it("should notify a driver on new assignment", async function () {
             let response;
             const endPoint = "/delivery/conflict/assign-driver";
-            let secondDriver = await getToken(app, dbUsers.secondDriver.phone);
+            let secondDriver;
             let payload = {
                 driverId: dbUsers.secondDriver.id,
                 id: conflict.id
             };
-            secondDriver = await clientSocketCreator("delivery", secondDriver);
+            secondDriver = await clientSocketCreator(
+                "delivery",
+                dbUsers.secondDriver.token
+            );
             response = await app.post(endPoint).send(payload).set(
                 "authorization",
-                "Bearer " + driverToken
+                "Bearer " + dbUsers.firstDriver.token
             );
             assert.equal(response.status, errors.forbiddenAccess.status);
             response = await app.post(endPoint).send(payload).set(
                 "authorization",
-                "Bearer " + managerToken
+                "Bearer " + dbUsers.conflictManager.token
             );
             assert.equal(response.status, 200);
             response = await listenEvent({
@@ -504,21 +487,19 @@ describe("delivery side effects test", function () {
                 let response;
                 let manager = await clientSocketCreator(
                     "conflict",
-                    managerToken
-                );
-                let secondDriver = await getToken(
-                    app,
-                    dbUsers.secondDriver.phone
+                    dbUsers.conflictManager.token
                 );
                 conflict.assigneeId = dbUsers.secondDriver.id;
                 conflict.assignerId = dbUsers.conflictManager.id;
                 await conflict.save();
+                testDeliveries[2].status = deliveryStatuses.inConflict;
+                await testDeliveries[2].save();
                 response = await app.post(
                     "/delivery/conflict/verify-code"
                 ).send({
-                    code: request.delivery.code,
-                    deliveryId: request.id
-                }).set("authorization", "Bearer " + secondDriver);
+                    code: testDeliveries[2].code,
+                    deliveryId: testDeliveries[2].id
+                }).set("authorization", "Bearer " + dbUsers.secondDriver.token);
                 assert.equal(response.status, 200);
                 response = await listenEvent({
                     name: "conflict-solved",

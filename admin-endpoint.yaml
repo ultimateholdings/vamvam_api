@@ -28,8 +28,13 @@ conflict-manager:
       assigned: boolean
   
 admin-manager:
-  /admin/revoke-user:
-    action: "invalidate a user token"
+  /admin/block-user:
+    action: "block a user account"
+    type: post
+    body:
+      id: string
+  /admin/activate-user:
+    action: "activate a user account"
     type: post
     body:
       id: string
@@ -164,3 +169,8 @@ transaction:
     solde: double
     bonus: double
     point: double
+/transaction/handle-bonus:
+  action: "manages the addition and withdrawal of bonuses"
+  type: post
+  body:
+  response:

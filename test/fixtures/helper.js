@@ -9,10 +9,8 @@ const supertest = require("supertest");
 const { buildServer } = require("../../src");
 const authModule = require("../../src/modules/auth.module");
 const userModule = require("../../src/modules/user.module");
-const driverModule = require("../../src/modules/driver.module");
 const buildAuthRoutes = require("../../src/routes/auth.route");
 const buildUserRoutes = require("../../src/routes/user.route");
-const driverRoutes = require("../../src/routes/driver.route");
 const buildRouter = require("../../src/routes");
 const { availableRoles, userStatuses } = require("../../src/utils/config");
 const { jwtWrapper } = require("../../src/utils/helpers");
@@ -173,8 +171,9 @@ const webhookData = {
   }
 };
 const otpHandler = {
-  sendCode: () => Promise.resolve({ verified: true }),
-  verifyCode: () => Promise.resolve({ verified: true }),
+  getTtl: () => 180,
+  sendCode: () => Promise.resolve({verified: true}),
+  verifyCode: () => Promise.resolve({verified: true})
 };
 function generateToken(user) {
   return jwt.sign({
@@ -186,7 +185,16 @@ function generateToken(user) {
 
 function setupInterceptor() {
   const otpBaseUrl = "https://api.ng.termii.com";
+  const payment_url = "https://api.flutterwave.com";
   const { badUser, firstDriver, goodUser } = users;
+  nock(payment_url)
+      .post("/transaction/init-transaction")
+      .reply(200)
+      .persist();
+  nock(payment_url)
+      .post("/transaction/verify")
+      .reply(200)
+      .persist();
   nock(otpBaseUrl)
     .post(/otp\/send/, (body) => body.to === badUser.phone)
     .replyWithError("the network provider is not supported");

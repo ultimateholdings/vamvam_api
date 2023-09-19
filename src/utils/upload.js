@@ -6,7 +6,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
 const {promisify} = require("node:util");
-const {fileExists} = require("./helpers")
+const {fileExists, pathToURL} = require("./helpers")
 
 const copyAsync = promisify(fs.copyFile);
 const unlinkAsync = promisify(fs.unlink);
@@ -63,12 +63,11 @@ function getDestination({cb, file, folderPath}) {
         }
         await unlinkAsync(tempPath);
         cb(null, {
-            basename: path.basename(finalPath),
             path: finalPath,
-            size: outStream.bytesWritten
+            size: outStream.bytesWritten,
+            url: pathToURL(finalPath)
         });
     });
-
 }
 
 function hashedUploadHandler(

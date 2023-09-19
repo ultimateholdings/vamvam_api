@@ -31,12 +31,11 @@ function conflictMessageHandler(emitter) {
         function handleNewConflict(data) {
             const eventName = "new-conflict";
             const room = roles.conflictManager;
-            const {conflict} = data;
-            nameSpace.in(room).emit(eventName, conflict);
+            nameSpace.in(room).emit(eventName, data.payload);
         }
 
         emitter?.addEventListener("conflict-solved", handleSolvedConflict);
-        emitter?.addEventListener("new-conflict", handleNewConflict);
+        emitter?.addEventListener("manager/new-conflict", handleNewConflict);
         nameSpace.use(socketAuthenticator([roles.conflictManager]));
         nameSpace.on("connection", handleConnection);
     };

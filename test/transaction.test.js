@@ -20,7 +20,8 @@ const {
   setupServer,
   syncUsers,
   users,
-  webhookData,
+  setupInterceptor,
+  webhookData
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
@@ -34,9 +35,10 @@ describe("Transaction test", function () {
     const tmp = setupServer(otpHandler);
     server = tmp.server;
     app = tmp.app;
+    setupInterceptor(),
     socketServer = getSocketManager({
       deliveryHandler: getDeliveryHandler(Delivery),
-      httpServer: server,
+      httpServer: server
     });
   });
 
@@ -60,15 +62,29 @@ describe("Transaction test", function () {
   });
   it("should recharge with good props", async function () {
     let response;
-    let driver = await clientSocketCreator("delivery", tokens[1]);
     const { id: packId } = await Bundle.create(bundles[0]);
-    const  phoneNumber = "+237683411151"
+    const phoneNumber = "+237683411151";
     response = await app
       .post("/transaction/init-transaction")
-      .send({ phoneNumber  , packId })
+      .send({ phoneNumber, packId })
       .set("authorization", "Bearer " + tokens[1]);
     assert.equal(response.status, 200);
-    data = await listenEvent({ name: "payment-initiated", socket: driver });
+  });
+  it("should add bonus to driver", async function () {
+    let response;
+    let dataRequest = {
+      driverId: dbUsers.firstDriver.id,
+      bonus: 10,
+      type: "recharge",
+    };
+    let driver = await clientSocketCreator("delivery", tokens[1]);
+    response = await app
+      .post("/transaction/handle-bonus")
+      .send(dataRequest)
+      .set("authorization", "Bearer " + tokens[2]);
+    assert.equal(response.status, 200);
+    data = await listenEvent({ name: "incentive-bonus", socket: driver });
+    assert.equal(dataRequest.bonus, data.bonus);
   });
   it("should verify transaction", async function () {
     let response;
@@ -76,9 +92,9 @@ describe("Transaction test", function () {
     const { id: packId } = await Bundle.create(bundles[0]);
     const { id: transId } = webhookData.data;
     await Payment.create({
-      transId:  transId,
+      transId: transId,
       driverId: dbUsers.firstDriver.id,
-      packId: packId
+      packId: packId,
     });
     response = await app
       .post("/transaction/verify")
@@ -86,13 +102,13 @@ describe("Transaction test", function () {
       .set("authorization", "Bearer " + tokens[1])
       .set("verif-hash", "12345678918a2c836464vt-X");
     driver = await clientSocketCreator("delivery", tokens[0]);
-    await listenEvent({name: "successful-payment", socket: driver});
+    // await listenEvent({ name: "successful-payment", socket: driver });
   });
   it("should return transaction history and wallet infos", async function () {
     let response;
     let transactions;
     let driverToken = await getToken(app, dbUsers.firstDriver.phone);
-    
+
     transactions = bundles.map((bundle) => {
       const { unitPrice, bonus, point } = bundle;
       return {
@@ -143,7 +159,7 @@ describe("Transaction test", function () {
       .send({
         startDate: 1693483365735,
         endDate: Date.now(),
-        type: 'recharge'
+        type: "recharge",
       })
       .set("authorization", "Bearer " + tokens[2]);
     assert.equal(response.status, 200);

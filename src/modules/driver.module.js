@@ -4,12 +4,12 @@ node
 const path = require("node:path");
 const {
     fileExists,
+    pathToURL,
     propertiesPicker,
     sendResponse
 } = require("../utils/helpers");
 const {
     errors,
-    registrationsRoot,
     userStatuses
 } = require("../utils/config");
 const {Registration, User} = require("../models");
@@ -134,8 +134,7 @@ function getRegistrationModule({associatedModels, model}) {
             {where: {id: registration.id}}
         );
         if (updates.carInfos !== undefined) {
-            updates.carInfos =
-            registrationsRoot + path.basename(updates.carInfos);
+            updates.carInfos = pathToURL(updates.carInfos);
         }
         updates.updated = updated > 0;
         res.status(200).send(updates);

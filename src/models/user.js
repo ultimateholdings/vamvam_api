@@ -83,7 +83,14 @@ function defineUserModel(connection) {
         }
     };
     const excludedProps = ["password", "deviceToken"];
-    const forbiddenUpdate = ["position", "role", "id", "phone", "password"];
+    const forbiddenUpdate = [
+        "position",
+        "role",
+        "id",
+        "available",
+        "phone",
+        "password"
+    ];
     const shortDescriptionProps = [
         "id",
         "avatar",
@@ -241,7 +248,7 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
     user.statuses = userStatuses;
 /*jslint-disable*/
     user.getAllByPhones = function (phoneList) {
-        return this.findAll({
+        return user.findAll({
             where: {
                 phone: {[Op.in]: phoneList}
             }

@@ -19,8 +19,10 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
             let missedRooms = await messagesModel.getMissedMessages(userId);
             Object.entries(missedRooms).forEach(function ([roomId, datas]) {
                 datas.roomId = roomId;
-                datas.userId = userId;
-                deliveriesModel.emitEvent("missed-messages-from-room", datas);
+                deliveriesModel.emitEvent("missed-messages-from-room", {
+                    payload: datas,
+                    userId
+                });
             });
         }
     );
@@ -31,46 +33,54 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
             let [updated] = await messagesModel.markAsRead(userId, messagesId);
             deliveriesModel.emitEvent(
                 "messages-read-fulfill",
-                {updated, userId}
+                {payload: {updated: updated > 0}, userId}
             );
         }
     );
-    deliveriesModel.addEventListener("delivery-end", async function (data) {
-        const {deliveryId} = data;
-        const room = await roomsModel.findOne({where: {deliveryId}});
-        let roomUsers;
-        if (room !== null) {
-            roomUsers = await room.getUsers();
-            await roomsModel.destroy({
-                individualHooks: true,
-                where: {id: room.id}
-            });
-            deliveriesModel.emitEvent("room-deleted", {
-                id: room.id,
-                name: room.name,
-                users: roomUsers.map((user) => user.id)
-            });
+    deliveriesModel.addEventListener(
+        "room-deletion-requested",
+        async function (data) {
+            const {deliveryId, members} = data;
+            const room = await roomsModel.findOne({where: {deliveryId}});
+            if (room !== null) {
+                await roomsModel.destroy({
+                    individualHooks: true,
+                    where: {id: room.id}
+                });
+                if (Array.isArray(members)) {
+                    members.forEach(function (userId) {
+                        deliveriesModel.emitEvent("room-deleted", {
+                            userId,
+                            payload: {id: room.id, name: room.name}
+                        });
+                    });
+                }
+            }
         }
-    });
+    );
     
     async function createRoom(data) {
         const {delivery, name, users} = data;
+        let members;
         let room = await roomsModel.create({name});
         await room.setUsers(users);
         await room.setDelivery(delivery);
-        deliveriesModel.emitEvent("room-created", {
-            room: {
-                delivery: {
-                    departure: delivery.deliveryMeta.departureAddress,
-                    destination: delivery.deliveryMeta.destinationAddress,
-                    id: delivery.id
+        members = users.map((user) => user.toShortResponse());
+        users.forEach(function (user) {
+            deliveriesModel.emitEvent("room-created", {
+                payload: {
+                    delivery: {
+                        departure: delivery.deliveryMeta.departureAddress,
+                        destination: delivery.deliveryMeta.destinationAddress,
+                        id: delivery.id
+                    },
+                    id: room.id,
+                    members,
+                    name: room.name
                 },
-                id: room.id,
-                members: users.map((user) => user.toShortResponse()),
-                name: room.name
-            },
-            users: users.map((user) => user.id)
-        });
+                userId: user.id
+            });
+        })
     }
 
     async function ensureRoomExists(req, res, next) {
@@ -127,7 +137,7 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
         users.forEach(function (user) {
             if (user.id !== sender.id) {
                 deliveriesModel.emitEvent("new-message-sent", {
-                    message,
+                    payload: message,
                     userId: user.id
                 });
             }

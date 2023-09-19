@@ -1,5 +1,6 @@
 const {DataTypes} = require("sequelize");
-const {calculateSolde} = require("../utils/helpers")
+const {calculateSolde} = require("../utils/helpers");
+const {Op, col, fn, literal, where} = require("sequelize");
 
 function defineTransaction (connection) {
     const schema = {
@@ -27,13 +28,13 @@ function defineTransaction (connection) {
         }
     };
     const transaction = connection.define("transaction", schema );
-    transaction.getAllByType= async function ({limit, offset, driverId, type}) {
+    transaction.getAllByType= async function ({limit, offset, id, type}) {
         const result = await transaction.findAndCountAll({
             limit,
             offset,
             order: [["createdAt", "DESC"]],
             where: {
-                driverId: driverId,
+                driverId: id,
                 type: type
             },
         });
@@ -51,6 +52,34 @@ function defineTransaction (connection) {
                 point
             });
         });
+        return result;
+    };
+    transaction.getDriverBalance = async function balanceCalculator(id) {
+        let query;
+        let result;
+        query = {
+            attributes: [
+                "type",
+                [fn("SUM", col("point")), "totalPoint"],
+                [fn("SUM", literal("`point` * `unitPrice`" )), "totalAmount"],
+                [fn("SUM", col("bonus")), "totalBonus"],
+            ],
+            group: ["type"]
+        }
+        if (id !== null && typeof id !== "undefined") {
+            query.where = {driverId: id};
+        }
+        result = await transaction.findAll(query);
+        result = result.reduce(function (acc, entry) {
+            let factor;
+            const {type, totalPoint, totalAmount, totalBonus} = entry.dataValues;
+            factor = (type === "recharge" ? 1 : -1);
+            acc.bonus += factor * totalBonus;
+            acc.point += factor * totalPoint;
+            acc.solde += factor * totalAmount;
+            return acc;
+        }, { bonus: 0, point: 0, solde: 0});
+        result.hasCredit = result.bonus >= 1 || result.point >= 1;
         return result;
     };
     return transaction;

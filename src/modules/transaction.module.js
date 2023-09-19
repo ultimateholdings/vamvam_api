@@ -1,21 +1,16 @@
 const { Transaction, Payment, Bundle, Delivery, User } = require("../models");
 const {
   errors,
-  responseMessage,
   staticPaymentProps,
   getPaymentConfig
 } = require("../utils/config");
 const {
-  propertiesPicker,
   sendResponse,
   getPaymentService,
   paymentManager,
   calculateSolde,
 } = require("../utils/helpers");
 
-function canSubtract(pointSum, bonusSum) {
-  return pointSum + bonusSum !== 0;
-}
 function getTransactionModule({
   modelTrans,
   modelPay,
@@ -31,10 +26,8 @@ function getTransactionModule({
   const userModel = modelUser || User;
   const paymentHandler =
     paymentHan || paymentManager(getPaymentService(paymentModel, bundleModel));
-  const genericProps = ["point", "bonus", "driverId"];
 
-  deliveriesModel.addEventListener("can-delivery", subscriberDeliverers);
-  deliveriesModel.addEventListener("point-withdrawal", withdrawal);
+  deliveriesModel.addEventListener("point-withdrawal-requested", withdrawal);
 
   async function canAccess(req, res, next) {
     let payment;
@@ -55,7 +48,8 @@ function getTransactionModule({
         },
       });
       deliveriesModel.emitEvent("failure-payment", {
-        driverId: payment.driverId,
+        payload:{},
+        userId: payment.driverId,
       });
     }
   }
@@ -93,42 +87,40 @@ function getTransactionModule({
       country: staticPaymentProps.country,
       tx_ref: staticPaymentProps.tx_ref,
     };
-    const { init, code, message } = await paymentHandler.initTransaction(
+    const {init, code, message} = await paymentHandler.initTransaction(
       payload,
       driverId,
       packId
     );
     if (init === true) {
       res.status(200).send({});
-      deliveriesModel.emitEvent("payment-initiated", {
-        driverId: driverId,
-      });
     } else {
-      res.status(code).send({ message });
+      res.status(code).send({message});
     }
   }
 
   async function finalizePayment(req, res) {
-    const { id } = req.body.data;
+    const {id} = req.body.data;
     try {
-      const { verifiedTrans, data } = await paymentHandler.verifyTransaction(
+      const {verifiedTrans, data} = await paymentHandler.verifyTransaction(
         id
       );
       if (verifiedTrans) {
         const {bonus, point, unitPrice} = await transactionModel.create(data);
         res.status(200).json({});
         deliveriesModel.emitEvent("successful-payment", {
-          data: {
+          payload: {
             point,
             bonus: calculateSolde(bonus, unitPrice),
-            solde: calculateSolde(point, unitPrice),
-            driverId: data.driverId,
-          }
+            amount: calculateSolde(point, unitPrice),
+          },
+          userId: data.driverId
         });
       } else {
         res.status(401).end();
         deliveriesModel.emitEvent("failure-payment", {
-          driverId: driverId,
+          payload: {},
+          userId: driverId,
         });
       }
     } catch (error) {
@@ -136,111 +128,83 @@ function getTransactionModule({
     }
   }
 
-  async function balanceInfos(driverId) {
-    let rechargeSum;
-    let retraitSum;
-    let bonusAdded;
-    let bonusWithdraw;
-    rechargeSum = await transactionModel.sum("point", {
-      where: {
-        driverId: driverId,
-        type: "recharge",
-      },
-    });
-    retraitSum = await transactionModel.sum("point", {
-      where: {
-        driverId: driverId,
-        type: "withdrawal",
-      },
-    });
-    bonusAdded = await transactionModel.sum("bonus", {
-      where: {
-        driverId: driverId,
-        type: "recharge",
-      },
-    });
-    bonusWithdraw = await transactionModel.sum("bonus", {
-      where: {
-        driverId: driverId,
-        type: "withdrawal",
-      },
-    });
-    const pointSum = rechargeSum - retraitSum;
-    const bonusSum = bonusAdded - bonusWithdraw;
-    const solde = calculateSolde(pointSum);
-    const subtract = canSubtract(pointSum, bonusSum);
-    return {
-      point: pointSum,
-      bonus: bonusSum,
-      solde: solde,
-      subtract: subtract,
-    };
-  }
-
-  async function withdrawal(req, res) {
-    const { data } = req.body;
-    let createdProps;
-    const pickedProperties = propertiesPicker(data);
-    createdProps = pickedProperties(genericProps);
-    if (createdProps !== undefined) {
-      const { subtract } = await balanceInfos(createdProps.driverId);
-      if (subtract) {
-        const { bonus, point, unitPrice } = await transactionModel.create({
-          bonus: createdProps.bonus,
-          point: createdProps.point,
+  async function withdrawal(data) {
+    let {bonus, driverId, point} = data;
+    try {
+      await transactionModel.create({
+          bonus,
+          driverId,
+          point,
           type: staticPaymentProps.debit_type,
-          unitPrice: staticPaymentProps.debit_amount,
-          driverId: createdProps.driverId,
-        });
-        res.status(200).json({});
-        deliveriesModel.emitEvent("point-withdrawal", {
-          data: {
-            solde: calculateSolde(point, unitPrice),
-            bonus,
-            driverId: createdProps.driverId,
-            point,
-          },
-        });
-      } else {
-        return sendResponse(res, errors.emptyWallet);
-      }
-    } else {
-      return sendResponse(res, errors.invalidValues);
+          unitPrice: staticPaymentProps.debit_amount
+      });
+      deliveriesModel.emitEvent("point-withdrawal-fulfill", {
+        payload: {
+          amount: point * staticPaymentProps.debit_amount,
+          bonus,
+          point
+        },
+        userId: driverId
+      });
+    } catch (error) {
+      return sendResponse(res, errors.withdrawingExeption)
     }
   }
 
-  async function subscriberDeliverers(data) {
-    const users = await Promise.all(
-      data.map(async (id) => {
-        const { subtract } = await balanceInfos(id);
-        if (subtract) {
-          return id;
-        }
-      })
-    );
-    return users.filter((id) => id !== undefined);
+  async function incentiveBonus(req, res){
+    const {bonus, driverId, type} = req.body;
+    try {
+      await transactionModel.create({
+        bonus,
+        driverId,
+        point: staticPaymentProps.recharge_point,
+        type: type,
+        unitPrice: staticPaymentProps.debit_amount
+    });
+    res.status(200).json({});
+    if( type === "recharge"){
+      deliveriesModel.emitEvent("incentive-bonus", {
+        payload: {
+          amount: bonus * staticPaymentProps.debit_amount,
+          bonus
+        },
+        userId: driverId
+      });
+    } else {
+      deliveriesModel.emitEvent("bonus-withdrawal", {
+        payload: {
+          amount: bonus * staticPaymentProps.debit_amount,
+          bonus
+        },
+        userId: driverId
+      });
+    }
+    } catch (error) {
+      return sendResponse(res, errors.internalError);
+    }
   }
 
   async function transactionHistory(req, res) {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 8;
     const offset = (page - 1) * limit;
-    const { id: driverId } = req.user.token;
-    const { type } = req.body;
-    let { rows } = await transactionModel.getAllByType({
+    const {id} = req.user.token;
+    const {type} = req.body;
+    let {rows} = await transactionModel.getAllByType({
       limit,
       offset,
-      driverId,
+      id,
       type,
     });
     res.status(200).json(rows);
   }
 
   async function wallet(req, res) {
+    let data;
     const { id } = req.user.token;
-    let data = await balanceInfos(id);
+    data = await transactionModel.getDriverBalance(id);
     res.status(200).json({
-      wallet: data,
+      wallet: data
     });
   }
 
@@ -269,25 +233,13 @@ function getTransactionModule({
     }
   }
 
-  async function rechargeInfos(req, res) {
+  async function creditSumInfos(req, res) {
     try {
-      let rechargeSum;
-      let bonusSum;
-      rechargeSum = await transactionModel.sum("point", {
-        where: {
-          type: "recharge",
-        },
-      });
-      bonusSum = await transactionModel.sum("bonus", {
-        where: {
-          type: "recharge",
-        },
-      });
-      const solde = calculateSolde(rechargeSum);
+      const {point, bonus, solde} = await transactionModel.getDriverBalance();
       res.status(200).json({
-        point: rechargeSum,
-        bonus: bonusSum,
-        solde: solde,
+        bonus,
+        point,
+        solde
       });
     } catch (error) {
       sendResponse(res, errors.internalError);
@@ -301,7 +253,8 @@ function getTransactionModule({
     finalizePayment,
     wallet,
     rechargeHistory,
-    rechargeInfos,
+    creditSumInfos,
+    incentiveBonus
   });
 }
 module.exports = getTransactionModule;
