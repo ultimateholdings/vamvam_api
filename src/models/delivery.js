@@ -97,16 +97,24 @@ function defineDeliveryModel(connection) {
         }
         recipientInfos.name = (
             result.recipientInfos?.main?.firstName
-            ?? result.recipientInfos?.main?.name
+            ?? result.recipientInfos?.name
             ?? ""
         );
-        recipientInfos.phone = result.recipientInfos?.main?.phone ?? "";
+        recipientInfos.phone = (
+            result.recipientInfos?.main?.phone
+            ?? result.recipientInfos.phone
+            ?? ""
+        );
         if (Array.isArray(result.recipientInfos.others)) {
             result.recipientInfos.others.forEach(function (data) {
                 if (typeof data.phone === "string") {
                     recipientInfos.otherPhones.push(data.phone);
                 }
             });
+        } else {
+            recipientInfos.otherPhones.push(
+                ...result.recipientInfos.otherPhones
+            );
         }
         result.recipientInfos = recipientInfos;
         return propertiesPicker(result)(allowedProps);

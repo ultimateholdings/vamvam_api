@@ -1,6 +1,6 @@
 const {DataTypes} = require("sequelize");
 const {calculateSolde} = require("../utils/helpers");
-const {Op, col, fn, literal, where} = require("sequelize");
+const {col, fn, literal} = require("sequelize");
 
 function defineTransaction (connection) {
     const schema = {

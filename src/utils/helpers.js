@@ -204,6 +204,7 @@ function errorHandler(func) {
         return sendResponse(res, err, content);
       } else {
         err = errors.internalError;
+        debugger;
         return sendResponse(res, err);
       }
     }

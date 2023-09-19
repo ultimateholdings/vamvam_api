@@ -322,6 +322,20 @@ function deliveryMessageHandler(emitter) {
                 eventName: "itinerary-update-failed"
             })
         );
+        emitter.addEventListener(
+            "user-joined-room",
+            (data) => handleNotification({
+                data,
+                eventName: "user-joined-room",
+                fallbackMessage: eventMessages.withTransfomedBody(
+                    eventMessages.userJoined,
+                    (body) => body.replace(
+                        "{userName}",
+                        data.payload.user.firstName
+                    ).replace("{roomName}", data.payload.room.name)
+                )
+            })
+        );
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

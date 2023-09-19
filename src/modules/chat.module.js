@@ -12,6 +12,7 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
     const messagePagination = ressourcePaginator(messagesModel.getAllByRoom);
     
     deliveriesModel.addEventListener("room-creation-requested", createRoom);
+    deliveriesModel.addEventListener("room-join-requested", joinRoom);
 
     deliveriesModel.addEventListener(
         "missed-messages-requested",
@@ -104,6 +105,41 @@ function getChatModule({deliveryModel, messageModel, roomModel}) {
             return sendResponse(res, errors.forbiddenAccess);
         }
         next();
+    }
+    async function joinRoom(data) {
+        const {delivery, user} = data;
+        let members;
+        let room = await roomsModel.findOne({deliveryId: delivery.id});
+        if (room === null) {
+            return;
+        }
+        members = await room.getUsers();
+        await room.addUser(user);
+        members.forEach(function (member) {
+            deliveriesModel.emitEvent("user-joined-room", {
+                payload: {
+                    room: {id: room.id, name: room.name},
+                    user: user.toShortResponse()
+                },
+                userId: member.id
+            });
+        });
+        members.push(user);
+        members = members.map((user) => user.toShortResponse());
+        deliveriesModel.emitEvent("room-created", {
+            payload: {
+                delivery: {
+                    departure: delivery.deliveryMeta.departureAddress,
+                    destination: delivery.deliveryMeta.destinationAddress,
+                    id: delivery.id
+                },
+                id: room.id,
+                members,
+                name: room.name
+            },
+            userId: user.id
+        });
+        await room.addUser(user);
     }
     async function sendMessage(req, res) {
         const {id} = req.user.token;

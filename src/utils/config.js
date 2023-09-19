@@ -77,6 +77,7 @@ const conflictStatuses = Object.freeze({
     opened: "open"
 });
 const deliveryStatuses = Object.freeze({
+    archived: "archived",
     cancelled: "cancelled",
     inConflict: "conflicting",
     initial: "pending-driver-approval",

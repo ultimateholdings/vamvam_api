@@ -353,6 +353,16 @@ const eventMessages = {
         en: "Successful payment!",
         fr: "Paiement effectuer avec succès!"
     },
+    userJoined: {
+        en: {
+            body: "{userName} joined the {roomName} discussion",
+            title: "New user joined a discussion"
+        },
+        en: {
+            body: "{userName} a rejoint la discussion {roomName}",
+            title: "Un nouvel utilisateur a rejoint une discussion"
+        }
+    },
     withSameContent(title, body) {
         return {
             en: {body, title},
@@ -364,6 +374,15 @@ const eventMessages = {
             en: {body: body?.en, title},
             fr: {body: body?.fr, title}
         };
+    },
+    withTransfomedBody(message, func) {
+        const result = {
+            en: {title: message?.en?.title},
+            fr: {title: message?.fr?.title}
+        };
+        result.en.body = func(message?.en?.body ?? "");
+        result.fr.body = func(message?.fr?.body ?? "");
+        return result;
     }
 };
 
