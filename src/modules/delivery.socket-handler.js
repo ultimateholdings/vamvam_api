@@ -1,7 +1,7 @@
 /*jslint
 node
 */
-const {errors, eventMessages} = require("../utils/config");
+const {errors, eventMessages} = require("../utils/system-messages");
 const {socketAuthenticator} = require("../utils/middlewares");
 
 function deliveryMessageHandler(emitter) {
@@ -334,6 +334,20 @@ function deliveryMessageHandler(emitter) {
             (data) => handleNotification({
                 data,
                 eventName: "itinerary-update-failed"
+            })
+        );
+        emitter.addEventListener(
+            "user-joined-room",
+            (data) => handleNotification({
+                data,
+                eventName: "user-joined-room",
+                fallbackMessage: eventMessages.withTransfomedBody(
+                    eventMessages.userJoined,
+                    (body) => body.replace(
+                        "{userName}",
+                        data.payload.user.firstName
+                    ).replace("{roomName}", data.payload.room.name)
+                )
             })
         );
         nameSpace.use(socketAuthenticator());

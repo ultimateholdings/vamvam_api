@@ -3,10 +3,10 @@ node
 */
 "use strict";
 const {Blacklist, Settings, User} = require("../models");
+const {errors} = require("../utils/system-messages");
 const {
     apiSettings,
     availableRoles,
-    errors,
     userStatuses
 } = require("../utils/config");
 const {

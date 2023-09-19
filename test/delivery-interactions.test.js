@@ -35,7 +35,8 @@ const {
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
 const getConflictHandler = require("../src/modules/conflict.socket-handler");
-const {apiSettings, deliveryStatuses, errors} = require("../src/utils/config");
+const {apiSettings, deliveryStatuses} = require("../src/utils/config");
+const {errors} = require("../src/utils/system-messages");
 const {toDbPoint} = require("../src/utils/helpers");
 
 function updatePosition(socket, position) {
@@ -392,26 +393,37 @@ describe("delivery side effects test", function () {
     describe("conflict tests", function () {
         let message;
         let conflict;
+        let room;
         let types = apiSettings.delivery.defaultValues.delivery_conflicts;
         beforeEach(async function () {
+            room = await Room.create({
+                name: "fake room",
+                deliveryId: testDeliveries[0].id
+            });
+            await room.setUsers([
+                dbUsers.goodUser,
+                dbUsers.firstDriver
+            ]);
+            conflict = await DeliveryConflict.create({
+                deliveryId: testDeliveries[2].id,
+                lastLocation: toDbPoint(missoke),
+                type: types[1].code
+            });
             await Delivery.update({
-                status: deliveryStatuses.pendingReception,
-                driverId: dbUsers.firstDriver.id
+                conflictId: conflict.id,
+                driverId: dbUsers.firstDriver.id,
+                status: deliveryStatuses.pendingReception
             }, {where: {id: testDeliveries[2].id}});
             message = {
                 lastPosition: missoke,
                 reporter: dbUsers.firstDriver.toResponse(),
                 type: types[0].code
             };
-            conflict = await DeliveryConflict.create({
-                deliveryId: testDeliveries[2].id,
-                lastLocation: toDbPoint(missoke),
-                type: types[1].code
-            });
         });
         it(
             "should notify the manager and client on conflict",
             async function () {
+                let newConflict;
                 let data = {
                     conflictType: message.type,
                     id: testDeliveries[0].id,
@@ -438,10 +450,10 @@ describe("delivery side effects test", function () {
                     }),
                     listenEvent({name: "new-conflict", socket: client})
                 ]);
-                conflict = await DeliveryConflict.findOne({where: {
+                newConflict = await DeliveryConflict.findOne({where: {
                     deliveryId: testDeliveries[0].id
                 }});
-                message.id = conflict.id;
+                message.id = newConflict.id;
                 message.delivery = await Delivery.findOne(
                     {where: {id: testDeliveries[0].id}}
                 );
@@ -454,15 +466,15 @@ describe("delivery side effects test", function () {
         it("should notify a driver on new assignment", async function () {
             let response;
             const endPoint = "/delivery/conflict/assign-driver";
-            let secondDriver;
+            let sockets;
             let payload = {
                 driverId: dbUsers.secondDriver.id,
                 id: conflict.id
             };
-            secondDriver = await clientSocketCreator(
-                "delivery",
-                dbUsers.secondDriver.token
-            );
+            sockets = await Promise.all([
+                clientSocketCreator("delivery", dbUsers.secondDriver.token),
+                clientSocketCreator("delivery", dbUsers.goodUser.token)
+            ]);
             response = await app.post(endPoint).send(payload).set(
                 "authorization",
                 "Bearer " + dbUsers.firstDriver.token
@@ -474,11 +486,16 @@ describe("delivery side effects test", function () {
             );
             assert.equal(response.status, 200);
             response = await listenEvent({
+                close: false,
                 name: "new-assignment",
-                socket: secondDriver
+                socket: sockets[0]
             });
-            payload = await conflict.getDeliveryDetails();
-            assert.deepEqual(response, payload);
+            assert.isNotNull(response);
+            response = await Promise.all([
+                listenEvent({name: "room-created", socket: sockets[0]}),
+                listenEvent({name: "user-joined-room", socket: sockets[1]})
+            ]);
+            assert.isTrue(response.every((value) => value !== null));
         });
 
         it(

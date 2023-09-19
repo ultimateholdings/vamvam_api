@@ -37,7 +37,7 @@ function buildServer(router) {
     app.use(express.static("public", staticUploadOptions));
     app.use(router);
     return app.listen(getPortHandlingPassenger(port), function () {
-        console.log("server listening to port %s", port);
+        console.debug("server listening to port %s", port);
     });
 }
 module.exports = Object.freeze({

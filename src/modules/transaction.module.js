@@ -1,6 +1,6 @@
 const { Transaction, Payment, Bundle, Delivery, User } = require("../models");
+const {errors} = require("../utils/system-messages");
 const {
-  errors,
   staticPaymentProps,
   getPaymentConfig
 } = require("../utils/config");

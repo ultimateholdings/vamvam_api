@@ -37,6 +37,7 @@ deliveryData:
   note: double
   packageType: string
   recipientInfos: JSON
+  status: string
 roomData:
   id: string
   delivery:
@@ -45,6 +46,10 @@ roomData:
   lastMessage: messageData
   members: shortUserData[]
   name: string
+conflictTypeData:
+  code: string
+  en: string
+  fr: string
 OTPSettingsData:
   type: "otp"
   value:
@@ -54,6 +59,9 @@ DeliverySettingsData:
   value:
     search_radius: number representing the radius to search a driver in second
     ttl: number representing the delay within which a driver can accept a delivery
+    conflict_types: conflictTypeData[]
+    package_types: conflictTypeData[]
+
 
 non-auth-endpoints:
   /auth/login : 

@@ -33,20 +33,13 @@ const {
 const {
     badDelevery,
     deliveries,
-    deliveryResquestor,
     generateDBDeliveries,
     missoke,
 } = require("./fixtures/deliveries.data");
-const {
-    deliveryStatuses,
-    errors
-} = require("../src/utils/config");
+const {deliveryStatuses} = require("../src/utils/config");
+const {errors} = require("../src/utils/system-messages");
 const {toDbPoint} = require("../src/utils/helpers");
 
-const {
-    requestDelivery,
-    setupDelivery
-} = deliveryResquestor(getToken, Delivery);
 describe("delivery CRUD test", function () {
     let server;
     let app;
@@ -60,6 +53,7 @@ describe("delivery CRUD test", function () {
     });
 
     beforeEach(async function () {
+        let conflicts;
         await connection.sync({force: true});
         dbUsers = await syncUsers(users, User);
         dbUsers = Object.entries(dbUsers).reduce(function (acc, [key, user]) {
@@ -67,16 +61,45 @@ describe("delivery CRUD test", function () {
             acc[key] = user;
             return acc;
         }, Object.create(null));
-        testDeliveries = await Delivery.bulkCreate(generateDBDeliveries({
+        conflicts = generateDBDeliveries({
             clientId: dbUsers.goodUser.id,
             dbPointFormatter: toDbPoint,
             driverId: dbUsers.firstDriver.id,
-            initialState:  (index) => (
-                index === 0
-                ? deliveryStatuses.started
-                : deliveryStatuses.initial
-            )
-        }));
+            initialState: deliveryStatuses.inConflict
+        })
+        testDeliveries = await Delivery.bulkCreate([
+            ...generateDBDeliveries({
+                clientId: dbUsers.goodUser.id,
+                dbPointFormatter: toDbPoint,
+                driverId: dbUsers.firstDriver.id,
+                initialState:  (index) => (
+                    index === 0
+                    ? deliveryStatuses.started
+                    : deliveryStatuses.initial
+                )
+            }),
+            ...conflicts
+        ]);
+
+        conflicts = testDeliveries.filter(
+            (delivery) => delivery.status === deliveryStatuses.inConflict
+        ).map(
+            (delivery) => Object.freeze({
+                assigneeId: dbUsers.secondDriver.id,
+                deliveryId: delivery.id,
+                lastLocation: toDbPoint(missoke),
+                type: "fake type"
+            })
+        )
+        conflicts = await DeliveryConflict.bulkCreate(conflicts);
+        testDeliveries[3].conflictId = conflicts[0].id;
+        testDeliveries[4].conflictId = conflicts[1].id;
+        testDeliveries[5].conflictId = conflicts[2].id;
+        await Promise.all([
+            testDeliveries[3].save(),
+            testDeliveries[4].save(),
+            testDeliveries[5].save()
+        ]);
     });
 
     afterEach(async function () {
@@ -356,10 +379,10 @@ describe("delivery CRUD test", function () {
     it("should provide all ongoing deliveries", async function () {
         let response = await getDatas({
             app,
-            token: dbUsers.goodUser.token,
+            token: dbUsers.secondDriver.token,
             url: "/delivery/started"
         });
-        assert.equal(response.body.deliveries.length, 1);
+        assert.equal(response.body.deliveries.length, 3);
     });
     it("should provide all terminated deliveries", async function () {
         let response;

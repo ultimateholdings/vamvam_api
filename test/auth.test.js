@@ -12,7 +12,8 @@ const {
 } = require("mocha");
 const {assert} = require("chai");
 const {User, connection, otpRequest} = require("../src/models");
-const {availableRoles, errors} = require("../src/utils/config");
+const {availableRoles} = require("../src/utils/config");
+const {errors} = require("../src/utils/system-messages");
 const {
     pinIds,
     setupServer,

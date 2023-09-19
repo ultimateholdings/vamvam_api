@@ -17,7 +17,7 @@ const defineSettingsModel = require("./settings.js");
 const defineBlackListModel = require("./blacklist.js");
 const {sequelizeConnection} = require("../utils/db-connector.js");
 const {deliveryStatuses} = require("../utils/config.js");
-const {calculateSolde} = require("../utils/helpers.js");
+const {calculateSolde, formatDbPoint} = require("../utils/helpers.js");
 
 const order = [["createdAt", "DESC"]];
 const connection = sequelizeConnection();
@@ -37,72 +37,57 @@ const Settings = defineSettingsModel(connection);
 Delivery.belongsTo(User, {
     as: "Driver",
     constraints: false,
-    foreignKey: {
-        name: "driverId"
-    }
+    foreignKey: "driverId"
 });
 Delivery.belongsTo(User, {
     as: "Client",
     constraints: false,
-    foreignKey: {
-        name: "clientId"
-    }
+    foreignKey: "clientId"
 });
 Bundle.hasOne(Payment, {
     as: "Pack",
     constraints: false,
-    foreignKey:{
-        name: 'packId'
-    } 
+    foreignKey: "packId"
 })
 User.hasOne(Payment, {
     as: "Driver",
     constraints: false,
-    foreignKey:{
-        name: 'driverId'
-    } 
+    foreignKey: "driverId"
 })
 Trans.belongsTo(User, {
     as: "Driver",
     constraints: false,
-    foreignKey: {
-        name: "driverId"
-    }
+    foreignKey: "driverId"
 });
 DeliveryConflict.belongsTo(User, {
     as: "Assigner",
     constraints: false,
-    foreignKey: {
-        name: "assignerId"
-    }
+    foreignKey: "assignerId"
 });
 DeliveryConflict.belongsTo(User, {
     as: "Reporter",
     constraints: false,
-    foreignKey: {
-        name: "reporterId"
-    }
+    foreignKey: "reporterId"
 });
 DeliveryConflict.belongsTo(Delivery, {
     as: "Delivery",
     constraints: false,
-    foreignKey: {
-        name: "deliveryId"
-    }
+    foreignKey: "deliveryId"
 });
 DeliveryConflict.belongsTo(User, {
     as: "backupDriver",
     constraints: false,
-    foreignKey: {
-        name: "assigneeId"
-    }
+    foreignKey: "assigneeId"
+});
+Delivery.belongsTo(DeliveryConflict, {
+    as: "Conflict",
+    constraints: false,
+    foreignKey: "conflictId"
 });
 Registration.belongsTo(User, {
     as: "contributor",
     constraints: false,
-    foreignKey: {
-        name: "contributorId"
-    }
+    foreignKey: "contributorId"
 });
 Message.belongsTo(User, {
     as: "sender",
@@ -146,10 +131,7 @@ Message.getAllByRoom = async function ({
                 attributes: ["id", "firstName", "lastName", "avatar"],
                 model: User
             },
-            {
-                model: Room,
-                required: true
-            }
+            {model: Room, required: true}
         ],
         limit: (offset > 0 ? maxSize + 1: maxSize),
         offset: (offset > 0 ? offset - 1: offset),
@@ -209,7 +191,7 @@ Message.getMissedMessages = async function (userId) {
                 count: 0,
                 messages: [],
                 roomName: room.name
-            }
+            };
         }
         acc[room.id].count += 1;
         acc[room.id].messages.push({
@@ -243,14 +225,8 @@ Room.getUserRooms = async function (userId) {
                       },
                     ],
                 },
-                {
-                    model: User,
-                    required: true
-                },
-                {
-                    model: Delivery,
-                    required: true
-                }
+                {model: User, required: true},
+                {model: Delivery, required: true}
             ]
         },
         where: {id: userId}
@@ -285,11 +261,13 @@ Room.getUserRooms = async function (userId) {
 }
 
 function getDeliveries({clause, limit, offset, order}) {
+    const include = [
+        {as: "Client", model: User, required: true},
+        {as: "Driver", model: User, required: true},
+        {as: "Conflict", model: DeliveryConflict, required: false}
+    ];
     return Delivery.findAll({
-        include: [
-            {as: "Client", model: User, required: true},
-            {as: "Driver", model: User, required: true}
-        ],
+        include,
         limit,
         offset,
         order,
@@ -308,6 +286,7 @@ Delivery.withStatuses = function (userId, statuses) {
             {
                 [Op.or]: [
                     {driverId: {[Op.eq]: userId}},
+                    {"$Conflict.assigneeId$": {[Op.eq]: userId}},
                     {
                         [Op.or]: [
                             {clientId: {[Op.eq]: userId}},
@@ -318,7 +297,7 @@ Delivery.withStatuses = function (userId, statuses) {
             }
         ]
     };
-    return getDeliveries({order, clause})
+    return getDeliveries({clause, order})
 };
 
 Delivery.getTerminated = async function ({
@@ -345,6 +324,7 @@ Delivery.getTerminated = async function ({
             {
                 [Op.or]: [
                     {clientId: {[Op.eq]: userId}},
+                    {"$Conflict.assigneeId$": {[Op.eq]: userId}},
                     {driverId: {[Op.eq]: userId}}
                 ]
             }
@@ -462,6 +442,11 @@ Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
     });
     return result;
 };
+Delivery.getDeliveryDetails = async function (id) {
+    const deliveries = await getDeliveries({clause: {id}});
+    return deliveries[0];
+}
+
 Delivery.getDriverBalance = Trans.getDriverBalance;
 
 module.exports = Object.freeze({

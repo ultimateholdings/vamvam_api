@@ -3,11 +3,11 @@ node
 */
 const crypto = require("crypto");
 const {Delivery, DeliveryConflict, User} = require("../models");
+const {errors} = require("../utils/system-messages");
 const {
     apiDeliveryStatus,
     conflictStatuses,
     deliveryStatuses,
-    errors,
     availableRoles: roles
 } = require("../utils/config");
 const {
@@ -81,7 +81,8 @@ function getDeliveryModule({associatedModels, model}) {
     const ongoingState = [
         deliveryStatuses.pendingReception,
         deliveryStatuses.toBeConfirmed,
-        deliveryStatuses.started
+        deliveryStatuses.started,
+        deliveryStatuses.inConflict
     ];
 
     async function notifyNearbyDrivers({
@@ -122,6 +123,68 @@ function getDeliveryModule({associatedModels, model}) {
         }
         data.driverId = driverId;
         deliveryModel.emitEvent("point-withdrawal-requested", data);
+    }
+    
+    function formatClientResponse({delivery, id}) {
+        let result = delivery.toResponse();
+        result.driver = delivery.Driver.toShortResponse();
+        if (delivery.Driver.position !== null) {
+            result.driver.position = formatDbPoint(delivery.Driver.position);
+        }
+        result.invited = true;
+        if (delivery.clientId === id) {
+            result.invited = false;
+            result.code = delivery.code;
+        } else {
+            result.client = delivery.Client.toShortResponse();
+        }
+        return result;
+    }
+    
+    function formatDriverResponse({delivery, id}) {
+        const result = delivery.toResponse();
+        result.client = delivery.Client.toShortResponse();
+        if (delivery.driverId === id && delivery.conflictId !== null) {
+            return null;
+        }
+        if (delivery.status === deliveryStatuses.terminated) {
+            result.code = delivery.code;
+        }
+        if (delivery.driverId !== id) {
+            result.conflictId = delivery.conflictId ?? undefined;
+            delivery.driver = delivery.Driver.toShortResponse();
+        }
+        if (delivery.Conflict !== null && delivery.Conflict !== undefined) {
+            result.departure = formatDbPoint(delivery.Conflict.lastLocation);
+        }
+        return result;
+    }
+
+    function formatResponse({delivery, id, role}) {
+        let result = null;
+        if (role === roles.clientRole) {
+            result = formatClientResponse({delivery, id});
+        }
+        if (role === roles.driverRole) {
+            result = formatDriverResponse({delivery, id});
+        }
+        return result;
+    }
+
+    function closeDelivery(delivery) {
+        const members = delivery.getRecipientsId();
+        members.push(delivery.clientId);
+        members.forEach(function (userId) {
+            deliveryModel.emitEvent(
+                "delivery-end",
+                {userId, payload: delivery.id}
+            );
+        });
+        members.push(delivery.driverId);
+        deliveryModel.emitEvent(
+            "room-deletion-requested",
+            {deliveryId: delivery.id, members}
+        );
     }
 
     async function updateDriverPosition(driverMessage) {
@@ -543,24 +606,39 @@ function getDeliveryModule({associatedModels, model}) {
     async function archiveConflict(req, res) {
         const {conflict} = req;
         const {id} = req.user.token;
+        const delivery = await conflict.getDelivery();
+        const members = delivery.getRecipientsId();
+        members.push(delivery.clientId);
         conflict.status = conflictStatuses.cancelled;
         conflict.assignerId = id;
+        delivery.status = deliveryStatuses.archived;
         await conflict.save();
+        await delivery.save();
         res.status(200).send({archived: true});
     }
 
     async function assignDriver(req, res) {
+        let payload;
         const {conflict, driver} = req;
         const {id} = req.user.token;
-        let assignment = await conflict.getDeliveryDetails();
+        const delivery = await deliveryModel.getDeliveryDetails(
+            conflict.deliveryId
+        );
         conflict.assignerId = id;
-        conflict.backupId = driver.id;
+        conflict.assigneeId = driver.id;
         await conflict.save();
         res.status(200).send({assigned: true});
+        payload = formatDriverResponse({delivery, id: driver.id});
         deliveryModel.emitEvent("new-assignment", {
             userId: driver.id,
-            payload: assignment
+            payload
         });
+        delivery.departure = conflict.lastLocation;
+        delivery.deliveryMeta.departureAddress = conflict.lastLocationAdress;
+        deliveryModel.emitEvent(
+            "room-join-requested",
+            {delivery, user: driver}
+        );
         await driver.setAvailability(false);
     }
 
@@ -771,13 +849,15 @@ calculation of at delivery */
         conflict.reporter = await associations.User.findOne({where: {id}});
         conflict.reporter = conflict.reporter.toShortResponse();
         delivery.status = deliveryStatuses.inConflict;
-        await delivery.save();
         others = await associations.DeliveryConflict.create({
             deliveryId: delivery.id,
             lastLocation: toDbPoint(lastPosition),
+            lastLocationAdress: lastPosition.address,
             reporterId: id,
             type
         });
+        delivery.conflictId = others.id;
+        await delivery.save();
         conflict.id = others.id;
         conflict.delivery = delivery.toResponse();
         res.status(200).send({reported: true});
@@ -822,23 +902,14 @@ calculation of at delivery */
     async function terminateDelivery(req, res) {
         const {delivery} = req;
         const {id} = req.user.token;
-        const members = delivery.getRecipientsId();
         delivery.status = deliveryStatuses.terminated;
         delivery.end = new Date().toISOString();
         await delivery.save();
+        await associations.User.update({available: true}, {where: {id}});
         res.status(200).send({
             terminated: true
         });
-        members.push(delivery.clientId);
-        members.forEach(function (userId) {
-            deliveryModel.emitEvent("delivery-end", {userId, payload: delivery.id});
-        });
-        members.push(delivery.driverId);
-        deliveryModel.emitEvent(
-            "room-deletion-requested",
-            {deliveryId: delivery.id, members}
-        );
-        await associations.User.update({available: true}, {where: {id}});
+        closeDelivery(delivery);
     }
 
     async function verifyConflictingDelivery(req, res) {
@@ -854,13 +925,16 @@ calculation of at delivery */
             return sendResponse(res, errors.invalidCode);
         }
         conflict.status = conflictStatuses.closed;
+        delivery.status = deliveryStatuses.terminated;
+        await associations.User.update({available: true}, {where: {id}});
+        await delivery.save();
         await conflict.save();
         res.status(200).send({terminated: true});
         deliveryModel?.emitEvent("conflict-solved", {
             assignerId: conflict.assignerId,
             conflictId: conflict.id
         });
-        await associations.User.update({available: true}, {where: {id}});
+        closeDelivery(delivery);
     }
 
     async function getOngoingDeliveries(req, res) {
@@ -868,7 +942,7 @@ calculation of at delivery */
         let deliveries = await deliveryModel.withStatuses(id, ongoingState);
         deliveries = deliveries.map(
             (delivery) => formatResponse({delivery, id, role})
-        );
+        ).filter((delivery) => delivery !== null);
         res.status(200).json({deliveries});
     }
 
@@ -897,32 +971,10 @@ calculation of at delivery */
         });
         response.results = response.results.map(
             (delivery) => formatResponse({delivery, id, role})
-        );
+        ).filter((delivery) => delivery !== null);
         res.status(200).json(response);
     }
 
-    function formatResponse({delivery, id, role}) {
-        const result = delivery.toResponse();
-        let driverData;
-        if (role === roles.clientRole) {
-            driverData = delivery.Driver.toShortResponse();
-            if (delivery.Driver.position !== null) {
-                driverData.position = formatDbPoint(delivery.Driver.position);
-            }
-            result.invited = true;
-            if (delivery.clientId === id) {
-                result.invited = false;
-                result.code = delivery.code;
-            }
-            result.driver = driverData;
-        } else {
-            result.client = delivery.Client.toShortResponse();
-            if (delivery.status === deliveryStatuses.terminated) {
-                result.code = delivery.code;
-            }
-        }
-        return result;
-    }
 
     return Object.freeze({
         acceptDelivery,

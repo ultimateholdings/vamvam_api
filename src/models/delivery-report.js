@@ -21,6 +21,7 @@ function defineReportModel(connection) {
             allowNull: false,
             type: new DataTypes.GEOMETRY("POINT")
         },
+        lastLocationAddress: DataTypes.STRING,
         status: {
             allowNull: false,
             defaultValue: conflictStatuses.opened,
@@ -38,14 +39,6 @@ function defineReportModel(connection) {
         result.lastLocation = formatDbPoint(result.lastLocation);
         return result;
     };
-    deliveryReport.prototype.getDeliveryDetails = async function () {
-        const response = this?.toResponse() ?? {};
-        let delivery = await this?.getDelivery?.() ?? {};
-        delivery = delivery?.toResponse?.() ?? {};
-        delivery.departure = response.lastLocation;
-        delete delivery.code;
-        return delivery;
-    }
     return deliveryReport;
 }
 

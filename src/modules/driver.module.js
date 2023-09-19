@@ -1,17 +1,14 @@
 /*jslint
 node
 */
-const path = require("node:path");
 const {
     fileExists,
     pathToURL,
     propertiesPicker,
     sendResponse
 } = require("../utils/helpers");
-const {
-    errors,
-    userStatuses
-} = require("../utils/config");
+const {errors} = require("../utils/system-messages");
+const {userStatuses} = require("../utils/config");
 const {Registration, User} = require("../models");
 
 function getRegistrationModule({associatedModels, model}) {
