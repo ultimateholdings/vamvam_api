@@ -87,6 +87,7 @@ const deliveryStatuses = Object.freeze({
     toBeConfirmed: "pending-client-approval"
 });
 const apiDeliveryStatus = Object.freeze({
+    archived: deliveryStatuses.archived,
     cancelled: deliveryStatuses.cancelled,
     conflicting: deliveryStatuses.inConflict,
     ongoing: deliveryStatuses.started,

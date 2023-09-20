@@ -26,6 +26,13 @@ conflict-manager:
       driverId: string
     response:
       assigned: boolean
+  /delivery/conflict/archive:
+      action: archive a conflicting delivery
+      type: post
+      body:
+        id: string representing the conflict Id
+      response:
+        archived: boolean
   
 admin-manager:
   /admin/block-user:
@@ -85,6 +92,7 @@ admin-manager:
       to: string representing the date after which we want to query (YYYY-MM-DD)
     response:
       results:
+        archived: number
         cancelled: number
         conflicting: number
         ongoing: number
