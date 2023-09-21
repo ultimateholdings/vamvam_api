@@ -351,6 +351,21 @@ function deliveryMessageHandler(emitter) {
                 )
             })
         );
+        emitter.addEventListener(
+            "delivery-archived",
+            (data) => handleNotification({
+                data,
+                eventName: "delivery-archived",
+                fallbackMessage: eventMessages.withTransfomedBody(
+                    eventMessages.deliveryArchived,
+                    (body, lang) => body.replace("{cause}", (
+                        data.payload.cause !== undefined
+                        ? data.payload.cause[lang]
+                        : "N/A"
+                    ))
+                )
+            })
+        )
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };
