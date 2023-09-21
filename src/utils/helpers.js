@@ -436,7 +436,7 @@ function sendCloudMessage({ body, meta, title, to }) {
     url: config.url,
   });
 }
-function getPaymentService(paymentModel, bundleModel) {
+function getPaymentService(paymentModel) {
   async function initTrans(payload, driverId, packId) {
     let response;
     const config = getPaymentConfig()

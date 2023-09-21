@@ -25,7 +25,7 @@ function getTransactionModule({
   const deliveriesModel = deliveryModel || Delivery;
   const userModel = modelUser || User;
   const paymentHandler =
-    paymentHan || paymentManager(getPaymentService(paymentModel, bundleModel));
+    paymentHan || paymentManager(getPaymentService(paymentModel));
 
   deliveriesModel.addEventListener("point-withdrawal-requested", withdrawal);
 
