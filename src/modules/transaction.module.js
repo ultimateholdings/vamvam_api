@@ -25,7 +25,7 @@ function getTransactionModule({
   const deliveriesModel = deliveryModel || Delivery;
   const userModel = modelUser || User;
   const paymentHandler =
-    paymentHan || paymentManager(getPaymentService(paymentModel, bundleModel));
+    paymentHan || paymentManager(getPaymentService(paymentModel));
 
   deliveriesModel.addEventListener("point-withdrawal-requested", withdrawal);
 
@@ -35,8 +35,8 @@ function getTransactionModule({
     const config = getPaymentConfig();
     const secretHash = config.secret_hash;
     const signature = req.headers["verif-hash"];
-    const { status, id, amount } = req.body.data;
-    if (signature !== secretHash && status !== "successful") {
+    const { id, amount } = req.body.data;
+    if (signature !== secretHash) {
       deliveriesModel.emitEvent("failure-payment", {
         payload:{
           amount: amount
