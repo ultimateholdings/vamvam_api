@@ -294,7 +294,10 @@ function deliveryMessageHandler(emitter) {
             (data) => handleNotification({
                 data,
                 eventName: "failure-payment",
-                fallbackMessage: eventMessages.failurePayment
+                fallbackMessage: eventMessages.withTransfomedBody(
+                    eventMessages.failurePayment,
+                    (body) => body.replace("amount", data.payload.amount)
+                )
             })
         );
         emitter.addEventListener(
@@ -304,7 +307,7 @@ function deliveryMessageHandler(emitter) {
                 eventName: "successful-payment",
                 fallbackMessage: eventMessages.withTransfomedBody(
                     eventMessages.successPayment,
-                    (body) => body.replace("amount", data.payload.bonus)
+                    (body) => body.replace("amount", data.payload.amount)
                 )
             })
         );

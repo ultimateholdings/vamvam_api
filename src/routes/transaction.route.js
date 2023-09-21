@@ -18,7 +18,7 @@ function getTransactionRouter(module){
     );
     router.post(
         "/verify",
-        transactonModule.canAccess,
+        transactonModule.verifyPaymentData,
         transactonModule.finalizePayment
     );
     router.get(

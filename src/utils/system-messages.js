@@ -182,6 +182,13 @@ const errors = {
         },
         status: 401
     },
+    paymentAlreadyVerified: {
+        message: {
+            en: "This payment has already been verified!",
+            fr: "Ce paiement a déjà été vérifié !"
+        },
+        status: 401
+    },
     paymentSendingFail: {
         message: {
             en: "Could not initalize payment",
@@ -286,12 +293,15 @@ const eventMessages = {
         }
     },
     failurePayment: {
-        en: "Failed payment!",
-        fr: "Echec du paiement!"
-    },
-    initPayment: {
-        en: "Payment initiated!",
-        fr: "Paiement initialisé!"
+        en: {
+            body: "You have tried to make a payment of amount XAF without success",
+            title: "Failed payment!"
+        },
+        fr: {
+            body:
+            "Vous avez essayé d'effectuer un paiement de amount XAF sans succès",
+            title: "Echec du paiement!"
+        }
     },
     newAssignment: {
         en: {

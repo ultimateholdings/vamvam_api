@@ -14,6 +14,7 @@ const buildUserRoutes = require("../../src/routes/user.route");
 const buildRouter = require("../../src/routes");
 const { availableRoles, userStatuses } = require("../../src/utils/config");
 const { jwtWrapper } = require("../../src/utils/helpers");
+const { response } = require("express");
 const jwt = jwtWrapper();
 const users = {
   admin: {
@@ -185,16 +186,7 @@ function generateToken(user) {
 
 function setupInterceptor() {
   const otpBaseUrl = "https://api.ng.termii.com";
-  const payment_url = "https://api.flutterwave.com";
   const { badUser, firstDriver, goodUser } = users;
-  nock(payment_url)
-      .post("/transaction/init-transaction")
-      .reply(200)
-      .persist();
-  nock(payment_url)
-      .post("/transaction/verify")
-      .reply(200)
-      .persist();
   nock(otpBaseUrl)
     .post(/otp\/send/, (body) => body.to === badUser.phone)
     .replyWithError("the network provider is not supported");

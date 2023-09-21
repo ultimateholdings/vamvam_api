@@ -20,12 +20,12 @@ const {
   setupServer,
   syncUsers,
   users,
-  setupInterceptor,
   webhookData
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
 const { calculateSolde } = require("../src/utils/helpers");
+const { response } = require("express");
 describe("Transaction test", function () {
   let server;
   let app;
@@ -35,7 +35,6 @@ describe("Transaction test", function () {
     const tmp = setupServer(otpHandler);
     server = tmp.server;
     app = tmp.app;
-    setupInterceptor(),
     socketServer = getSocketManager({
       deliveryHandler: getDeliveryHandler(Delivery),
       httpServer: server
@@ -102,7 +101,7 @@ describe("Transaction test", function () {
       .set("authorization", "Bearer " + tokens[1])
       .set("verif-hash", "12345678918a2c836464vt-X");
     driver = await clientSocketCreator("delivery", tokens[0]);
-    // await listenEvent({ name: "successful-payment", socket: driver });
+    await listenEvent({ name: "successful-payment", socket: driver });
   });
   it("should return transaction history and wallet infos", async function () {
     let response;

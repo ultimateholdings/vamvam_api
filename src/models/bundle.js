@@ -3,6 +3,7 @@ node, nomen, this
 */
 const fs = require("fs");
 const {DataTypes} = require("sequelize");
+const {staticPaymentProps} = require("../utils/config");
 
 function defineBundleModel(connection) {
     const schema = {
@@ -24,7 +25,20 @@ function defineBundleModel(connection) {
             type: DataTypes.UUID
         }
     };
-    const bundle = connection.define("bundle", schema)
+    const bundle = connection.define("bundle", schema);
+    bundle.buildBundlePayload = async function({amount, phoneNumber, lastName, firstName, email}) {
+        let payload;
+        payload = {
+          phone_number: phoneNumber,
+          amount: amount,
+          email: email,
+          fullname: lastName + " " + firstName,
+          currency: staticPaymentProps.currency,
+          country: staticPaymentProps.country,
+          tx_ref: "transfer-" + Date.now()
+        };
+        return payload
+      } 
     return bundle;
 }
 
