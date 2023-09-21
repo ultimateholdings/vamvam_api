@@ -174,17 +174,20 @@ function getFileHash(path) {
 }
 
 async function fetchUrl({
-  body = {},
+  body,
   headers = { "content-type": "application/json" },
   method = "POST",
   url,
 }) {
   const { default: fetch } = await import("node-fetch");
-  return fetch(url, {
-    body: JSON.stringify(body),
+  const options = {
     headers,
     method,
-  });
+  };
+  if (body !== null) {
+    options.body = JSON.stringify(body);
+  }
+  return fetch(url, options);
 }
 
 function errorHandler(func) {
@@ -438,17 +441,14 @@ function getPaymentService(paymentModel, bundleModel) {
     let response;
     const config = getPaymentConfig()
     try {
-      response = await fetch(
-        config.url_charge,
-        {
-          method: "post",
-          body: JSON.stringify(payload),
-          headers: {
-            Authorization: `Bearer ${config.flw_key}`,
-            "Content-Type": "application/json",
-        }
-        }
-      );
+      response = await fetchUrl({
+        body: payload,
+        headers: {
+          Authorization: `Bearer ${config.flw_key}`,
+          "Content-Type": "application/json",
+        },
+        url: config.url_charge
+      });
     } catch (error) {
       response = errors.internalError;
       console.error(error);
@@ -477,76 +477,36 @@ function getPaymentService(paymentModel, bundleModel) {
     }
   }
 
-  async function verifyTrans(transactionId) {
+  async function verifyTrans(expectedAmount, id) {
     let response;
-    let payment;
-    let pack;
-    let expectedAmount;
-  const config = getPaymentConfig(transactionId);
-    try {
-      payment = await paymentModel.findOne({
-        where: {
-          transId: transactionId,
-          isVerify: false,
-        },
-      });
-      if (!payment) {
+    const config = getPaymentConfig(id);
+    response = await fetchUrl({
+      headers: {
+        Authorization: `Bearer ${config.flw_key}`,
+        "Content-Type": "application/json",
+      },
+      method: "GET",
+      url: config.url_verify
+    });
+    if (response.ok) {
+      response = await response.json();
+      if (
+        response.data.status === "successful" &&
+        response.data.amount >= expectedAmount &&
+        response.data.currency === config.expect_currency
+      ) {
         return {
-          code: errors.paymentApproveFail.status,
-          message: errors.paymentApproveFail.message,
-          verifiedTrans: false,
+          verifiedTrans: true
         };
-      }
-      pack = await bundleModel.findOne({
-        where: {
-          id: payment.packId,
-        },
-      });
-      expectedAmount = calculateSolde(pack.point, pack.unitPrice);
-      response = await fetch(
-        config.url_verify,
-        {
-          method: "get",
-          headers: {
-            Authorization: `Bearer ${config.flw_key}`,
-            "Content-Type": "application/json",
-        }
-        }
-      );
-      if (response.ok) {
-        response = await response.json();
-        if (
-          response.data.status === "successful" &&
-          response.data.amount >= expectedAmount &&
-          response.data.currency === config.expect_currency
-        ) {
-          payment.isVerify = true;
-          await payment.save();
-          return {
-            data: {
-              point: pack.point,
-              bonus: pack.bonus,
-              unitPrice: pack.unitPrice,
-              driverId: payment.driverId,
-            },
-            verifiedTrans: true,
-          };
-        } else {
-          return {
-            code: errors.paymentApproveFail.status,
-            message: errors.paymentApproveFail.message,
-            verifiedTrans: false,
-          };
-        }
       } else {
-        response = await response.json();
         return {
           code: errors.paymentApproveFail.status,
           message: errors.paymentApproveFail.message,
           verifiedTrans: false,
         };
       }
-    } catch (error) {
+    } else {
+      response = await response.json();
       return {
         code: errors.paymentApproveFail.status,
         message: errors.paymentApproveFail.message,
@@ -561,8 +521,8 @@ function paymentManager(paymentService) {
     initTransaction: function (payload, driverId, packId) {
       return paymentService.initTrans(payload, driverId, packId);
     },
-    verifyTransaction: async function (transactionId) {
-      let isVerified = await paymentService.verifyTrans(transactionId);
+    verifyTransaction: async function (expectedAmount, id) {
+      let isVerified = await paymentService.verifyTrans(expectedAmount, id);
       return isVerified;
     },
   };

@@ -1,4 +1,5 @@
 const { Transaction, Payment, Bundle, Delivery, User } = require("../models");
+const {fn, literal} = require("sequelize");
 const {errors} = require("../utils/system-messages");
 const {
   staticPaymentProps,
@@ -8,7 +9,6 @@ const {
   sendResponse,
   getPaymentService,
   paymentManager,
-  calculateSolde,
 } = require("../utils/helpers");
 
 function getTransactionModule({
@@ -29,64 +29,80 @@ function getTransactionModule({
 
   deliveriesModel.addEventListener("point-withdrawal-requested", withdrawal);
 
-  async function canAccess(req, res, next) {
+  async function verifyPaymentData(req, res, next) {
+    let pack;
     let payment;
     const config = getPaymentConfig();
     const secretHash = config.secret_hash;
     const signature = req.headers["verif-hash"];
-    const { status, id } = req.body.data;
-    if (signature !== secretHash) {
-      return sendResponse(res, errors.notAuthorized);
-    }
-    if (status === "successful") {
-      next();
-    } else {
-      payment = await paymentModel.findOne({
-        where: {
-          transId: id,
-          isVerify: false,
-        },
-      });
+    const { status, id, amount } = req.body.data;
+    if (signature !== secretHash && status !== "successful") {
       deliveriesModel.emitEvent("failure-payment", {
-        payload:{},
+        payload:{
+          amount: amount
+        },
         userId: payment.driverId,
       });
+      return sendResponse(res, errors.notAuthorized);
     }
+    payment = await paymentModel.findOne({
+      where: {
+        transId: id
+      },
+    });
+    if (payment.isVerify){
+      return sendResponse(res, errors.paymentAlreadyVerified)
+    }
+    pack = await bundleModel.findOne({
+      attributes: [
+        "bonus",
+        "point",
+        "unitPrice",
+        [fn("SUM", literal("`point` * `unitPrice`" )), "expectedAmount"]
+      ],
+      where: {
+        id: payment.packId
+      },
+    });
+    req.payment = payment;
+    req.pack = pack;
+    next()
   }
 
   async function ensureBundleExists(req, res, next) {
-    const { packId } = req.body;
     let bundle;
+    let driver;
+    let query;
+    const { packId } = req.body;
+    const {id} = req.user.token;
     if (typeof packId !== "string" || packId === "") {
       return sendResponse(res, errors.invalidValues);
     }
-    bundle = await bundleModel.findOne({ where: { id: packId } });
+    query = {
+      attributes: [
+        [fn("SUM", literal("`point` * `unitPrice`" )), "amount"]
+    ],
+    where: { id: packId }
+    }
+    bundle = await bundleModel.findOne(query);
     if (bundle === null) {
       return sendResponse(res, errors.notFound);
     }
+    driver = await userModel.findOne({
+      where: { id: id },
+      attributes: ["id", "firstName", "lastName", "email"],
+    });
     req.bundle = bundle;
-    next();
+    req.driver = driver;
+    next()
   }
 
   async function initTrans(req, res) {
-    const { id: driverId } = req.user.token;
-    const { phoneNumber } = req.body;
-    const { point, unitPrice, id: packId } = req.bundle;
-    const amount = calculateSolde(point, unitPrice);
-    let { lastName, firstName, email } = await userModel.findOne({
-      where: { id: driverId },
-      attributes: ["firstName", "lastName", "email"],
-    });
-    const fullname = lastName + " " + firstName;
-    let payload = {
-      phone_number: phoneNumber,
-      amount: amount,
-      email: email,
-      fullname: fullname,
-      currency: staticPaymentProps.currency,
-      country: staticPaymentProps.country,
-      tx_ref: staticPaymentProps.tx_ref,
-    };
+    let payload;
+    const {amount} = req.bundle.dataValues;
+    const {phoneNumber, packId} = req.body;
+    const {id: driverId, lastName, firstName, email} = req.driver;
+    payload = await bundleModel.buildBundlePayload({amount, phoneNumber, lastName, firstName, email});
     const {init, code, message} = await paymentHandler.initTransaction(
       payload,
       driverId,
@@ -100,31 +116,36 @@ function getTransactionModule({
   }
 
   async function finalizePayment(req, res) {
-    const {id} = req.body.data;
-    try {
-      const {verifiedTrans, data} = await paymentHandler.verifyTransaction(
-        id
-      );
-      if (verifiedTrans) {
-        const {bonus, point, unitPrice} = await transactionModel.create(data);
-        res.status(200).json({});
-        deliveriesModel.emitEvent("successful-payment", {
-          payload: {
-            point,
-            bonus: calculateSolde(bonus, unitPrice),
-            amount: calculateSolde(point, unitPrice),
-          },
-          userId: data.driverId
-        });
-      } else {
-        res.status(401).end();
-        deliveriesModel.emitEvent("failure-payment", {
-          payload: {},
-          userId: driverId,
-        });
-      }
-    } catch (error) {
-      return sendResponse(res, errors.internalError);
+    const {id, amount} = req.body.data;
+    const payment = req.payment;
+    const {bonus, point, unitPrice, expectedAmount} = req.pack.dataValues;
+    const {verifiedTrans} = await paymentHandler.verifyTransaction(expectedAmount, id);
+    if (verifiedTrans) {
+      await transactionModel.create({
+        bonus: bonus,
+        point: point,
+        unitPrice: unitPrice,
+        driverId: payment.driverId
+      });
+      payment.isVerify = true;
+      await payment.save();
+      res.status(200).json({});
+      deliveriesModel.emitEvent("successful-payment", {
+        payload: {
+          amount: expectedAmount,
+          bonus: bonus*unitPrice,
+          point: point
+        },
+        userId: payment.driverId
+      });
+    } else {
+      res.status(401).end();
+      deliveriesModel.emitEvent("failure-payment", {
+        payload: {
+          amount: amount
+        },
+        userId: payment.driverId,
+      });
     }
   }
 
@@ -242,15 +263,15 @@ function getTransactionModule({
     }
   }
   return Object.freeze({
-    canAccess,
-    ensureBundleExists,
-    transactionHistory,
-    initTrans,
-    finalizePayment,
-    wallet,
-    rechargeHistory,
+    verifyPaymentData,
     creditSumInfos,
-    incentiveBonus
+    ensureBundleExists,
+    finalizePayment,
+    initTrans,
+    transactionHistory,
+    incentiveBonus,
+    rechargeHistory,
+    wallet
   });
 }
 module.exports = getTransactionModule;

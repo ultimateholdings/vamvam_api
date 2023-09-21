@@ -110,8 +110,7 @@ const staticPaymentProps = {
     currency: "XAF",
     debit_amount: 300,
     debit_type: "withdrawal",
-    recharge_point: 0,
-    tx_ref: "transfer-" + Date.now()
+    recharge_point: 0
 };
 
 const config = Object.freeze({
