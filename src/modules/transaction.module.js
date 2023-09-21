@@ -35,8 +35,8 @@ function getTransactionModule({
     const config = getPaymentConfig();
     const secretHash = config.secret_hash;
     const signature = req.headers["verif-hash"];
-    const { status, id, amount } = req.body.data;
-    if (signature !== secretHash && status !== "successful") {
+    const { id, amount } = req.body.data;
+    if (signature !== secretHash) {
       deliveriesModel.emitEvent("failure-payment", {
         payload:{
           amount: amount
