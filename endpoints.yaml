@@ -82,6 +82,9 @@ non-auth-endpoints:
       body:
         phoneNumber: "ex: +237xxxxxx"
         signature: string
+      response:
+        sent: boolean
+        ttl: number
 
   /auth/verify-otp :
     action: verify the OTP code
@@ -131,6 +134,9 @@ non-auth-endpoints:
       body:
         phoneNumber: "ex: +237xxxxxx"
         signature: string
+      response:
+        sent: boolean
+        ttl: number
 
           
 auth-endpoints:

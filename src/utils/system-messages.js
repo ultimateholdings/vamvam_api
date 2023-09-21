@@ -231,12 +231,12 @@ const errors = {
 const eventMessages = {
     addBonus: {
         en: {
-            title:"Incentive bonus!",
-            body: "You have received yy bonus points "
+            body: "You have received yy bonus points ",
+            title: "Incentive bonus!"
         },
         fr: {
-            title:"Prime d'encouragement!",
-            body: "Vous avez reçus yy points bonus"
+            body: "Vous avez reçus yy points bonus",
+            title: "Prime d'encouragement!"
         }
     },
     deliveryAccepted: {
@@ -247,6 +247,19 @@ const eventMessages = {
         fr: {
             body: "Un chauffeur est disponible pour votre livraison",
             title: "Livraison acceptée"
+        }
+    },
+    deliveryArchived: {
+        en: {
+            body: "We are sorry but we couldn't complete your delivery" +
+            " due to {cause}. Please, consider reaching out the support",
+            title: "Your delivery has been archived"
+        },
+        fr: {
+            body: "Nous sommes désolés mais nous n'avons pas pu effectuer " +
+            "votre livraison à cause de {cause}. Veuillez envisager de" +
+            " contacter le service d'assistance",
+            title: "Votre livraison a été archivée"
         }
     },
     deliveryCancelled: {
@@ -365,12 +378,12 @@ const eventMessages = {
     },
     removeBonus: {
         en: {
-            title:"Withdrawal of bonus points!",
-            body: "Your account has been debited with xx bonus points"
+            body: "Your account has been debited with xx bonus points",
+            title: "Withdrawal of bonus points!"
         },
         fr: {
-            title:"Retrait de point bonus!",
-            body: "Votre compte a été débité de xx points bonus"
+            body: "Votre compte a été débité de xx points bonus",
+            title: "Retrait de point bonus!"
         }
     },
     roomDeletedBody: {
@@ -381,12 +394,12 @@ const eventMessages = {
     },
     successPayment: {
         en: {
-            title:"Successful payment!",
-            body: "You have topped up your account by amount XAF"
+            body: "You have topped up your account by amount XAF",
+            title: "Successful payment!"
         },
         fr: {
-            title:"Paiement effectuer avec succès!",
-            body: "Vous avez rechargé votre compte de amount XAF"
+            body: "Vous avez rechargé votre compte de amount XAF",
+            title: "Paiement effectuer avec succès!"
         }
     },
     userJoined: {
@@ -394,7 +407,7 @@ const eventMessages = {
             body: "{userName} joined the {roomName} discussion",
             title: "New user joined a discussion"
         },
-        en: {
+        fr: {
             body: "{userName} a rejoint la discussion {roomName}",
             title: "Un nouvel utilisateur a rejoint une discussion"
         }
@@ -416,8 +429,8 @@ const eventMessages = {
             en: {title: message?.en?.title},
             fr: {title: message?.fr?.title}
         };
-        result.en.body = func(message?.en?.body ?? "");
-        result.fr.body = func(message?.fr?.body ?? "");
+        result.en.body = func(message?.en?.body ?? "", "en");
+        result.fr.body = func(message?.fr?.body ?? "", "fr");
         return result;
     }
 };

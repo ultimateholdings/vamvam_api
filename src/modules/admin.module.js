@@ -81,6 +81,9 @@ function getAdminModule({associatedModels}) {
         requestedUser.status = userStatuses.inactive;
         await requestedUser.save();
         res.status(200).json({invalidated: true});
+        associations.Settings.emitEvent("user-revocation-requested", {
+            userId: requestedUser.id
+        });
     }
 
     async function logoutUser(req, res) {

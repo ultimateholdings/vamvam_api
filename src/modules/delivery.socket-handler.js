@@ -354,6 +354,29 @@ function deliveryMessageHandler(emitter) {
                 )
             })
         );
+        emitter.addEventListener(
+            "delivery-archived",
+            (data) => handleNotification({
+                data,
+                eventName: "delivery-archived",
+                fallbackMessage: eventMessages.withTransfomedBody(
+                    eventMessages.deliveryArchived,
+                    (body, lang) => body.replace("{cause}", (
+                        data.payload.cause !== undefined
+                        ? data.payload.cause[lang]
+                        : "N/A"
+                    ))
+                )
+            })
+        );
+        emitter.addEventListener(
+            "user-revocation-requested",
+            function revocationHandler({userId}) {
+                if (connectedUsers[userId] !== undefined) {
+                    connectedUsers[userId].disconnect(true);
+                }
+            }
+        );
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };
