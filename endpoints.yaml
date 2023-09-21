@@ -303,14 +303,6 @@ auth-endpoints:
       response:
         reported: boolean
 
-    /delivery/conflict/archive:
-      action: archive a conflicting delivery
-      type: post
-      body:
-        id: string representing the conflict Id
-      response:
-        archived: boolean
-
     /delivery/conflict/verify-code:
       action: verify the code of a conflicting delivery
       type: post
