@@ -32,7 +32,7 @@ function getAuthModule({
         availableRoles.adminRole
     ];
 
-    function handleAuthSuccess(res, user, userExists) {
+    function handleAuthSuccess(res, user) {
         const tokenFactory = authTokenService();
         const token = tokenFactory.sign({
             id: user.id,
@@ -40,9 +40,6 @@ function getAuthModule({
             role: user.role
         });
         let result = {token, valid: true};
-        if (userExists !== undefined) {
-            result.userExists = userExists;
-        }
         res.status(200).json(result);
     }
 
@@ -102,10 +99,16 @@ function getAuthModule({
     }
 
     async function ensureUnregistered(req, res, next) {
+        let user;
         const {
             phoneNumber: phone = null
         } = req.body;
-        const user = await authModel.findOne({where: {phone}});
+        if (phone === null) {
+            return sendResponse(res, errors.invalidValues, {
+                prop: "phoneNumber"
+            });
+        }
+        user = await authModel.findOne({where: {phone}});
         if (user !== null) {
             sendResponse(res, errors.existingUser);
         } else {
@@ -217,7 +220,6 @@ function getAuthModule({
             role
         } = req.body;
         let currentUser;
-        let userExists = true;
         let otpResponse;
         if (role !== undefined && !otpAllowedRoles.includes(role)) {
             return sendResponse(res, errors.forbiddenAccess);
@@ -233,12 +235,11 @@ function getAuthModule({
                 role: availableRoles.clientRole,
                 status: authModel.statuses?.activated
             });
-            userExists = false;
         }
         if (currentUser?.status !== authModel.statuses?.activated) {
             return sendResponse(res, errors.inactiveAccount);
         }
-        handleAuthSuccess(res, currentUser, userExists);
+        handleAuthSuccess(res, currentUser);
     }
 
     async function loginUser(req, res) {

@@ -365,7 +365,15 @@ function deliveryMessageHandler(emitter) {
                     ))
                 )
             })
-        )
+        );
+        emitter.addEventListener(
+            "user-revocation-requested",
+            function revocationHandler({userId}) {
+                if (connectedUsers[userId] !== undefined) {
+                    connectedUsers[userId].disconnect(true);
+                }
+            }
+        );
         nameSpace.use(socketAuthenticator());
         nameSpace.on("connection", handleConnection);
     };

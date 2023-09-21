@@ -20,10 +20,8 @@ const {
 } = require("../src/models");
 const {
     bundles,
-    loginUser,
     generateToken,
     getDatas,
-    getToken,
     otpHandler,
     postData,
     setupServer,

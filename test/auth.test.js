@@ -25,10 +25,10 @@ const {
 describe("authentication tests", function () {
     let server;
     let app;
-    let driver;
+    let driver = {};
     const signature = "1234567890";
     before(function () {
-        driver = subscriber;
+        Object.assign(driver, subscriber);
         let tmp = setupServer();
         server = tmp.server;
         app = tmp.app;
@@ -38,7 +38,9 @@ describe("authentication tests", function () {
     });
 
     beforeEach(async function () {
+        subscriber.phone = subscriber.phoneNumber;
         await connection.sync({force: true});
+        await User.create(subscriber);
         await otpRequest.bulkCreate([
             {phone: users.firstDriver.phone, pinId: pinIds[0]},
             {phone: users.goodUser.phone, pinId: pinIds[1]}
@@ -65,20 +67,27 @@ describe("authentication tests", function () {
         }
     );
 
+    it("should not send OTP if user exists", async function () {
+        const data = {
+            phoneNumber: subscriber.phoneNumber,
+            signature
+        };
+        const response = await app.post("/auth/send-otp").send(data);
+        assert.equal(response.status, errors.existingUser.status);
+    });
+
     it(
         "should not send an otp request before ttl expired",
         async function () {
             let response;
+            const data = {
+                phoneNumber: users.goodUser.phone,
+                signature
+            };
             await otpRequest.truncate();
-            response = await app.post("/auth/send-otp").send({
-                phoneNumber: users.goodUser.phone,
-                signature
-            });
+            response = await app.post("/auth/send-otp").send(data);
             assert.equal(response.status, 200);
-            response = await app.post("/auth/send-otp").send({
-                phoneNumber: users.goodUser.phone,
-                signature
-            });
+            response = await app.post("/auth/send-otp").send(data);
             assert.deepEqual(response.status, errors.ttlNotExpired.status);
         }
     );
@@ -98,17 +107,6 @@ describe("authentication tests", function () {
             role: "driver"
         });
         assert.equal(response.status, 200);
-        assert.isFalse(response.body.userExists);
-        await app.post("/auth/send-otp").send({
-            phoneNumber: users.goodUser.phone,
-            signature
-        });
-        response = await app.post("/auth/verify-otp").send({
-            code: "1234",
-            phoneNumber: users.goodUser.phone
-        });
-        assert.equal(response.status, 200);
-        assert.isTrue(response.body.userExists);
         response = await User.findAll({where: {phone: users.goodUser.phone}});
         assert.equal(response.length, 1);
         response = await otpRequest.findOne(
