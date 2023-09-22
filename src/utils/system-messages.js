@@ -77,7 +77,7 @@ const errors = {
     },
     existingUser: {
         message: {
-            en: "This user already exists consider loggin in",
+            en: "This user already exists consider logging in",
             fr: "Cet utilisateur existe déjà, pensez à vous connecter"
         },
         status: 453

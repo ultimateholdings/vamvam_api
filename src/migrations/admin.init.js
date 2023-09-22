@@ -22,8 +22,8 @@ async function up() {
     });
 }
 
-function down() {
-    User.destroy({
+async function down() {
+    await User.destroy({
         where: {email, phone}
     });
 }
