@@ -291,47 +291,67 @@ function deliveryMessageHandler(emitter) {
         );
         emitter.addEventListener(
             "failure-payment",
-            (data) => handleNotification({
-                data,
-                eventName: "failure-payment",
-                fallbackMessage: eventMessages.withTransfomedBody(
+            function(data){
+                const {payload} = data;
+                const messagesEvent = eventMessages.withTransfomedBody(
                     eventMessages.failurePayment,
                     (body) => body.replace("amount", data.payload.amount)
-                )
-            })
+                );
+                payload.message = messagesEvent;
+                handleNotification({
+                    data,
+                    eventName: "failure-payment",
+                    fallbackMessage: messagesEvent
+                })
+            }
         );
         emitter.addEventListener(
             "successful-payment",
-            (data) => handleNotification({
-                data,
-                eventName: "successful-payment",
-                fallbackMessage: eventMessages.withTransfomedBody(
+            function(data){
+                const {payload} = data;
+                const messagesEvent = eventMessages.withTransfomedBody(
                     eventMessages.successPayment,
                     (body) => body.replace("amount", data.payload.amount)
-                )
-            })
+                );
+                payload.message = messagesEvent;
+                handleNotification({
+                    data,
+                    eventName: "successful-payment",
+                    fallbackMessage: messagesEvent
+                })
+            }
         );
         emitter.addEventListener(
             "incentive-bonus",
-            (data) => handleNotification({
-                data,
-                eventName: "incentive-bonus",
-                fallbackMessage: eventMessages.withTransfomedBody(
+            function(data){
+                const {payload} = data;
+                const messagesEvent = eventMessages.withTransfomedBody(
                     eventMessages.addBonus,
-                    (body) => body.replace("yy", data.payload.bonus)
-                )
-            })
+                    (body) => body.replace("number", data.payload.bonus)
+                );
+                payload.message = messagesEvent;
+                handleNotification({
+                    data,
+                    eventName: "incentive-bonus",
+                    fallbackMessage: messagesEvent
+                })
+            }
         );
         emitter.addEventListener(
             "bonus-withdrawal",
-            (data) => handleNotification({
-                data,
-                eventName: "bonus-widthdrawal",
-                fallbackMessage: eventMessages.withTransfomedBody(
+            function(data){
+                const {payload} = data;
+                const messagesEvent = eventMessages.withTransfomedBody(
                     eventMessages.removeBonus,
-                    (body) => body.replace("xx", data.payload.bonus)
-                )
-            })
+                    (body) => body.replace("number", data.payload.bonus)
+                );
+                payload.message = messagesEvent;
+                handleNotification({
+                    data,
+                    eventName: "bonus-widthdrawal",
+                    fallbackMessage: message
+                })
+            }
         );
         emitter.addEventListener(
             "driver-position-update-failed",

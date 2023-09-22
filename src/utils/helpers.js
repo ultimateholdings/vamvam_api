@@ -510,7 +510,7 @@ function getPaymentService(paymentModel) {
       return {
         code: errors.paymentApproveFail.status,
         message: errors.paymentApproveFail.message,
-        verifiedTrans: false,
+        verifiedTrans: false
       };
     }
   }
