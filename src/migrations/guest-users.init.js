@@ -9,7 +9,7 @@ const guests = {};
 guests[availableRoles.clientRole] = {
     phone: "+237677777777"
 };
-guests[availableRoles.clientRole] = {
+guests[availableRoles.driverRole] = {
     phone: "+237699999999"
 };
 
