@@ -22,7 +22,7 @@ function getAuthModule({
     otpHandler,
     tokenService
 }) {
-    const associations = associatedModels || {otp: otpRequest}
+    const associations = associatedModels || {otp: otpRequest};
     const authModel = model || User;
     const authOtpHandler = otpHandler || getOTPService(otpRequest);
     const authTokenService = tokenService || jwtWrapper;
@@ -32,7 +32,7 @@ function getAuthModule({
         availableRoles.adminRole
     ];
 
-    function handleAuthSuccess(res, user, userExists) {
+    function handleAuthSuccess(res, user) {
         const tokenFactory = authTokenService();
         const token = tokenFactory.sign({
             id: user.id,
@@ -40,14 +40,11 @@ function getAuthModule({
             role: user.role
         });
         let result = {token, valid: true};
-        if (userExists !== undefined) {
-            result.userExists = userExists;
-        }
         res.status(200).json(result);
     }
 
     function sendResetSuccess(res, user) {
-        const tokenFactory = authTokenService(600000) //expires in 5min
+        const tokenFactory = authTokenService(600000); //expires in 5min
         const resetToken = tokenFactory.sign({
             phone: user.phone
         });
@@ -58,7 +55,7 @@ function getAuthModule({
         const {key} = req.body;
         const tokenFactory = authTokenService();
         let payload;
-        
+
         try {
             payload = await tokenFactory.verify(key);
             if (payload.valid === true) {
@@ -73,7 +70,7 @@ function getAuthModule({
     }
 
     async function ensureExistingAccount(req, res, next) {
-        const {phoneNumber, phone} = req.body;
+        const {phone, phoneNumber} = req.body;
         const user = await authModel.findOne({where: {
             phone: phone ?? phoneNumber
         }});
@@ -85,7 +82,9 @@ function getAuthModule({
     }
 
     async function ensureHasReset(req, res, next) {
-        const {phoneNumber: phone} = req.body;
+        const {
+            phoneNumber: phone
+        } = req.body;
         const request = await associations.otp.findOne({
             where: {
                 phone,
@@ -100,16 +99,23 @@ function getAuthModule({
     }
 
     async function ensureUnregistered(req, res, next) {
-     const {phoneNumber: phone = null} = req.body;
-     const user = await authModel.findOne({where: {phone}});
-     if (user !== null) {
-        sendResponse(res, errors.existingUser);
-     } else {
-        req.body.phone = phone;
-        req.existingUser = false;
-        next();
-     }
-
+        let user;
+        const {
+            phoneNumber: phone = null
+        } = req.body;
+        if (phone === null) {
+            return sendResponse(res, errors.invalidValues, {
+                prop: "phoneNumber"
+            });
+        }
+        user = await authModel.findOne({where: {phone}});
+        if (user !== null) {
+            sendResponse(res, errors.existingUser);
+        } else {
+            req.body.phone = phone;
+            req.existingUser = false;
+            next();
+        }
     }
 
     async function changePassword(req, res) {
@@ -134,7 +140,7 @@ function getAuthModule({
         });
         res.status(200).send({updated: true});
     }
-    
+
     async function registerDriver(req, res) {
         const {body} = req;
         body.status = authModel.statuses?.pendingValidation;
@@ -143,7 +149,10 @@ function getAuthModule({
     }
 
     async function sendOTP(req, res) {
-        const {phoneNumber: phone, signature} = req.body;
+        const {
+            phoneNumber: phone,
+            signature
+        } = req.body;
         const response = await authOtpHandler.sendCode({phone, signature});
         if (response.sent === true) {
             res.status(200).send({sent: true, ttl: authOtpHandler.getTtl()});
@@ -153,7 +162,10 @@ function getAuthModule({
     }
 
     async function sendResetOTP(req, res) {
-        const {phoneNumber: phone, signature} = req.body;
+        const {
+            phoneNumber: phone,
+            signature
+        } = req.body;
         const response = await authOtpHandler.sendCode({
             phone,
             signature,
@@ -173,10 +185,10 @@ function getAuthModule({
         } = req.body;
         let {user} = req;
         let response;
-        if(user.status !== authModel.statuses?.activated) {
+        if (user.status !== authModel.statuses?.activated) {
             return sendResponse(res, errors.inactiveAccount);
         }
-        
+
         if (!otpResetRoles.includes(user.role)) {
             return sendResponse(res, errors.forbiddenAccess);
         }
@@ -191,14 +203,14 @@ function getAuthModule({
         sendResetSuccess(res, user);
     }
 
-    async function resetPassword (req, res) {
+    async function resetPassword(req, res) {
         const {phone} = req.user.token;
         const {password} = req.body;
         await authModel.update({password}, {
-                individualHooks: true,
-                where: {phone}
+            individualHooks: true,
+            where: {phone}
         });
-        res.status(200).send({updated: true})
+        res.status(200).send({updated: true});
     }
 
     async function verifyOTP(req, res) {
@@ -208,7 +220,6 @@ function getAuthModule({
             role
         } = req.body;
         let currentUser;
-        let userExists = true;
         let otpResponse;
         if (role !== undefined && !otpAllowedRoles.includes(role)) {
             return sendResponse(res, errors.forbiddenAccess);
@@ -224,12 +235,11 @@ function getAuthModule({
                 role: availableRoles.clientRole,
                 status: authModel.statuses?.activated
             });
-            userExists = false;
         }
         if (currentUser?.status !== authModel.statuses?.activated) {
             return sendResponse(res, errors.inactiveAccount);
         }
-        handleAuthSuccess(res, currentUser, userExists);
+        handleAuthSuccess(res, currentUser);
     }
 
     async function loginUser(req, res) {

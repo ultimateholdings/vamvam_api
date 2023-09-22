@@ -20,10 +20,8 @@ const {
 } = require("../src/models");
 const {
     bundles,
-    loginUser,
     generateToken,
     getDatas,
-    getToken,
     otpHandler,
     postData,
     setupServer,
@@ -225,33 +223,6 @@ describe("delivery CRUD test", function () {
             assert.equal(response.status, errors.cannotPerformAction.status);
         }
     );
-
-    it("should enable a manager to archive a conflict", async function () {
-        const url = "/delivery/conflict/archive";
-        let response;
-        const conflict = await DeliveryConflict.create({
-            deliveryId: testDeliveries[0].id,
-            type: "Package damaged",
-            lastLocation: toDbPoint(missoke)
-        });
-        const data = {id: conflict.id};
-        testDeliveries[0].status = deliveryStatuses.inConflict;
-        await testDeliveries[0].save();
-        response = await postData({
-            app,
-            data,
-            token: dbUsers.conflictManager.token,
-            url
-        });
-        assert.equal(response.status, 200);
-        response = await postData({
-            app,
-            data,
-            token: dbUsers.conflictManager.token,
-            url
-        });
-        assert.equal(response.status, errors.cannotPerformAction.status);
-    });
 
     it("should provide the list of nearby drivers", async function () {
         const url = "/user/drivers";

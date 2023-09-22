@@ -412,7 +412,7 @@ describe("delivery side effects test", function () {
             await Delivery.update({
                 conflictId: conflict.id,
                 driverId: dbUsers.firstDriver.id,
-                status: deliveryStatuses.pendingReception
+                status: deliveryStatuses.inConflict
             }, {where: {id: testDeliveries[2].id}});
             message = {
                 lastPosition: missoke,
@@ -525,6 +525,26 @@ describe("delivery side effects test", function () {
                 assert.equal(response, conflict.id);
             }
         );
-
+        it("should enable a manager to archive a conflict", async function () {
+            const url = "/delivery/conflict/archive";
+            let response;
+            const data = {id: conflict.id};
+            const client = await clientSocketCreator(
+                "delivery",
+                dbUsers.goodUser.token
+            );
+            response = await postData({
+                app,
+                data,
+                token: dbUsers.conflictManager.token,
+                url
+            });
+            assert.equal(response.status, 200);
+            response = await listenEvent({
+                name: "delivery-archived",
+                socket: client
+            });
+            assert.equal(response.id, testDeliveries[2].id);
+        });
     });
 });

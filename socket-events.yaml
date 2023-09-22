@@ -92,6 +92,13 @@ delivery:
     delivery-end:
       action: "notify the client that the delivery has ended"
       data: string representing the delivery Id
+    delivery-archived:
+      action: "notify the client that the delivery has been archived"
+      data:
+        id: the delivery's Id
+        cause: 
+          en: the cause of the conflict in english
+          fr: the cause of the conflict in french
     new-delivery:
       action: "notify the driver that a client close to him has requested for a delivery"
       data: deliveryData

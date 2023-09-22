@@ -193,11 +193,6 @@ function getDeliveryModule({associatedModels, model}) {
         let position;
         let updated;
         try {
-            data = JSON.parse(data.toString());
-        } catch (ignore) {
-            data = driverMessage.data;
-        }
-        try {
             if (!isValidLocation(data)) {
                 throw new Error("invalid location datas: " + data);
             }
@@ -596,10 +591,8 @@ function getDeliveryModule({associatedModels, model}) {
             deliveryModel.emitEvent("new-invitation", notification);
         });
         reduceCredit(id, balance);
-        await createChatRoom(
-            delivery,
-            [client, driver, ...others]
-        );
+        others.push(client, driver);
+        await createChatRoom(delivery, others);
         await driver.setAvailability(false);
     }
 
@@ -608,6 +601,10 @@ function getDeliveryModule({associatedModels, model}) {
         const {id} = req.user.token;
         const delivery = await conflict.getDelivery();
         const members = delivery.getRecipientsId();
+        const conflictType = deliveryModel
+        .getSettings()
+        .conflict_types
+        .filter((type) => type.code === conflict.type);
         members.push(delivery.clientId);
         conflict.status = conflictStatuses.cancelled;
         conflict.assignerId = id;
@@ -615,6 +612,15 @@ function getDeliveryModule({associatedModels, model}) {
         await conflict.save();
         await delivery.save();
         res.status(200).send({archived: true});
+        members.forEach(function (userId) {
+            deliveryModel.emitEvent("delivery-archived", {
+                payload: {
+                    cause: conflictType[0],
+                    id: delivery.id
+                },
+                userId
+            });
+        });
     }
 
     async function assignDriver(req, res) {

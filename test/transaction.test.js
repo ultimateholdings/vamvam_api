@@ -20,6 +20,7 @@ const {
   setupServer,
   syncUsers,
   users,
+  setupInterceptor,
   webhookData
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
@@ -39,6 +40,7 @@ describe("Transaction test", function () {
       deliveryHandler: getDeliveryHandler(Delivery),
       httpServer: server
     });
+    setupInterceptor();
   });
 
   beforeEach(async function () {

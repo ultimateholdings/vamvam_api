@@ -116,6 +116,9 @@ Settings.addEventListener("settings-update", function (data) {
         otpRequest.setSettings(data.value);
     }
 });
+Settings.addEventListener("user-revocation-requested", function (data) {
+    Delivery.emitEvent("user-revocation-requested", data);
+});
 Message.getAllByRoom = async function ({
     maxSize,
     offset,
