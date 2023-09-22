@@ -232,11 +232,11 @@ const eventMessages = {
     addBonus: {
         en: {
             title:"Incentive bonus!",
-            body: "You have received yy bonus points "
+            body: "You have received number bonus points "
         },
         fr: {
             title:"Prime d'encouragement!",
-            body: "Vous avez reçus yy points bonus"
+            body: "Vous avez reçus number points bonus"
         }
     },
     deliveryAccepted: {
@@ -366,11 +366,11 @@ const eventMessages = {
     removeBonus: {
         en: {
             title:"Withdrawal of bonus points!",
-            body: "Your account has been debited with xx bonus points"
+            body: "Your account has been debited with number bonus points"
         },
         fr: {
             title:"Retrait de point bonus!",
-            body: "Votre compte a été débité de xx points bonus"
+            body: "Votre compte a été débité de number points bonus"
         }
     },
     roomDeletedBody: {
