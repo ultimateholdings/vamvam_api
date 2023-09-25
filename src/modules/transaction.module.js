@@ -53,6 +53,7 @@ function getTransactionModule({
     if (payment.isVerify){
       return sendResponse(res, errors.paymentAlreadyVerified)
     }
+    res.status(200).send({});
     pack = await bundleModel.findOne({
       attributes: [
         "bonus",
@@ -129,7 +130,6 @@ function getTransactionModule({
       });
       payment.isVerify = true;
       await payment.save();
-      res.status(200).json({});
       deliveriesModel.emitEvent("successful-payment", {
         payload: {
           amount: expectedAmount,
