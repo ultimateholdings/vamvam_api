@@ -178,7 +178,7 @@ auth-endpoints:
       type: post
       response:
         updated: boolean
-    /user/update-availabilty:
+    /user/update-availability:
       action: update a driver availability
       type: post
       body:
@@ -305,7 +305,7 @@ auth-endpoints:
       body:
         conflictType: string
         id: string
-        lastLocation: locationData
+        lastPosition: locationData
       response:
         reported: boolean
 
