@@ -27,10 +27,6 @@ function getAuthModule({
     const authOtpHandler = otpHandler || getOTPService(otpRequest);
     const authTokenService = tokenService || jwtWrapper;
     const otpAllowedRoles = ["client", "driver"];
-    const otpResetRoles = [
-        availableRoles.driverRole,
-        availableRoles.adminRole
-    ];
 
     function handleAuthSuccess(res, user) {
         const tokenFactory = authTokenService();
@@ -123,10 +119,6 @@ function getAuthModule({
         const {newPassword, oldPassword} = req.body;
         const currentUser = await authModel.findOne({where: {id, phone}});
         let isValidPassword;
-
-        if (!otpResetRoles.includes(role) || id !== currentUser.id) {
-            return sendResponse(res, errors.forbiddenAccess);
-        }
         isValidPassword = await comparePassword(
             oldPassword,
             currentUser.password
@@ -189,9 +181,6 @@ function getAuthModule({
             return sendResponse(res, errors.inactiveAccount);
         }
 
-        if (!otpResetRoles.includes(user.role)) {
-            return sendResponse(res, errors.forbiddenAccess);
-        }
         response = await authOtpHandler.verifyCode({
             code,
             phone,
