@@ -12,7 +12,7 @@ const {apiSettings, dbSettings, deliveryStatuses} = require("../utils/config");
 const hiddenProps = ["code", "deliveryMeta"];
 
 function defineDeliveryModel(connection) {
-    const emitter = new CustomEmitter();
+    const emitter = new CustomEmitter("Delivery Emitter");
     const settings = Object.entries(apiSettings.delivery.defaultValues).reduce(
         function (acc, [key, value]) {
             acc[dbSettings[apiSettings.delivery.value].options[key]] = value;
@@ -208,12 +208,7 @@ function defineDeliveryModel(connection) {
             ]}
         }});
     }
-    delivery.addEventListener = function (eventName, func) {
-        emitter.on(eventName, func);
-    };
-    delivery.emitEvent = function (eventName, data) {
-        emitter.emit(eventName, data);
-    };
+    emitter.decorate(delivery);
     delivery.getSettings = () => settings;
     delivery.setSettings = (data) => Object.entries(data).forEach(
         function ([key, val]) {

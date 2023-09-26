@@ -12,9 +12,8 @@ const userModule = require("../../src/modules/user.module");
 const buildAuthRoutes = require("../../src/routes/auth.route");
 const buildUserRoutes = require("../../src/routes/user.route");
 const buildRouter = require("../../src/routes");
-const { availableRoles, userStatuses } = require("../../src/utils/config");
-const { jwtWrapper } = require("../../src/utils/helpers");
-const { response } = require("express");
+const {availableRoles, userStatuses} = require("../../src/utils/config");
+const {jwtWrapper} = require("../../src/utils/helpers");
 const jwt = jwtWrapper();
 const users = {
   admin: {
@@ -66,13 +65,7 @@ const users = {
     lastName: "Marc",
     phone: "+23809090909030943-039303",
     role: availableRoles.driverRole,
-  },
-  admin: {
-    firstName: "Eyong",
-    lastName: "Enow",
-    phone: "+23809090909033487-039303",
-    role: "admin",
-  },
+  }
 };
 const subscriber = {
   age: "25-34",

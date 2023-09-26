@@ -2,7 +2,7 @@
 node
 */
 "use strict";
-const {Blacklist, Settings, User} = require("../models");
+const {Blacklist, Settings, Sponsor, User} = require("../models");
 const {errors} = require("../utils/system-messages");
 const {
     apiSettings,
@@ -15,11 +15,13 @@ const {
 } = require("../utils/helpers");
 
 function getAdminModule({associatedModels}) {
-    const associations = associatedModels || {Blacklist, Settings, User};
+    const associations = associatedModels || {Blacklist, Settings, Sponsor, User};
     const adminTypeMap = {
         registration: availableRoles.registrationManager,
         conflict: availableRoles.conflictManager
     };
+    const sponsorProps = ["phone", "name", "code"];
+    const adminCreationProps = ["phone", "password", "email"];
 
     function ensureValidSetting(req, res, next) {
         let setting = {};
@@ -41,6 +43,11 @@ function getAdminModule({associatedModels}) {
         next();
     }
 
+    async function sponsorCodeValid(code) {
+        let codeExists = await Sponsor.findOne({where: {code}});
+        return Object.freeze({exists: codeExists !== null});
+    }
+
     async function ensureUserExists(req, res, next) {
         const {id} = req.body;
         let user;
@@ -56,17 +63,25 @@ function getAdminModule({associatedModels}) {
     }
     
     function validateAdminCreation(req, res, next) {
-        const requiredProps = ["phone", "password", "email"];
         let data;
         req.body.phone = req.body.phoneNumber;
-        data = propertiesPicker(req.body)(requiredProps);
+        data = propertiesPicker(req.body)(adminCreationProps);
         if (adminTypeMap[req.body.type] === undefined) {
             return sendResponse(res, errors.unsupportedType);
         }
-        if (Object.keys(data).length !== requiredProps.length) {
+        if (Object.keys(data).length !== adminCreationProps.length) {
             return sendResponse(res, errors.invalidValues);
         }
         data.role = adminTypeMap[req.body.type];
+        req.data = data;
+        next();
+    }
+
+    function validateSponsorCreation(req, res, next) {
+        let data = propertiesPicker(req.body)(sponsorProps);
+        if (Object.keys(data).length !== sponsorProps.length) {
+            return sendResponse(res, errors.invalidValues);
+        }
         req.data = data;
         next();
     }
@@ -134,17 +149,30 @@ function getAdminModule({associatedModels}) {
         res.status(200).json({settings: response});
     }
 
+    async function createSponsor(req, res) {
+        const {data} = req;
+        const code = await sponsorCodeValid(data.code);
+        if (code.exists) {
+            return sendResponse(res, errors.alreadyAssigned)
+        }
+        await Sponsor.create(data);
+        res.status(200).json({created: true});
+    }
+
     return Object.freeze({
         activateUser,
         createNewAdmin,
+        createSponsor,
         ensureUserExists,
         ensureValidSetting,
         getSettings,
         invalidateEveryOne,
         invalidateUser,
         logoutUser,
+        sponsorCodeValid,
         updateSettings,
-        validateAdminCreation
+        validateAdminCreation,
+        validateSponsorCreation
     });
 }
 
