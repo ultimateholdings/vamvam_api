@@ -203,6 +203,13 @@ const errors = {
         },
         status: 448
     },
+    sponsorCodeExisting: {
+        message: {
+            en: "The sponsor code you've entered is already assigned",
+            fr: "Ce code de parrainage est déjà attribué"
+        },
+        status: 451
+    },
     tokenInvalid: {
         message: {
             en: "Your access key is invalid, please login again",

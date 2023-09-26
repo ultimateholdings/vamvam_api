@@ -47,6 +47,20 @@ function getAuthModule({
         return res.status(200).send({resetToken});
     }
 
+    async function handleSponsoring(user, sponsorCode) {
+        let sponsor;
+        if (
+            typeof authModel.getSponsorByCode !== "function" ||
+            typeof authModel.createSponsorship !== "function"
+        ) {
+            return Promise.reject("Sponsorship methods not Implemented");
+        }
+        sponsor = await authModel.getSponsorByCode(sponsorCode);
+        if (sponsor.id !== null) {
+            await authModel.createSponsorship(sponsor.id, user.id);
+        }
+    }
+
     async function validateResetKey(req, res, next) {
         const {key} = req.body;
         const tokenFactory = authTokenService();
@@ -115,7 +129,7 @@ function getAuthModule({
     }
 
     async function changePassword(req, res) {
-        const {id, phone, role} = req.user.token;
+        const {id, phone} = req.user.token;
         const {newPassword, oldPassword} = req.body;
         const currentUser = await authModel.findOne({where: {id, phone}});
         let isValidPassword;
@@ -206,7 +220,8 @@ function getAuthModule({
         const {
             code,
             phoneNumber: phone,
-            role
+            role,
+            sponsorCode
         } = req.body;
         let currentUser;
         let otpResponse;
@@ -217,18 +232,13 @@ function getAuthModule({
         if (otpResponse.verified === false) {
             return sendResponse(res, otpResponse);
         }
-        currentUser = await authModel.findOne({where: {phone}});
-        if (currentUser === null) {
-            currentUser = await authModel.create({
-                phone,
-                role: availableRoles.clientRole,
-                status: authModel.statuses?.activated
-            });
-        }
-        if (currentUser?.status !== authModel.statuses?.activated) {
-            return sendResponse(res, errors.inactiveAccount);
-        }
+        currentUser = await authModel.create({
+            phone,
+            role: availableRoles.clientRole,
+            status: authModel.statuses?.activated
+        });
         handleAuthSuccess(res, currentUser);
+        await handleSponsoring(currentUser, sponsorCode);
     }
 
     async function loginUser(req, res) {

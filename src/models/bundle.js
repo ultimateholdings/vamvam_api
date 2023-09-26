@@ -1,7 +1,6 @@
 /*jslint
 node, nomen, this
 */
-const fs = require("fs");
 const {DataTypes} = require("sequelize");
 const {staticPaymentProps} = require("../utils/config");
 

@@ -11,7 +11,7 @@ const {dbSettings} = require("../utils/config");
 const {CustomEmitter} = require("../utils/helpers");
 
 function defineSettingsModel(connection) {
-    const emitter = new CustomEmitter();
+    const emitter = new CustomEmitter("Settings Emitter");
     const schema = {
         type: {
             allowNull: false,
@@ -63,12 +63,7 @@ function defineSettingsModel(connection) {
             value: fn("JSON_SET", col("value"), ...args)
         }, {where: {type}});
     }
-    settings.addEventListener = function(eventName, func) {
-        emitter.on(eventName, func);
-    };
-    settings.emitEvent = function (eventName, data) {
-        emitter.emit(eventName, data);
-    }
+    emitter.decorate(settings);
     return settings;
 }
 

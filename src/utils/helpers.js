@@ -16,7 +16,17 @@ const {
 } = require("../utils/config");
 const {ValidationError} = require("sequelize");
 const CustomEmitter = function (name) {
+  const self = this;
   this.name = name;
+  this.decorate = function (obj) {
+    obj.emitEvent = function (name, data) {
+      self.emit(name, data);
+    };
+    obj.addEventListener = function (name, func) {
+      self.on(name, func);
+    };
+  };
+  
 };
 const {
   TOKEN_EXP: expiration = 3600,
