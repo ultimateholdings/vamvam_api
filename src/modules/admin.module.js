@@ -11,6 +11,7 @@ const {
 } = require("../utils/config");
 const {
     propertiesPicker,
+    ressourcePaginator,
     sendResponse
 } = require("../utils/helpers");
 
@@ -22,6 +23,7 @@ function getAdminModule({associatedModels}) {
     };
     const sponsorProps = ["phone", "name", "code"];
     const adminCreationProps = ["phone", "password", "email"];
+    const rankingPagination = ressourcePaginator(Sponsor.getRanking);
 
     function ensureValidSetting(req, res, next) {
         let setting = {};
@@ -153,10 +155,26 @@ function getAdminModule({associatedModels}) {
         const {data} = req;
         const code = await sponsorCodeValid(data.code);
         if (code.exists) {
-            return sendResponse(res, errors.alreadyAssigned)
+            return sendResponse(res, errors.sponsorCodeExisting);
         }
         await Sponsor.create(data);
         res.status(200).json({created: true});
+    }
+
+    async function getSponsorRanking(req, res) {
+        let results;
+        let {maxPageSize, skip} = req.query;
+        const pageToken = req.headers["page-token"];
+        maxPageSize = Number.parseInt(maxPageSize, 10);
+        if (!Number.isFinite(maxPageSize)) {
+            maxPageSize = 10;
+        }
+        skip = Number.parseInt(skip, 10);
+        if (!Number.isFinite(skip)) {
+            skip = undefined;
+        }
+        results = await rankingPagination({maxPageSize, skip, pageToken});
+        res.status(200).json(results);
     }
 
     return Object.freeze({
@@ -166,6 +184,7 @@ function getAdminModule({associatedModels}) {
         ensureUserExists,
         ensureValidSetting,
         getSettings,
+        getSponsorRanking,
         invalidateEveryOne,
         invalidateUser,
         logoutUser,

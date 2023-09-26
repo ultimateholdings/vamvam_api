@@ -25,6 +25,17 @@ const CustomEmitter = function (name) {
     obj.addEventListener = function (name, func) {
       self.on(name, func);
     };
+    obj.forward = function (eventName) {
+      return {
+        to: function (emitter) {
+          obj.addEventListener(eventName, function (data) {
+            if (typeof emitter?.emitEvent === "function") {
+              emitter.emitEvent(eventName, data);
+            }
+          });
+        }
+      };
+    };
   };
   
 };
@@ -217,7 +228,6 @@ function errorHandler(func) {
         return sendResponse(res, err, content);
       } else {
         err = errors.internalError;
-        debugger;
         return sendResponse(res, err);
       }
     }
@@ -545,6 +555,12 @@ function pathToURL(filePath) {
     return "/" + rootDir + "/" + path.basename(filePath);
   }
 }
+async function generateCode(byteSize = 5) {
+  const {
+      default: encoder
+  } = await import("base32-encode");
+  return encoder(crypto.randomBytes(byteSize), "Crockford");
+}
 
 module.exports = Object.freeze({
   CustomEmitter,
@@ -563,6 +579,7 @@ module.exports = Object.freeze({
   fileExists,
   formatDbLineString,
   formatDbPoint,
+  generateCode,
   getFileHash,
   getOTPService,
   hashPassword(password) {

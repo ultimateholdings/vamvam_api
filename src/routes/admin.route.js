@@ -16,6 +16,12 @@ function getAdminRouter(module) {
     const router = new express.Router();
 
     router.get(
+        "/sponsor/ranking",
+        protectRoute,
+        allowRoles([availableRoles.adminRole]),
+        errorHandler(adminModule.getSponsorRanking)
+    );
+    router.get(
         "/system/settings",
         protectRoute,
         errorHandler(adminModule.getSettings)

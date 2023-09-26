@@ -14,19 +14,22 @@ const {assert} = require("chai");
 const {
     Delivery,
     Settings,
+    Sponsor,
+    Sponsorship,
     User,
     connection
 } = require("../src/models");
 const {apiSettings, deliveryStatuses} = require("../src/utils/config");
-const {toDbPoint} = require("../src/utils/helpers");
+const {generateCode, toDbPoint} = require("../src/utils/helpers");
 const {generateDBDeliveries} = require("./fixtures/deliveries.data");
 const {
     generateToken,
+    getDatas,
     otpHandler,
     postData,
     setupServer,
     users,
-    setupInterceptor,
+    subscriber,
     syncInstances
 } = require("./fixtures/helper");
 
@@ -138,6 +141,8 @@ describe("sponsoring tests", function () {
    };
    let server;
    let admin;
+   let allUsers;
+   let sponsors = [users.firstDriver, users.secondDriver];
    before(function () {
        const tmp = setupServer();
        app = tmp.app;
@@ -147,9 +152,29 @@ describe("sponsoring tests", function () {
        server.close();
    });
    beforeEach(async function () {
-       await connection.sync();
-       admin = await User.create(users.admin);
-       admin.token = generateToken(admin);
+        allUsers = Array(10).fill(subscriber).map(function (user) {
+            const result = {};
+            const id = "-" + Math.floor(10000000 * Math.random());
+            Object.assign(result, user);
+            result.phone = result.phoneNumber + id;
+            result.firstName += id;
+            result.email = result.email.replace("@bar", id + "@bar");
+            return result;
+        });
+        await connection.sync();
+        admin = await User.create(users.admin);
+        admin.token = generateToken(admin);
+        allUsers = await User.bulkCreate(allUsers);
+        sponsors = await Sponsor.bulkCreate(sponsors.map(function (user) {
+            user.code = "" + Math.floor(1000 * Math.random());
+            return user;
+        }));
+        Sponsorship.bulkCreate(allUsers.map(function (user, index) {
+            if (index % 3 === 0) {
+                return {sponsorId: sponsors[0].id, userId: user.id}
+            }
+            return {sponsorId: sponsors[1].id, userId: user.id};
+        }));
    });
    afterEach(async function () {
        await connection.drop();
@@ -163,4 +188,12 @@ describe("sponsoring tests", function () {
         });
         assert.equal(response.status, 200);
    });
+   it("should provide the sponsor ranking", async function () {
+        let response = await getDatas({
+            app,
+            token: admin.token,
+            url: "/sponsor/ranking"
+        });
+        assert.equal(response.body.results[0].sponsored, 6);
+   })
 });

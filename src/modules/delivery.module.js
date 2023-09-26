@@ -12,6 +12,7 @@ const {
 } = require("../utils/config");
 const {
     formatDbPoint,
+    generateCode,
     isValidLocation,
     propertiesPicker,
     ressourcePaginator,
@@ -55,13 +56,6 @@ function formatBody(deliveryRequest) {
     return result;
 }
 
-
-async function generateCode(byteSize = 5) {
-    const {
-        default: encoder
-    } = await import("base32-encode");
-    return encoder(crypto.randomBytes(byteSize), "Crockford");
-}
 
 /*
 this function was created just to mimic the delivery
