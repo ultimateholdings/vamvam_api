@@ -45,12 +45,13 @@ function format(error) {
 process.on("uncaughtException", function (error) {
     const {admin_email} = process.env;
     const text = JSON.stringify(format(error), null, 4);
+    const mailTemplate = mailer.getEmailTemplate({content: text})
     socketServer.close();
     httpServer.close();
     mailer.sendEmail({
         callback: mailer.handleResponse,
         text,
-        html: "<code>"+ text +"</code>",
+        html: "<code>"+ mailTemplate() +"</code>",
         to: admin_email
     });
 });
