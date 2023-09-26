@@ -12,13 +12,12 @@ const Trans = require("./transaction.js")(connection);
 const Payment = require("./payment.js")(connection);
 const DeliveryConflict = require("./delivery-report.js")(connection);
 const Registration = require("./driver-registration.js")(connection);
-const Message = require("./message.js")(connection);
+const Message = require("./message.model.js")(connection);
 const Room = require("./room.model.js")(connection);
-const UserRoom = erequire("./user_room.model.js")(connection);
+const UserRoom = require("./user_room.model.js")(connection);
 const Blacklist = require("./blacklist.js")(connection);
 const Settings = require("./settings.js")(connection);
-const Sponsor = require("./sponsor.js")(connection);
-const Sponsorship = require("./sponsorship.js")(connection);
+const {Sponsor, Sponsorship} = require("./sponsor.js")(connection);
 const order = [["createdAt", "DESC"]];
 
 Delivery.belongsTo(User, {
@@ -89,17 +88,8 @@ Room.belongsToMany(User, {through: UserRoom});
 User.belongsToMany(Room, {through: UserRoom});
 Room.hasMany(Message, {foreignKey: "roomId"});
 Message.belongsTo(Room, {foreignKey: "roomId"});
-Sponsorship.belongsTo(Sponsor, {
-    as: "sponsor",
-    constraints: false,
-    foreignKey: "sponsorId"
-});
-Sponsorship.belongsTo(User, {
-    as: "user",
-    constraints: false,
-    foreignKey: "userId"
-});
 
+Sponsor.associate(User, "user");
 User.getSettings = Delivery.getSettings;
 User.hasOngoingDelivery = async function (driverId) {
     let result = await Delivery.ongoingDeliveries(driverId);
@@ -116,6 +106,17 @@ Settings.addEventListener("settings-update", function (data) {
 Settings.addEventListener("user-revocation-requested", function (data) {
     Delivery.emitEvent("user-revocation-requested", data);
 });
+
+function formatRoomMessage(row) {
+    const {content, createdAt, id, room, sender} = row;
+    return Object.freeze({
+        content,
+        date: createdAt.toISOString(),
+        id,
+        room: room.toResponse(),
+        sender: sender.toShortResponse()
+    });
+}
 Message.getAllByRoom = async function ({
     maxSize,
     offset,
@@ -148,22 +149,7 @@ Message.getAllByRoom = async function ({
     return {
         lastId: results.rows.at(-1)?.id,
         formerLastId,
-        values: results.rows.map(function deliveryMapper(row) {
-            const {
-                content,
-                createdAt: date,
-                id,
-                room,
-                sender
-            } = row;
-            return Object.freeze({
-                content,
-                date,
-                id,
-                room: room.toResponse(),
-                sender: sender.toShortResponse()
-            });
-        })
+        values: results.rows.map(formatRoomMessage)
     };
 };
 
@@ -185,7 +171,7 @@ Message.getMissedMessages = async function (userId) {
         }
     });
     result = result.reduce(function (acc, row) {
-        const {content, createdAt: date, id, room, sender} = row;
+        const {room} = row;
         if (acc[room.id] === undefined) {
             acc[room.id] = {
                 count: 0,
@@ -194,13 +180,7 @@ Message.getMissedMessages = async function (userId) {
             };
         }
         acc[room.id].count += 1;
-        acc[room.id].messages.push({
-            content,
-            date,
-            id,
-            room: room.toResponse(),
-            sender: sender.toShortResponse()
-        });
+        acc[room.id].messages.push(formatRoomMessage(row));
         return acc;
     }, Object.create(null));
     return result;
@@ -234,7 +214,7 @@ Room.getUserRooms = async function (userId) {
     return result.rooms.map(function (room) {
         let delivery = room.delivery.toResponse();
         const result = {
-            createdAt: room.createdAt,
+            createdAt: room.createdAt.toISOString(),
             id: room.id,
             delivery: {
                 departure: delivery.departure.address ?? "",
@@ -244,15 +224,10 @@ Room.getUserRooms = async function (userId) {
             members: room.users.map((user) => user.toShortResponse()),
             name: room.name
         };
-        const messages = room.Messages.map(
-            (msg) => Object.freeze({
-                content: msg.content,
-                date: msg.createdAt.toISOString(),
-                id: msg.id,
-                room: room.toResponse(),
-                sender: msg.sender.toShortResponse()
-            })
-        );
+        const messages = room.Messages.map(function (msg) {
+            msg.room = room;
+            return formatRoomMessage(msg);
+        });
         if (messages.length > 0) {
             result.lastMessage = messages[0];
         }

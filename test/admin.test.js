@@ -26,6 +26,7 @@ const {
     postData,
     setupServer,
     users,
+    setupInterceptor,
     syncInstances
 } = require("./fixtures/helper");
 
@@ -126,4 +127,40 @@ describe("admin features tests", function () {
         });
         assert.equal(response.body.updated, true);
     });
+});
+
+describe("sponsoring tests", function () {
+   let app;
+   const data = {
+       name: "Trésor Dima",
+       phone: "3434343443",
+       code: "12345"
+   };
+   let server;
+   let admin;
+   before(function () {
+       const tmp = setupServer();
+       app = tmp.app;
+       server = tmp.server;
+   });
+   after(function () {
+       server.close();
+   });
+   beforeEach(async function () {
+       await connection.sync();
+       admin = await User.create(users.admin);
+       admin.token = generateToken(admin);
+   });
+   afterEach(async function () {
+       await connection.drop();
+   });
+   it("should create a new sponsor", async function () {
+        let response = await postData({
+            app,
+            data,
+            token: admin.token,
+            url: "/sponsor/create"
+        });
+        assert.equal(response.status, 200);
+   });
 });

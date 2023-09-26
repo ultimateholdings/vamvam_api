@@ -11,9 +11,9 @@ const {assert} = require("chai");
 const {Delivery, Message, Room, User, connection} = require("../src/models");
 const {
   clientSocketCreator,
+  generateToken,
   listenEvent,
   messages,
-  getToken,
   otpHandler,
   postData,
   setupServer,
@@ -61,10 +61,10 @@ describe("Message test", function () {
       deliveryId: delivery.id
     });
     await room.setUsers([dbUsers.firstDriver, dbUsers.goodUser]);
-    tokens = await Promise.all([
-      getToken(app, dbUsers.goodUser.phone),
-      getToken(app, dbUsers.firstDriver.phone),
-    ]);
+    tokens = [
+      generateToken(dbUsers.goodUser),
+      generateToken(dbUsers.firstDriver)
+    ];
     messages[0].roomId = room.id;
     messages[1].roomId = room.id;
     await Message.bulkCreate([

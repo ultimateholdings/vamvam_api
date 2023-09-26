@@ -24,7 +24,14 @@ function getAdminRouter(module) {
         "/user/logout",
         protectRoute,
         errorHandler(adminModule.logoutUser)
-    )
+    );
+    router.post(
+        "/sponsor/create",
+        protectRoute,
+        allowRoles([availableRoles.adminRole]),
+        adminModule.validateSponsorCreation,
+        errorHandler(adminModule.createSponsor)
+    );
     router.post(
         "/admin/revoke-all",
         protectRoute,

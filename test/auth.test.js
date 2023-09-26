@@ -11,7 +11,13 @@ const {
     it
 } = require("mocha");
 const {assert} = require("chai");
-const {User, connection, otpRequest} = require("../src/models");
+const {
+    User,
+    Sponsor,
+    Sponsorship,
+    connection,
+    otpRequest
+} = require("../src/models");
 const {availableRoles} = require("../src/utils/config");
 const {errors} = require("../src/utils/system-messages");
 const {
@@ -26,6 +32,7 @@ describe("authentication tests", function () {
     let server;
     let app;
     let driver = {};
+    let sponsor;
     const signature = "1234567890";
     before(function () {
         Object.assign(driver, subscriber);
@@ -38,6 +45,11 @@ describe("authentication tests", function () {
     });
 
     beforeEach(async function () {
+        const data = {
+            phone: "132129489433",
+            name: "Trésor Dima",
+            code: "12334"
+        };
         subscriber.phone = subscriber.phoneNumber;
         await connection.sync({force: true});
         await User.create(subscriber);
@@ -45,6 +57,7 @@ describe("authentication tests", function () {
             {phone: users.firstDriver.phone, pinId: pinIds[0]},
             {phone: users.goodUser.phone, pinId: pinIds[1]}
         ]);
+        sponsor = await Sponsor.create(data);
     });
 
     afterEach(async function () {
@@ -104,7 +117,8 @@ describe("authentication tests", function () {
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
             phoneNumber: users.goodUser.phone,
-            role: "driver"
+            role: "driver",
+            sponsorCode: sponsor.code
         });
         assert.equal(response.status, 200);
         response = await User.findAll({where: {phone: users.goodUser.phone}});
@@ -113,6 +127,8 @@ describe("authentication tests", function () {
             {where: {phone: users.goodUser.phone}}
         );
         assert.isNull(response);
+        response = await Sponsorship.findOne({sponsorId: sponsor.id});
+        assert.isNotNull(response);
     });
 
     it("should allow a user to reset password", async function () {
