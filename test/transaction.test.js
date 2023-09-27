@@ -15,18 +15,15 @@ const {
   bundles,
   clientSocketCreator,
   listenEvent,
-  getToken,
+  generateToken,
   otpHandler,
   setupServer,
   syncUsers,
   users,
-  setupInterceptor,
   webhookData
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
-const { calculateSolde } = require("../src/utils/helpers");
-const { response } = require("express");
 describe("Transaction test", function () {
   let server;
   let app;
@@ -40,16 +37,15 @@ describe("Transaction test", function () {
       deliveryHandler: getDeliveryHandler(Delivery),
       httpServer: server
     });
-    setupInterceptor();
   });
 
   beforeEach(async function () {
     await connection.sync({ force: true });
     dbUsers = await syncUsers(users, User);
     tokens = await Promise.all([
-      getToken(app, dbUsers.goodUser.phone),
-      getToken(app, dbUsers.firstDriver.phone),
-      getToken(app, dbUsers.admin.phone),
+      generateToken(dbUsers.goodUser),
+      generateToken(dbUsers.firstDriver),
+      generateToken(dbUsers.admin)
     ]);
   });
 
@@ -108,8 +104,6 @@ describe("Transaction test", function () {
   it("should return transaction history and wallet infos", async function () {
     let response;
     let transactions;
-    let driverToken = await getToken(app, dbUsers.firstDriver.phone);
-
     transactions = bundles.map((bundle) => {
       const { unitPrice, bonus, point } = bundle;
       return {
@@ -126,17 +120,17 @@ describe("Transaction test", function () {
     const bonus = transactions
       .map((transaction) => transaction.bonus)
       .reduce((acc, curr) => acc + curr, 0);
-    const solde = calculateSolde(point, 300);
+    const solde = point * 300
     await Transaction.bulkCreate(transactions);
     response = await app
       .get("/transaction/history")
       .send({ type: "recharge" })
-      .set("authorization", "Bearer " + driverToken);
+      .set("authorization", "Bearer " + tokens[1]);
     assert.equal(response.status, 200);
     assert.equal(response.body.length, transactions.length);
     response = await app
       .get("/transaction/wallet-infos")
-      .set("authorization", "Bearer " + driverToken);
+      .set("authorization", "Bearer " + tokens[1]);
     assert.equal(response.status, 200);
     assert.equal(response.body.wallet.bonus, bonus);
     assert.equal(response.body.wallet.point, point);
@@ -184,7 +178,7 @@ describe("Transaction test", function () {
     const bonus = transactions
       .map((transaction) => transaction.bonus)
       .reduce((acc, curr) => acc + curr, 0);
-    const solde = calculateSolde(point, 300);
+    const solde = point * 300;
     await Transaction.bulkCreate(transactions);
     response = await app
       .get("/transaction/recharge-infos")

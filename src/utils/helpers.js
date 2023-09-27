@@ -34,10 +34,6 @@ const {
 } = process.env;
 CustomEmitter.prototype = EventEmitter.prototype;
 
-function calculateSolde(point, unitPrice = 300) {
-  return point * unitPrice;
-}
-
 function cloneObject(object) {
   const tmp = Object.create(null);
   Object.assign(tmp, object);
@@ -585,6 +581,5 @@ module.exports = Object.freeze({
   toDbLineString,
   toDbPoint,
   getPaymentService,
-  paymentManager,
-  calculateSolde,
+  paymentManager
 });

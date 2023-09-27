@@ -6,7 +6,7 @@ const {assert} = require("chai");
 const {Bundle, User, connection} = require("../src/models");
 const {
   bundles,
-  getToken,
+  generateToken,
   otpHandler,
   setupServer,
   syncUsers,
@@ -27,9 +27,9 @@ describe("Bundle CRUD test", function () {
     await connection.sync({ force: true });
     dbUsers = await syncUsers(users, User);
     tokens = await Promise.all([
-      getToken(app, dbUsers.goodUser.phone),
-      getToken(app, dbUsers.firstDriver.phone),
-      getToken(app, dbUsers.admin.phone)
+      generateToken(dbUsers.goodUser),
+      generateToken(dbUsers.firstDriver),
+      generateToken(dbUsers.admin)
     ]);
   });
 
@@ -42,11 +42,10 @@ describe("Bundle CRUD test", function () {
   });
   it("should return all bunch", async function () {
     let response;
-    let adminToken = await getToken(app, dbUsers.admin.phone);
     const bunchs = await Bundle.bulkCreate(bundles);
     response = await app
       .get("/bundle")
-      .set("authorization", "Bearer " + adminToken);
+      .set("authorization", "Bearer " + tokens[2]);
     assert.equal(response.status, 200);
     assert.equal(response.body.data.length, bunchs.length);
   });
@@ -66,14 +65,13 @@ describe("Bundle CRUD test", function () {
   it("should return bundle infos", async function () {
     let response;
     let bundle;
-    let userToken = await getToken(app, dbUsers.goodUser.phone)
     
     bundle = await Bundle.create(bundles[0]);
     const id = bundle.id;
     response = await app
       .get("/bundle/infos")
       .send({ id })
-      .set("authorization", "Bearer " + userToken);
+      .set("authorization", "Bearer " + tokens[0]);
     assert.equal(response.status, 200);
     assert.equal(response.body.id, id);
   });
@@ -87,24 +85,22 @@ describe("Bundle CRUD test", function () {
       point: 20,
       unitPrice: 300,
     };
-    let adminToken = await getToken(app, dbUsers.admin.phone);
     bundle = await Bundle.create(bundles[5]);
     updateData.id = bundle.id
     response = await app.post("/bundle/update")
     .send(updateData)
-    .set("authorization", "Bearer " + adminToken);
+    .set("authorization", "Bearer " + tokens[2]);
     assert.equal(response.status, 200)
   });
   it("should delete bundle", async function(){
     let response;
     let bundle;
-    let adminToken = await getToken(app, dbUsers.admin.phone);
     bundle = await Bundle.create(bundles[5]);
     const id = bundle.id;
     response = await app
       .post("/bundle/delete")
       .send({ id })
-      .set("authorization", "Bearer " + adminToken);
+      .set("authorization", "Bearer " + tokens[2]);
     assert.equal(response.status, 204);
   })
 });
