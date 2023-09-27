@@ -93,10 +93,26 @@ function allowRoles(roles = []) {
     };
 }
 
+function parsePaginationHeaders(req, ignore, next) {
+    let  {maxPageSize, skip} = req.query;
+    maxPageSize = Number.parseInt(maxPageSize, 10);
+    if (!Number.isFinite(maxPageSize)) {
+        maxPageSize = 10;
+    }
+    skip = Number.parseInt(skip, 10);
+    if (!Number.isFinite(skip)) {
+        skip = undefined;
+    }
+    req.query.skip = skip;
+    req.query.maxPageSize = maxPageSize;
+    next();
+}
+
 routeProtector = routeProtectionFactory(Blacklist);
 
 module.exports = Object.freeze({
     allowRoles,
+    parsePaginationHeaders,
     protectRoute: routeProtector.protectRoute,
     socketAuthenticator: routeProtector.socketAuthenticator
 });

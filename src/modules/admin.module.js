@@ -24,6 +24,7 @@ function getAdminModule({associatedModels}) {
     const sponsorProps = ["phone", "name", "code"];
     const adminCreationProps = ["phone", "password", "email"];
     const rankingPagination = ressourcePaginator(Sponsor.getRanking);
+    const mentoringPagination = ressourcePaginator(Sponsor.getEnrolled);
 
     function ensureValidSetting(req, res, next) {
         let setting = {};
@@ -163,17 +164,28 @@ function getAdminModule({associatedModels}) {
 
     async function getSponsorRanking(req, res) {
         let results;
-        let {maxPageSize, skip} = req.query;
+        const {maxPageSize, skip} = req.query;
         const pageToken = req.headers["page-token"];
-        maxPageSize = Number.parseInt(maxPageSize, 10);
-        if (!Number.isFinite(maxPageSize)) {
-            maxPageSize = 10;
-        }
-        skip = Number.parseInt(skip, 10);
-        if (!Number.isFinite(skip)) {
-            skip = undefined;
-        }
         results = await rankingPagination({maxPageSize, skip, pageToken});
+        res.status(200).json(results);
+    }
+
+    async function getMentoredUsers(req, res) {
+        let results;
+        const {id, maxPageSize, skip} = req.query;
+        const pageToken = req.headers["page-token"];
+        const getParams = function (params) {
+            if (typeof id === "string" && id.length > 0) {
+                params.id = id.trim();
+            }
+            return params;
+        };
+        results = await mentoringPagination({
+            getParams,
+            maxPageSize,
+            pageToken,
+            skip
+        });
         res.status(200).json(results);
     }
 
@@ -183,6 +195,7 @@ function getAdminModule({associatedModels}) {
         createSponsor,
         ensureUserExists,
         ensureValidSetting,
+        getMentoredUsers,
         getSettings,
         getSponsorRanking,
         invalidateEveryOne,
