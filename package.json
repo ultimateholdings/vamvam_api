@@ -19,7 +19,7 @@
     "chai": "^4.3.7",
     "cross-env": "^7.0.3",
     "mocha": "^10.2.0",
-    "nock": "^13.3.1",
+    "nock": "^13.3.3",
     "socket.io-client": "^4.7.1",
     "supertest": "^6.3.3"
   },

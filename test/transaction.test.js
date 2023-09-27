@@ -15,18 +15,15 @@ const {
   bundles,
   clientSocketCreator,
   listenEvent,
-  getToken,
   generateToken,
   otpHandler,
   setupServer,
   syncUsers,
   users,
-  setupInterceptor,
   webhookData
 } = require("./fixtures/helper");
 const getSocketManager = require("../src/utils/socket-manager");
 const getDeliveryHandler = require("../src/modules/delivery.socket-handler");
-const { calculateSolde } = require("../src/utils/helpers");
 describe("Transaction test", function () {
   let server;
   let app;
@@ -40,7 +37,6 @@ describe("Transaction test", function () {
       deliveryHandler: getDeliveryHandler(Delivery),
       httpServer: server
     });
-    setupInterceptor();
   });
 
   beforeEach(async function () {
@@ -124,7 +120,7 @@ describe("Transaction test", function () {
     const bonus = transactions
       .map((transaction) => transaction.bonus)
       .reduce((acc, curr) => acc + curr, 0);
-    const solde = calculateSolde(point, 300);
+    const solde = point * 300
     await Transaction.bulkCreate(transactions);
     response = await app
       .get("/transaction/history")
@@ -182,7 +178,7 @@ describe("Transaction test", function () {
     const bonus = transactions
       .map((transaction) => transaction.bonus)
       .reduce((acc, curr) => acc + curr, 0);
-    const solde = calculateSolde(point, 300);
+    const solde = point * 300;
     await Transaction.bulkCreate(transactions);
     response = await app
       .get("/transaction/recharge-infos")

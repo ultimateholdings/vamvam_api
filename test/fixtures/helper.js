@@ -178,7 +178,6 @@ function generateToken(user) {
 
 function setupInterceptor() {
   const otpBaseUrl = "https://api.ng.termii.com";
-  const paymentUrl = "https://api.flutterwave.com";
   const { badUser, firstDriver, goodUser } = users;
   nock(otpBaseUrl)
     .post(/otp\/send/, (body) => body.to === badUser.phone)
@@ -226,16 +225,6 @@ function setupInterceptor() {
       }
     })
     .persist();
-  nock(paymentUrl)
-  .post(/transaction\/init-transaction/)
-  .reply(200,function(){
-    return transaction = {
-      type: "recharge",
-      bonus: 0,
-      point: 10
-    }
-  })
-  .persist();
 }
 
 function clientSocketCreator(namespace, token) {

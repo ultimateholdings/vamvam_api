@@ -1,5 +1,4 @@
 const {DataTypes} = require("sequelize");
-const {calculateSolde} = require("../utils/helpers");
 const {col, fn, literal} = require("sequelize");
 
 function defineTransaction (connection) {
@@ -46,7 +45,7 @@ function defineTransaction (connection) {
                 unitPrice
             } = row;
             return Object.freeze({
-                amount: calculateSolde(point, unitPrice),
+                amount: point * unitPrice,
                 bonus,
                 date,
                 point
