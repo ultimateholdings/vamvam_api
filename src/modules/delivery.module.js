@@ -338,7 +338,7 @@ function getDeliveryModule({associatedModels, model}) {
             req.balance = balance;
             next();
         } else {
-            sendResponse(res, errors.cannotPerformAction);
+            sendResponse(res, errors.emptyWallet);
         }
     }
 
