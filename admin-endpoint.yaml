@@ -137,86 +137,86 @@ admin-manager:
       nextPageToken: string
       results: shortUserData[]
 
-bundle:
-/bundle/new-bundle:
-  action: "create new bundle"
-  type: post
-  body:
-    bonus: doudle
-    point: double
-    unitPrice: double
-/bundle/infos:
-  action: "get bundle infos"
-  type: get
-  body:
-    id: string
-  response:
-    title: string
-    bonus: doudle
-    point: double
-    unitPrice: double
-    price: double
-    gain: double
-/bundle/:
-   action: "get all bundles"
-   type: get
-   body:
-   response:
-    data:
+  admin-manager:
+  /bundle/new-bundle:
+    action: "create new bundle"
+    type: post
+    body:
+      bonus: doudle
+      point: double
+      unitPrice: double
+  /bundle/infos:
+    action: "get bundle infos"
+    type: get
+    body:
       id: string
+    response:
+      title: string
       bonus: doudle
       point: double
       unitPrice: double
       price: double
       gain: double
-/bundle/update:
-  action: "update bundle"
-  type: post
-  body:
-    id: string
-    bonus: doudle
-    point: double
-    unitPrice: double
-  response:
-    message: string
-/bundle/delete:
-  action: "delete bundle"
-  type: post
-  body:
-    id: string
-  response:
-
-transaction:
-/transaction/payment-history:
-  action: "lists payments within a given time interval"
-  type: get
-  query:
-    page: double
-    limit: double
-  body:
-    startDate: Date
-    endDate: Date
-    type: string
-  response:
-    total: double
-    data: 
-      amount: double
-      bonus: double
-      date: string
+  /bundle/:
+    action: "get all bundles"
+    type: get
+    body:
+    response:
+      data:
+        id: string
+        bonus: doudle
+        point: double
+        unitPrice: double
+        price: double
+        gain: double
+  /bundle/update:
+    action: "update bundle"
+    type: post
+    body:
+      id: string
+      bonus: doudle
       point: double
-      avatar: string
-      firstName: string
-      lastName: string
-/transaction/recharge-infos:
-  action: "gives information on the sum of payments"
-  type: get
-  body:
-  response:
-    solde: double
-    bonus: double
-    point: double
-/transaction/handle-bonus:
-  action: "manages the addition and withdrawal of bonuses"
-  type: post
-  body:
-  response:
+      unitPrice: double
+    response:
+      message: string
+  /bundle/delete:
+    action: "delete bundle"
+    type: post
+    body:
+      id: string
+    response:
+
+  admin-manager:
+  /transaction/payment-history:
+    action: "lists payments within a given time interval"
+    type: get
+    query:
+      page: double
+      limit: double
+    body:
+      startDate: Date
+      endDate: Date
+      type: string
+    response:
+      total: double
+      data: 
+        amount: double
+        bonus: double
+        date: string
+        point: double
+        avatar: string
+        firstName: string
+        lastName: string
+  /transaction/recharge-infos:
+    action: "gives information on the sum of payments"
+    type: get
+    body:
+    response:
+      solde: double
+      bonus: double
+      point: double
+  /transaction/handle-bonus:
+    action: "manages the addition and withdrawal of bonuses"
+    type: post
+    body:
+    response:

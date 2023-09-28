@@ -1,5 +1,7 @@
 /*jslint node*/
 const nodemailer = require("nodemailer");
+const Handlebars = require("handlebars");
+const buildEmailTemplate = require("./email-template");
 const {
     mailer_account,
     mailer_password,
@@ -20,6 +22,9 @@ function createMailer() {
             rejectUnauthorized: false
         }
     });
+    function getEmailTemplate({title, content, redirectLink}){
+        return Handlebars.compile(buildEmailTemplate({title, content, redirectLink}))
+    }
     function sendEmail({callback, html, sender, subject, text, to}) {
         const options = {
             envelope: {
@@ -46,7 +51,7 @@ function createMailer() {
             console.log(JSON.stringify(info, null, 4));
         }
     }
-    return Object.freeze({handleResponse, sendEmail});
+    return Object.freeze({getEmailTemplate, handleResponse, sendEmail});
 }
 
 module.exports = Object.freeze(createMailer);

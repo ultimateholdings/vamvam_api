@@ -2,7 +2,6 @@
 const {Op, col, fn, where} = require("sequelize");
 const {sequelizeConnection} = require("../utils/db-connector.js");
 const {deliveryStatuses} = require("../utils/config.js");
-const {calculateSolde} = require("../utils/helpers.js");
 const connection = sequelizeConnection();
 const User = require("./user.js")(connection);
 const otpRequest = require("./otp_request.js")(connection);
@@ -407,7 +406,7 @@ Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
             lastName
         } = row.Driver
         return Object.freeze({
-            amount: calculateSolde(point, unitPrice),
+            amount: point * unitPrice,
             bonus,
             date,
             point,

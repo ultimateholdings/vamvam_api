@@ -1,16 +1,13 @@
-const {Bundle} = require("../models");
+const {Bundle, Delivery} = require("../models");
 const {errors} = require("../utils/system-messages");
 const {
   propertiesPicker,
   sendResponse,
-  calculateSolde,
 } = require("../utils/helpers");
 const minDeliveryPrice = 1000;
-function calculateGainMin(nb_point, minDeliveryPrice = 1000) {
-  return nb_point * minDeliveryPrice;
-}
-function getBundleModule({ model }) {
+function getBundleModule({ model, deliveryModel }) {
   const BundleModel = model || Bundle;
+  const deliveriesModel = deliveryModel || Delivery;
   const bundleProps = ["bonus", "point", "unitPrice"];
   
   async function ensureBundleExists(req, res, next) {
@@ -27,7 +24,6 @@ function getBundleModule({ model }) {
     next();
   }
   async function createBundle(req, res) {
-    try {
       let propertiesCreate;
       const pickedProperties = propertiesPicker(req.body);
       propertiesCreate = pickedProperties(bundleProps);
@@ -41,29 +37,31 @@ function getBundleModule({ model }) {
       } else {
         sendResponse(res, errors.invalidValues);
       }
-    } catch (error) {
-      sendResponse(res, errors.internalError);
-    }
   }
   async function getBundleInfos(req, res) {
-    let price;
-    let gainMin;
+    let query;
+    let bundle;
     const { id } = req.body;
-    const bundle = await BundleModel.findOne({
+    query = {
+      attributes: [
+        "bonus",
+        "id",
+        "point",
+        "unitPrice"
+      ],
       where: {
-        id: id,
-      },
-    });
+        id
+      }
+    }
+    bundle = await BundleModel.findOne(query);
     if (bundle != null) {
-      price = calculateSolde(bundle.point, bundle.unitPrice);
-      gainMin = calculateSolde(bundle.point, minDeliveryPrice);
       res.status(200).json({
         id: bundle.id,
         bonus: bundle.bonus,
         point: bundle.point,
         unitPrice: bundle.unitPrice,
-        price: price,
-        gainMin: gainMin,
+        price: bundle.point * bundle.unitPrice,
+        gainMin: bundle.point * minDeliveryPrice
       });
     } else {
       sendResponse(res, errors.notFound);
@@ -73,19 +71,35 @@ function getBundleModule({ model }) {
     try {
       let data;
       let bunchs;
-      bunchs = await BundleModel.findAll({
+      let query;
+      query = {
+        attributes: [
+          "bonus",
+          "id",
+          "point",
+          "unitPrice"
+        ],
         order: [
-          ['point', 'ASC'],
-      ],
+          ['point', 'ASC']
+        ]
+      }
+      bunchs = await BundleModel.findAll(query);
+      data = bunchs.map(function(bunch){
+        const {
+          id,
+          bonus,
+          point,
+          unitPrice
+        } = bunch;
+        return {
+          id,
+          bonus,
+          point,
+          unitPrice,
+          price: point * unitPrice,
+          gainMin: point * minDeliveryPrice
+        }
       });
-      data = bunchs?.map((bunch) => ({
-        id: bunch.id,
-        bonus: bunch.bonus,
-        point: bunch.point,
-        unitPrice: bunch.unitPrice,
-        price: calculateSolde(bunch.point, bunch.unitPrice),
-        gainMin: calculateGainMin(bunch.point, minDeliveryPrice),
-      }));
       res.status(200).json({ data });
     } catch (error) {
       sendResponse(res, errors.internalError);
@@ -93,27 +107,17 @@ function getBundleModule({ model }) {
   }
   async function updateBunch(req, res) {
     let { id } = req.body;
-    let updated;
     let updatedProps;
-    try {
-      const pickedProperties = propertiesPicker(req.body);
+    const pickedProperties = propertiesPicker(req.body);
       updatedProps = pickedProperties(bundleProps);
       if (updatedProps !== undefined) {
-        updated = await BundleModel.update(updatedProps, {
+        await BundleModel.update(updatedProps, {
           where: { id: id },
         });
-        res.status(200).json({
-          message: {
-            en: "Bunch update successfully!",
-            fr: "Forfait mise à jour avec succès!",
-          },
-        });
+        res.status(200).json({});
       } else {
         sendResponse(res, errors.invalidValues);
       }
-    } catch (error) {
-      sendResponse(res, errors.internalError);
-    }
   }
   async function deleteBunch(req, res) {
     const { id } = req.body;
@@ -132,7 +136,7 @@ function getBundleModule({ model }) {
     getBundleInfos,
     getAllBundle,
     updateBunch,
-    deleteBunch,
+    deleteBunch
   });
 }
 module.exports = getBundleModule;
