@@ -37,6 +37,7 @@ function defineDriverRegistration(connection) {
             primaryKey: true,
             type: DataTypes.UUID
         },
+        lang: DataTypes.STRING,
         lastName: DataTypes.STRING,
         password: DataTypes.STRING,
         phoneNumber: {
@@ -44,6 +45,7 @@ function defineDriverRegistration(connection) {
             type: DataTypes.STRING,
             unique: true
         },
+        sponsorCode: DataTypes.STRING,
         status: {
             defaultValue: userStatuses.pendingValidation,
             type: DataTypes.ENUM,
@@ -63,7 +65,13 @@ function defineDriverRegistration(connection) {
             },
         }
     });
-    const optionalProps = ["id", "validationDate", "status"];
+    const optionalProps = [
+        "id",
+        "sponsorCode",
+        "lang",
+        "validationDate",
+        "status"
+    ];
     const requiredProps = Object.keys(schema).filter(
         (key) => !optionalProps.includes(key)
     );

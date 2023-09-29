@@ -339,7 +339,7 @@ const eventMessages = {
         en: {
             body:
             "A conflict has been reported during your delivery," +
-            " please contact the support for further information",
+            " please contact the support for further informations",
             title: "Conflict reported"
         },
         fr: {
@@ -359,6 +359,21 @@ const eventMessages = {
             "Vous avez une nouvelle demande de livraison près" +
             " de vous, consultez-la",
             title: "Nouvelle livraison"
+        }
+    },
+    newDriverRegistration: {
+        en: {
+            body: "Hello {userName}, \na driver with named {driverName} has" +
+            " subscribe to vamvam pro please verify his profile in order to" +
+            " validate his account",
+            title: "New driver subscription"
+        },
+        fr: {
+            body:
+            "Salut {userName} un conducteur nommé {driverName} " +
+            "s'est inscrit à vamvam pro veuillez vérifier son profil" +
+            " afin de valider son compte",
+            title: "Nouvel Enregistrement de livreur"
         }
     },
     newInvitation: {
@@ -383,14 +398,45 @@ const eventMessages = {
             title: "Nouvelle discussion"
         }
     },
-    removeBonus: {
+    registrationValidated: {
         en: {
-            title:"Withdrawal of bonus points!",
-            body: "Your account has been debited with number bonus points"
+            body: "Hello {userName},\n we are proud to welcome you to our" +
+            " amazing community of vamvam driver you can now receive " +
+            "new delivery order once you'll top up your account for more " +
+            "informations please contact the support for further informations",
+            title:"Souscription validated"
         },
         fr: {
-            title:"Retrait de point bonus!",
-            body: "Votre compte a été débité de number points bonus"
+            body: "Bonjour {userName}, nous sommes fiers de vous " +
+            "accueillir dans notre incroyable communauté de chauffeurs " +
+            "vamvam. Vous pouvez maintenant recevoir de nouveaux ordres" +
+            " de livraison une fois que vous aurez rechargé votre compte," +
+            " veuillez contacter le support pour plus d'informations.",
+            title:"Souscription validée"
+        }
+    },
+    registrationRejected: {
+        en: {
+            body: "Hello {userName},\n we are sorry to announce you that " +
+            "your souscription has been rejected so please consider " +
+            "reaching out the support.",
+            title:"Souscription rejected"
+        },
+        fr: {
+            body: "Bonjour {userName}, nous sommes désolés " +
+            "de vous annoncer que votre souscription a été rejetée. " +
+            "Veuillez donc contacter le service d'assistance.",
+            title:"Souscription rejétée"
+        }
+    },
+    removeBonus: {
+        en: {
+            body: "Your account has been debited with number bonus points",
+            title:"Withdrawal of bonus points!"
+        },
+        fr: {
+            body: "Votre compte a été débité de number points bonus",
+            title:"Retrait de point bonus!"
         }
     },
     roomDeletedBody: {

@@ -72,6 +72,7 @@ const subscriber = {
   email: "foobaz@bar.com",
   firstName: "Nkang",
   gender: "M",
+  lang: "fr",
   lastName: "Lowe Plus",
   password: "+340239230932023234",
   phoneNumber: "+340239230932023234"

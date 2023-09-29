@@ -97,6 +97,7 @@ function defineDeliveryModel(connection) {
         }
         recipientInfos.name = (
             result.recipientInfos?.main?.firstName
+            ?? result.recipientInfos?.main?.name
             ?? result.recipientInfos?.name
             ?? ""
         );
