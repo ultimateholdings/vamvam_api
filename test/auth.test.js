@@ -13,8 +13,6 @@ const {
 const {assert} = require("chai");
 const {
     User,
-    Sponsor,
-    Sponsorship,
     connection,
     otpRequest
 } = require("../src/models");
@@ -32,7 +30,6 @@ describe("authentication tests", function () {
     let server;
     let app;
     let driver = {};
-    let sponsor;
     const signature = "1234567890";
     before(function () {
         Object.assign(driver, subscriber);
@@ -45,11 +42,7 @@ describe("authentication tests", function () {
     });
 
     beforeEach(async function () {
-        const data = {
-            phone: "132129489433",
-            name: "Trésor Dima",
-            code: "12334"
-        };
+        
         subscriber.phone = subscriber.phoneNumber;
         await connection.sync({force: true});
         await User.create(subscriber);
@@ -57,7 +50,6 @@ describe("authentication tests", function () {
             {phone: users.firstDriver.phone, pinId: pinIds[0]},
             {phone: users.goodUser.phone, pinId: pinIds[1]}
         ]);
-        sponsor = await Sponsor.create(data);
     });
 
     afterEach(async function () {
@@ -112,23 +104,22 @@ describe("authentication tests", function () {
         });
         assert.equal(response.status, errors.requestOTP.status);
     });
-    it("should create a new user on verified OTP", async function () {
+    it("should create a new client on verified OTP", async function () {
         let response;
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
-            phoneNumber: users.goodUser.phone,
-            role: "driver",
-            sponsorCode: sponsor.code
+            phoneNumber: users.goodUser.phone
         });
         assert.equal(response.status, 200);
         response = await User.findAll({where: {phone: users.goodUser.phone}});
-        assert.equal(response.length, 1);
+        assert.isTrue(
+            response.length === 1 &&
+            response[0].role === availableRoles.clientRole
+        );
         response = await otpRequest.findOne(
             {where: {phone: users.goodUser.phone}}
         );
         assert.isNull(response);
-        response = await Sponsorship.findOne({sponsorId: sponsor.id});
-        assert.isNotNull(response);
     });
 
     it("should allow a user to reset password", async function () {
@@ -137,6 +128,7 @@ describe("authentication tests", function () {
         let resetToken;
         response = {status: User.statuses.activated};
         Object.assign(response, driver);
+        response.email = "test@foo.com";
         await User.create(response);
         await app.post("/auth/send-reset-otp").send({
             phoneNumber: driver.phone
@@ -165,8 +157,9 @@ describe("authentication tests", function () {
         let response;
         response = {status: User.statuses.activated};
         Object.assign(response, driver);
+        response.email = "test@foo.com";
         await User.create(response);
-        response = await app.post("/auth/login").send({
+        response = await app.post("/auth/driver/login").send({
             password: driver.password,
             phoneNumber: driver.phone
         });

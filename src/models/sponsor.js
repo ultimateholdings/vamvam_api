@@ -1,5 +1,5 @@
 /*jslint node this */
-const {DataTypes, Op, col, fn} = require("sequelize");
+const {DataTypes, col, fn} = require("sequelize");
 const {CustomEmitter} = require("../utils/helpers");
 
 const initialQuery = function (offset, maxSize) {
@@ -60,13 +60,16 @@ function defineSponsorModel({connection, model, name}) {
         foreignKey,
         primaryKey: true
     });
-    model.createSponsorship = function (sponsorId, modelId) {
-        const data = {sponsorId};
-        data[foreignKey] = modelId;
-        return Sponsorship.upsert(data);
-    };
-    model.getSponsorByCode = function (code) {
-        return Sponsor.findOne({where: {code}});
+    model.handleSponsoringRequest = async function (code, memberId) {
+        let where = {};
+        let sponsoring;
+        let sponsor = await Sponsor.findOne({where: {code}});
+        where[foreignKey] = memberId;
+        sponsoring = await Sponsorship.findOne({where});
+        if (sponsor !== null && sponsoring === null) {
+            where.sponsorId = sponsor.id;
+            await Sponsorship.create(where);
+        }
     };
     Sponsor.getRanking = async function ({maxSize, offset}) {
         let formerLastId;

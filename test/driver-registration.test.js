@@ -13,11 +13,14 @@ const {
 const {assert} = require("chai");
 const {
     Registration,
+    Sponsor,
+    Sponsorship,
     User,
     connection
 } = require("../src/models");
 const {
     clientSocketCreator,
+    generateToken,
     listenEvent,
     loginUser,
     otpHandler,
@@ -40,6 +43,7 @@ describe("registration tests", function () {
     let dbUsers;
     let managerToken;
     let socketServer;
+    let sponsor;
     before(async function () {
         const tmp = setupServer(otpHandler);
         server = tmp.server;
@@ -53,13 +57,15 @@ describe("registration tests", function () {
     });
 
     beforeEach(async function () {
+        const data = {
+            phone: "132129489433",
+            name: "Trésor Dima",
+            code: "12334"
+        };
         await connection.sync({force: true});
         dbUsers = await syncUsers(users, User);
-        managerToken = await loginUser(
-            app,
-            dbUsers.registrationManager.phone,
-            "aSimplePass"
-        );
+        managerToken = generateToken(dbUsers.registrationManager);
+        sponsor = await Sponsor.create(data);
     });
 
     afterEach(async function () {
@@ -126,8 +132,10 @@ with the date serialization to avoid false negative*/
     it(
         "should create a driver account on registration validation",
         async function () {
+            let registration;
             let response;
-            let registration = await Registration.create(subscriber);
+            subscriber.sponsorCode = "12334";
+            registration = await Registration.create(subscriber);
             response = await app.post("/driver/validate-registration").send({
                 id: registration.id
             }).set("authorization", "Bearer " + managerToken);
@@ -142,6 +150,8 @@ with the date serialization to avoid false negative*/
                 id: registration.id
             }).set("authorization", "Bearer " + managerToken);
             assert.equal(response.status, errors.cannotPerformAction.status);
+            response = await Sponsorship.findAll({where: {sponsorId: sponsor.id}});
+            assert.equal(response.length, 1);
         }
     );
     it("should create an internal driver", async function () {

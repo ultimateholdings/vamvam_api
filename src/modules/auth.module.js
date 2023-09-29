@@ -26,7 +26,6 @@ function getAuthModule({
     const authModel = model || User;
     const authOtpHandler = otpHandler || getOTPService(otpRequest);
     const authTokenService = tokenService || jwtWrapper;
-    const otpAllowedRoles = ["client", "driver"];
 
     function handleAuthSuccess(res, user) {
         const tokenFactory = authTokenService();
@@ -47,19 +46,6 @@ function getAuthModule({
         return res.status(200).send({resetToken});
     }
 
-    async function handleSponsoring(user, sponsorCode) {
-        let sponsor;
-        if (
-            typeof authModel.getSponsorByCode !== "function" ||
-            typeof authModel.createSponsorship !== "function"
-        ) {
-            return Promise.reject("Sponsorship methods not Implemented");
-        }
-        sponsor = await authModel.getSponsorByCode(sponsorCode);
-        if (sponsor.id !== null) {
-            await authModel.createSponsorship(sponsor.id, user.id);
-        }
-    }
 
     async function validateResetKey(req, res, next) {
         const {key} = req.body;
@@ -89,6 +75,17 @@ function getAuthModule({
         }
         req.user = user;
         next();
+    }
+
+    function allowedRoles(roles = []) {
+        return function (req, res, next) {
+            const {user} = req;
+            if (roles.includes(user.role)) {
+                next();
+            } else {
+                sendResponse(res, errors.forbiddenAccess);
+            }
+        };
     }
 
     async function ensureHasReset(req, res, next) {
@@ -219,15 +216,10 @@ function getAuthModule({
     async function verifyOTP(req, res) {
         const {
             code,
-            phoneNumber: phone,
-            role,
-            sponsorCode
+            phoneNumber: phone
         } = req.body;
         let currentUser;
         let otpResponse;
-        if (role !== undefined && !otpAllowedRoles.includes(role)) {
-            return sendResponse(res, errors.forbiddenAccess);
-        }
         otpResponse = await authOtpHandler.verifyCode({code, phone});
         if (otpResponse.verified === false) {
             return sendResponse(res, otpResponse);
@@ -238,7 +230,6 @@ function getAuthModule({
             status: authModel.statuses?.activated
         });
         handleAuthSuccess(res, currentUser);
-        await handleSponsoring(currentUser, sponsorCode);
     }
 
     async function loginUser(req, res) {
@@ -263,6 +254,7 @@ function getAuthModule({
         sendResponse(res, errors.invalidCredentials);
     }
     return Object.freeze({
+        allowedRoles,
         changePassword,
         ensureExistingAccount,
         ensureHasReset,

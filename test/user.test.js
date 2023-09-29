@@ -13,14 +13,18 @@ const {
     it
 } = require("mocha");
 const {assert} = require("chai");
-const {User, connection} = require("../src/models");
+const {
+    Sponsor,
+    Sponsorship,
+    User,
+    connection
+} = require("../src/models");
 const {errors} = require("../src/utils/system-messages");
 const {getFileHash} = require("../src/utils/helpers");
 const {
-    getToken,
+    generateToken,
     otpHandler,
     setupServer,
-    subscriber,
     users
 } = require("./fixtures/helper");
 
@@ -44,7 +48,8 @@ describe("user interactions tests", function () {
         deviceToken: "sldjfal;kjalsdkjf aslkf;ja",
         email: "totoNg@notexisting.edu",
         firstName: "Toto Ngom",
-        lastName: "Founkreo"
+        lastName: "Founkreo",
+        sponsorCode: "12334"
     };
 
     before(function () {
@@ -53,8 +58,15 @@ describe("user interactions tests", function () {
         app = tmp.app;
     });
     beforeEach(async function () {
+        const data = {
+            phone: "132129489433",
+            name: "Trésor Dima",
+            code: "12334"
+        };
         await connection.sync({alter: true});
         currentUser = await User.create(users.goodUser);
+        await Sponsor.create(data);
+        currentUser.token = generateToken(currentUser);
     });
 
     afterEach(async function () {
@@ -65,12 +77,11 @@ describe("user interactions tests", function () {
     });
 
     it("should provide the user infos", async function () {
-        const token = await getToken(app, users.goodUser.phone);
         let response = await app.get("/user/infos");
         assert.equal(response.status, errors.notAuthorized.status);
         response = await app.get("/user/infos").set(
             "authorization",
-            "Bearer " + token
+            "Bearer " + currentUser.token
         );
         assert.equal(response.status, 200);
 
@@ -78,21 +89,24 @@ describe("user interactions tests", function () {
 
     it("should update generic user infos", async function () {
         let response;
-        let token;
         response = await app.post("/user/update-profile").send(updates);
         assert.equal(response.status, errors.notAuthorized.status);
-        token = await getToken(app, users.goodUser.phone);
-        assert.isNotNull(token);
         response = await app.post("/user/update-profile").send(updates).set(
             "authorization",
-            "Bearer " + token
+            "Bearer " + currentUser.token
         );
         assert.equal(response.status, 200);
+        response = await app.post("/user/update-profile").send(updates).set(
+            "authorization",
+            "Bearer " + currentUser.token
+        );
+        assert.equal(response.status, 200);
+        response = await Sponsorship.findAll({where: {userId: currentUser.id}});
+        assert.equal(response.length, 1);
     });
 
     it("should not update user role or phone or user Id", async function () {
         let response;
-        let token = await getToken(app, users.goodUser.phone);
         let forbiddenUpdate = {
             id: "dlsdjflskadjweioiryqot",
             phone: "+32380",
@@ -100,7 +114,7 @@ describe("user interactions tests", function () {
         };
         response = await app.post("/user/update-profile").send(
             forbiddenUpdate
-        ).set("authorization", "Bearer " + token);
+        ).set("authorization", "Bearer " + currentUser.token);
         assert.equal(response.status, errors.invalidUploadValues.status);
         response = await User.findOne({where: {
             id: currentUser.id,
@@ -133,33 +147,7 @@ describe("user interactions tests", function () {
                 fs.unlink(carInfoHash, console.log);
             }
         });
-        it("should authenticate a driver", async function () {
-            const password = "23209J@fklsd";
-            const driver = subscriber;
-            let response;
-            driver.status = User.statuses.inactive;
-            driver.phone = driver.phoneNumber;
-            await User.create(driver)
-            response = await app.post("/auth/login").send({
-                password,
-                phoneNumber: driver.phoneNumber
-            });
-            assert.deepEqual(
-                response.body.message,
-                errors.inactiveAccount.message
-            );
-            await User.update(
-                {status: User.statuses.activated},
-                {where: {phone: driver.phoneNumber}}    
-            );
-            response = await app.post("/auth/login").send({
-                password,
-                phoneNumber: driver.phoneNumber
-            });
-            assert.equal(response.status, errors.invalidCredentials.status);
-        });
         it("should handle avatar and carInfos upload", async function () {
-            const token = await getToken(app, users.goodUser.phone);
             let response = await app.post("/user/update-profile").field(
                 "firstName",
                 updates.firstName
@@ -169,10 +157,10 @@ describe("user interactions tests", function () {
             ).attach(
                 "carInfos",
                 carInfosPath
-            ).set("authorization", "Bearer " + token);
+            ).set("authorization", "Bearer " + currentUser.token);
             assert.equal(response.status, 200);
             response = await User.findOne(
-                {where: {phone: users.goodUser.phone}}
+                {where: {phone: currentUser.phone}}
             );
             assert.equal(response.avatar, path.normalize(avatarHash));
             assert.equal(response.carInfos, path.normalize(carInfoHash));
@@ -186,21 +174,19 @@ describe("user interactions tests", function () {
 
         it("should verify user avatar deletion", async function () {
             let response;
-            let token;
-            token = await getToken(app, users.goodUser.phone);
             response = await app.post("/user/delete-avatar");
             assert.equal(response.status, errors.notAuthorized.status);
             response = await app.post("/user/update-profile").attach(
                 "avatar",
                 avatarPath
-            ).set("authorization", "Bearer " + token);
+            ).set("authorization", "Bearer " + currentUser.token);
             response = await app.post("/user/delete-avatar").set(
                 "authorization",
-                "Bearer " + token
+                "Bearer " + currentUser.token
             );
             assert.equal(response.status, 200);
             response = await User.findOne(
-                {where: {phone: users.goodUser.phone}}
+                {where: {phone: currentUser.phone}}
             );
             assert.isNull(response.avatar);
             assert.isFalse(fs.existsSync(avatarHash));
@@ -209,7 +195,6 @@ describe("user interactions tests", function () {
         it(
             "should not allow to upload a file if the format is invalid",
             async function () {
-                let token = await getToken(app, users.goodUser.phone);
                 let response = await app.post("/user/update-profile").field(
                     "firstName",
                     "Vamvam soft"
@@ -219,10 +204,10 @@ describe("user interactions tests", function () {
                 ).attach(
                     "carInfos",
                     avatarPath
-                ).set("authorization", "Bearer " + token);
+                ).set("authorization", "Bearer " + currentUser.token);
                 assert.equal(response.status, 200);
                 response = await User.findOne(
-                    {where: {phone: users.goodUser.phone}}
+                    {where: {phone: currentUser.phone}}
                 );
                 assert.equal(response.avatar, currentUser.avatar);
             }

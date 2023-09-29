@@ -162,12 +162,14 @@ function getRegistrationModule({associatedModels, model}) {
     async function validateRegistration(req, res) {
         const {id} = req.user.token;
         const {registration} = req;
+        let createdUser;
         registration.status = userStatuses.activated;
         registration.contributorId = id;
         await registration.save();
-        await associations.User.create(registration.toUserData(), {
-            individualHooks: false
-        });
+        createdUser = await associations.User.create(
+            registration.toUserData(),
+            {individualHooks: false}
+        );
         res.status(200).send({userCreated: true});
         mailer.notifyWithEmail({
             email: registration.email,
@@ -176,6 +178,10 @@ function getRegistrationModule({associatedModels, model}) {
                 (body) => body.replace("{userName}", registration.firstName)
             )[registration.lang ?? "en"]
         });
+        await associations.User.handleSponsoringRequest(
+            registration.sponsorCode,
+            createdUser.id
+        );
     }
     async function rejectRegistration(req, res) {
         const {id} = req.user.token;

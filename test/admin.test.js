@@ -116,7 +116,8 @@ describe("admin features tests", function () {
         await Delivery.bulkCreate(deliveries);
         response = await getDatas({
             app,
-            token: dbUsers.admin.token
+            token: dbUsers.admin.token,
+            url: "/delivery/all"
         });
         assert.equal(response.status, 200);
     });
