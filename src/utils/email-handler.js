@@ -4,27 +4,27 @@ const Handlebars = require("handlebars");
 const buildEmailTemplate = require("./email-template");
 const {
     mailer_account,
-    mailer_password,
-    mailer_host
+    mailer_host,
+    mailer_password
 } = process.env;
 
 function createMailer() {
     const transporter = nodemailer.createTransport({
         auth: {
-            user: mailer_account,
-            pass: mailer_password
+            pass: mailer_password,
+            user: mailer_account
         },
         host: mailer_host,
-        secure: true,
-        port: 465,
         pool: true,
+        port: 465,
+        secure: true,
         tls: {
             rejectUnauthorized: false
         }
     });
-    function getEmailTemplate({title, content, redirectLink}){
+    function getEmailTemplate({content, redirectLink, title}) {
         return Handlebars.compile(
-            buildEmailTemplate({title, content, redirectLink})
+            buildEmailTemplate({content, redirectLink, title})
         );
     }
     function sendEmail({callback, html, sender, subject, text, to}) {
@@ -55,8 +55,8 @@ function createMailer() {
     }
     function notifyWithEmail({email, notification}) {
         const html = getEmailTemplate({
-            title: notification.title,
-            content: notification.body
+            content: notification.body,
+            title: notification.title
         })();
         if (typeof email === "string" && email.length > 0) {
             sendEmail({
@@ -65,7 +65,7 @@ function createMailer() {
                 subject: notification.title,
                 text: notification.body,
                 to: email
-            })
+            });
         }
     }
     return Object.freeze({

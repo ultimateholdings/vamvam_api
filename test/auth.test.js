@@ -13,8 +13,6 @@ const {
 const {assert} = require("chai");
 const {
     User,
-    Sponsor,
-    Sponsorship,
     connection,
     otpRequest
 } = require("../src/models");
@@ -45,11 +43,7 @@ describe("authentication tests", function () {
     });
 
     beforeEach(async function () {
-        const data = {
-            phone: "132129489433",
-            name: "Trésor Dima",
-            code: "12334"
-        };
+        
         subscriber.phone = subscriber.phoneNumber;
         await connection.sync({force: true});
         await User.create(subscriber);
@@ -57,7 +51,6 @@ describe("authentication tests", function () {
             {phone: users.firstDriver.phone, pinId: pinIds[0]},
             {phone: users.goodUser.phone, pinId: pinIds[1]}
         ]);
-        sponsor = await Sponsor.create(data);
     });
 
     afterEach(async function () {
@@ -127,8 +120,6 @@ describe("authentication tests", function () {
             {where: {phone: users.goodUser.phone}}
         );
         assert.isNull(response);
-        response = await Sponsorship.findOne({sponsorId: sponsor.id});
-        assert.isNotNull(response);
     });
 
     it("should allow a user to reset password", async function () {

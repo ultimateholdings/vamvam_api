@@ -47,19 +47,6 @@ function getAuthModule({
         return res.status(200).send({resetToken});
     }
 
-    async function handleSponsoring(user, sponsorCode) {
-        let sponsor;
-        if (
-            typeof authModel.getSponsorByCode !== "function" ||
-            typeof authModel.createSponsorship !== "function"
-        ) {
-            return Promise.reject("Sponsorship methods not Implemented");
-        }
-        sponsor = await authModel.getSponsorByCode(sponsorCode);
-        if (sponsor.id !== null) {
-            await authModel.createSponsorship(sponsor.id, user.id);
-        }
-    }
 
     async function validateResetKey(req, res, next) {
         const {key} = req.body;
@@ -220,8 +207,7 @@ function getAuthModule({
         const {
             code,
             phoneNumber: phone,
-            role,
-            sponsorCode
+            role
         } = req.body;
         let currentUser;
         let otpResponse;
@@ -238,7 +224,6 @@ function getAuthModule({
             status: authModel.statuses?.activated
         });
         handleAuthSuccess(res, currentUser);
-        await handleSponsoring(currentUser, sponsorCode);
     }
 
     async function loginUser(req, res) {
