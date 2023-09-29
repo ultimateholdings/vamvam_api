@@ -23,7 +23,9 @@ function createMailer() {
         }
     });
     function getEmailTemplate({title, content, redirectLink}){
-        return Handlebars.compile(buildEmailTemplate({title, content, redirectLink}))
+        return Handlebars.compile(
+            buildEmailTemplate({title, content, redirectLink})
+        );
     }
     function sendEmail({callback, html, sender, subject, text, to}) {
         const options = {
@@ -51,7 +53,27 @@ function createMailer() {
             console.log(JSON.stringify(info, null, 4));
         }
     }
-    return Object.freeze({getEmailTemplate, handleResponse, sendEmail});
+    function notifyWithEmail({email, notification}) {
+        const html = getEmailTemplate({
+            title: notification.title,
+            content: notification.body
+        })();
+        if (typeof email === "string" && email.length > 0) {
+            sendEmail({
+                callback: handleResponse,
+                html,
+                subject: notification.title,
+                text: notification.body,
+                to: email
+            })
+        }
+    }
+    return Object.freeze({
+        getEmailTemplate,
+        handleResponse,
+        notifyWithEmail,
+        sendEmail
+    });
 }
 
 module.exports = Object.freeze(createMailer);

@@ -1,3 +1,10 @@
+function renderLink(url) {
+  let result = "";
+  if (typeof url === "string" && url.length > 0) {
+    result = "<a href=\"" + url + "\">Dashboard Login</a>"
+  }
+  return result;
+}
 function buildEmailTemplate ({title = "System Error", content, redirectLink}) {
     return `
   <body style="margin:0; padding:0; background:#f2f2f2f2;">
@@ -15,11 +22,11 @@ function buildEmailTemplate ({title = "System Error", content, redirectLink}) {
 		  ${content}
       </p>
       <p style="font-size:16px; line-height:24px; color:#666666; margin-bottom:30px;">
-		  <a href="${redirectLink ? redirectLink : ''}">${redirectLink ? 'Dashboard Login' : ''}</a>
+      ${renderLink(redirectLink)}
       </p>
       <hr style="border:none; height:1px; color:#dddddd; background:#dddddd; width:100%; margin-bottom:20px;">
       <p style="font-size:12px; line-height:18px; color:#999999; margin-bottom:10px;">
-        <a href="http://vamvamlogistics.com"
+        <a href="https://vamvamlogistics.com"
            style="font-size:12px; line-height:18px; color:#666666; font-weight:bold;"> vamvamlogistics.com</a>
            +237 683 411 151 |  Email: contact@vamvamlogistics.com <br>
       </p>
@@ -29,4 +36,5 @@ function buildEmailTemplate ({title = "System Error", content, redirectLink}) {
 </html>
     `
 }
+
 module.exports = buildEmailTemplate;

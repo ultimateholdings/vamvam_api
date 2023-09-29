@@ -239,10 +239,11 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         this.available = isAvailable;
         return this.save();
     }
-    user.setAvailability = function (driver, available) {
-        driver.available = available;
-        return driver.save();
-    }
+    user.getAllWithRoles = function (roles = []) {
+        const role = {};
+        role[Op.in] = roles;
+        return user.findAll({where: {role}});
+    };
 /*jslint-enable*/
     user.genericProps = genericProps;
     user.statuses = userStatuses;

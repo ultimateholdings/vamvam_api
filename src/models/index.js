@@ -16,7 +16,11 @@ const Room = require("./room.model.js")(connection);
 const UserRoom = require("./user_room.model.js")(connection);
 const Blacklist = require("./blacklist.js")(connection);
 const Settings = require("./settings.js")(connection);
-const {Sponsor, Sponsorship} = require("./sponsor.js")(connection);
+const {Sponsor, Sponsorship} = require("./sponsor.js")({
+    connection,
+    model: User,
+    name: "user"
+});
 const order = [["createdAt", "DESC"]];
 
 Delivery.belongsTo(User, {
@@ -88,7 +92,6 @@ User.belongsToMany(Room, {through: UserRoom});
 Room.hasMany(Message, {foreignKey: "roomId"});
 Message.belongsTo(Room, {foreignKey: "roomId"});
 
-Sponsor.associate(User, "user");
 User.getSettings = Delivery.getSettings;
 User.hasOngoingDelivery = async function (driverId) {
     let result = await Delivery.ongoingDeliveries(driverId);
@@ -102,9 +105,7 @@ Settings.addEventListener("settings-update", function (data) {
         otpRequest.setSettings(data.value);
     }
 });
-Settings.addEventListener("user-revocation-requested", function (data) {
-    Delivery.emitEvent("user-revocation-requested", data);
-});
+Settings.forward("user-revocation-requested").to(Delivery);
 
 function formatRoomMessage(row) {
     const {content, createdAt, id, room, sender} = row;

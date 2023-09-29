@@ -7,9 +7,10 @@ const {
     propertiesPicker,
     sendResponse
 } = require("../utils/helpers");
-const {errors} = require("../utils/system-messages");
-const {userStatuses} = require("../utils/config");
+const {errors, eventMessages} = require("../utils/system-messages");
+const {availableRoles, userStatuses} = require("../utils/config");
 const {Registration, User} = require("../models");
+const mailer = require("../utils/email-handler")();
 
 function getRegistrationModule({associatedModels, model}) {
     const registrationModel = model || Registration;
@@ -62,7 +63,9 @@ function getRegistrationModule({associatedModels, model}) {
     }
 
     async function ensureUserNotExists(req, res, next) {
-        const {phoneNumber: phone} = req.body;
+        const {
+            phoneNumber: phone
+        } = req.body;
         let user;
         if (typeof phone !== "string" || phone === "") {
             return sendResponse(res, errors.invalidValues);
@@ -94,6 +97,7 @@ function getRegistrationModule({associatedModels, model}) {
     }
 
     async function registerDriver(req, res) {
+        let admins;
         const {body} = req;
         let registration = await registrationModel.create(body, {
             individualHooks: true
@@ -103,6 +107,24 @@ function getRegistrationModule({associatedModels, model}) {
             "new-registration",
             registration.toResponse()
         );
+        admins = await associations.User.getWithRoles([
+            availableRoles.registrationManager
+        ]);
+        admins.forEach(function (user) {
+            mailer.notifyWithEmail({
+                email: registration.email,
+                notification: eventMessages.withTransfomedBody(
+                    eventMessages.deliveryArchived,
+                    (body) => body.replace(
+                        "{userName}",
+                        user.firstName
+                    ).replace(
+                        "{driverName}",
+                        registration.firstName + " " + registration.lastName
+                    )
+                )[user.lang ?? "en"]
+            });
+        });
     }
 
     async function registerIntern(req, res) {
@@ -147,7 +169,13 @@ function getRegistrationModule({associatedModels, model}) {
             individualHooks: false
         });
         res.status(200).send({userCreated: true});
-        //TODO: add the notification logic
+        mailer.notifyWithEmail({
+            email: registration.email,
+            notification: eventMessages.withTransfomedBody(
+                eventMessages.registrationValidated,
+                (body) => body.replace("{userName}", registration.firstName)
+            )[registration.lang ?? "en"]
+        });
     }
     async function rejectRegistration(req, res) {
         const {id} = req.user.token;
@@ -156,7 +184,13 @@ function getRegistrationModule({associatedModels, model}) {
         registration.contributorId = id;
         await registration.save();
         res.status(200).send({rejected: true});
-        //TODO: add the notification logic
+        mailer.notifyWithEmail({
+            email: registration.email,
+            notification: eventMessages.withTransfomedBody(
+                eventMessages.registrationValidated,
+                (body) => body.replace("{userName}", registration.firstName)
+            )[registration.lang ?? "en"]
+        });
     }
 
     return Object.freeze({

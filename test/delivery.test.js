@@ -65,8 +65,8 @@ describe("delivery CRUD test", function () {
             driverId: dbUsers.firstDriver.id,
             initialState: deliveryStatuses.inConflict
         })
-        testDeliveries = await Delivery.bulkCreate([
-            ...generateDBDeliveries({
+        testDeliveries = await Delivery.bulkCreate(
+            generateDBDeliveries({
                 clientId: dbUsers.goodUser.id,
                 dbPointFormatter: toDbPoint,
                 driverId: dbUsers.firstDriver.id,
@@ -75,9 +75,8 @@ describe("delivery CRUD test", function () {
                     ? deliveryStatuses.started
                     : deliveryStatuses.initial
                 )
-            }),
-            ...conflicts
-        ]);
+            }).concat(conflicts)
+        );
 
         conflicts = testDeliveries.filter(
             (delivery) => delivery.status === deliveryStatuses.inConflict

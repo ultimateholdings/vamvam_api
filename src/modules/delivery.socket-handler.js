@@ -3,6 +3,7 @@ node
 */
 const {errors, eventMessages} = require("../utils/system-messages");
 const {socketAuthenticator} = require("../utils/middlewares");
+const {availableRoles} = require("../utils/config");
 
 function deliveryMessageHandler(emitter) {
     const connectedUsers = Object.create(null);
@@ -26,13 +27,13 @@ function deliveryMessageHandler(emitter) {
             });
             socket.join(socket.user.role);
             socket.on("new-position", function (data) {
-                positionUpdateHandler(socket, data);
+                positionUpdateHandler(socket, tryParse(data));
             });
             socket.on("messages-read", function (data) {
                 locationUpdateHandler(socket, data);
             });
             socket.on("itinerary-changed", function (data) {
-                itineraryUpdateHandler(socket, data);
+                itineraryUpdateHandler(socket, tryParse(data));
             });
             emitter.emitEvent(
                 "missed-messages-requested",
@@ -48,13 +49,19 @@ function deliveryMessageHandler(emitter) {
             );
         }
 
-        function itineraryUpdateHandler(socket, data) {
-            const {id} = socket.user;
-            let message = tryParse(data);
-            emitter.emitEvent(
-                "delivery-itinerary-update-requested",
-                {payload: message, userId: id}
-            );
+        function itineraryUpdateHandler(socket, payload) {
+            const {id, role} = socket.user;
+            if (role === availableRoles.driverRole) {
+                emitter.emitEvent(
+                    "delivery-itinerary-update-requested",
+                    {payload, userId: id}
+                );
+            } else {
+                socket.emit(
+                    "itinerary-update-failed",
+                    errors.cannotPerformAction.message
+                );
+            }
         }
 
         function locationUpdateHandler(socket, data) {
@@ -291,7 +298,7 @@ function deliveryMessageHandler(emitter) {
         );
         emitter.addEventListener(
             "failure-payment",
-            function(data){
+            function (data) {
                 const {payload} = data;
                 const messagesEvent = eventMessages.withTransfomedBody(
                     eventMessages.failurePayment,
@@ -302,12 +309,12 @@ function deliveryMessageHandler(emitter) {
                     data,
                     eventName: "failure-payment",
                     fallbackMessage: messagesEvent
-                })
+                });
             }
         );
         emitter.addEventListener(
             "successful-payment",
-            function(data){
+            function (data) {
                 const {payload} = data;
                 const messagesEvent = eventMessages.withTransfomedBody(
                     eventMessages.successPayment,
@@ -318,12 +325,12 @@ function deliveryMessageHandler(emitter) {
                     data,
                     eventName: "successful-payment",
                     fallbackMessage: messagesEvent
-                })
+                });
             }
         );
         emitter.addEventListener(
             "incentive-bonus",
-            function(data){
+            function (data) {
                 const {payload} = data;
                 const messagesEvent = eventMessages.withTransfomedBody(
                     eventMessages.addBonus,
@@ -334,12 +341,12 @@ function deliveryMessageHandler(emitter) {
                     data,
                     eventName: "incentive-bonus",
                     fallbackMessage: messagesEvent
-                })
+                });
             }
         );
         emitter.addEventListener(
             "bonus-withdrawal",
-            function(data){
+            function (data) {
                 const {payload} = data;
                 const messagesEvent = eventMessages.withTransfomedBody(
                     eventMessages.removeBonus,
@@ -349,15 +356,15 @@ function deliveryMessageHandler(emitter) {
                 handleNotification({
                     data,
                     eventName: "bonus-widthdrawal",
-                    fallbackMessage: message
-                })
+                    fallbackMessage: messagesEvent
+                });
             }
         );
         emitter.addEventListener(
             "driver-position-update-failed",
             (data) => handleNotification({
                 data,
-                eventName: "itinerary-update-failed"
+                eventName: "position-update-failed"
             })
         );
         emitter.addEventListener(

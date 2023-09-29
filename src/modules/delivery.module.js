@@ -1,9 +1,9 @@
 /*jslint
 node
 */
-const crypto = require("crypto");
 const {Delivery, DeliveryConflict, User} = require("../models");
-const {errors} = require("../utils/system-messages");
+const {errors, eventMessages} = require("../utils/system-messages");
+const mailer = require("../utils/email-handler")();
 const {
     apiDeliveryStatus,
     conflictStatuses,
@@ -12,6 +12,7 @@ const {
 } = require("../utils/config");
 const {
     formatDbPoint,
+    generateCode,
     isValidLocation,
     propertiesPicker,
     ressourcePaginator,
@@ -56,13 +57,6 @@ function formatBody(deliveryRequest) {
 }
 
 
-async function generateCode(byteSize = 5) {
-    const {
-        default: encoder
-    } = await import("base32-encode");
-    return encoder(crypto.randomBytes(byteSize), "Crockford");
-}
-
 /*
 this function was created just to mimic the delivery
 price calculation due to lack of informations
@@ -101,7 +95,10 @@ function getDeliveryModule({associatedModels, model}) {
         deliveryData.client = deliveryData.client.toShortResponse();
         drivers = drivers ?? [];
         drivers.forEach(function (user) {
-            deliveryModel.emitEvent(eventName, {user, payload: deliveryData});
+            deliveryModel.emitEvent(eventName, {
+                payload: deliveryData,
+                user
+            });
         });
     }
 
@@ -124,7 +121,7 @@ function getDeliveryModule({associatedModels, model}) {
         data.driverId = driverId;
         deliveryModel.emitEvent("point-withdrawal-requested", data);
     }
-    
+
     function formatClientResponse({delivery, id}) {
         let result = delivery.toResponse();
         result.driver = delivery.Driver.toShortResponse();
@@ -140,7 +137,7 @@ function getDeliveryModule({associatedModels, model}) {
         }
         return result;
     }
-    
+
     function formatDriverResponse({delivery, id}) {
         const result = delivery.toResponse();
         result.client = delivery.Client.toShortResponse();
@@ -152,7 +149,7 @@ function getDeliveryModule({associatedModels, model}) {
         }
         if (delivery.driverId !== id) {
             result.conflictId = delivery.conflictId ?? undefined;
-            delivery.driver = delivery.Driver.toShortResponse();
+            result.driver = delivery.Driver.toShortResponse();
         }
         if (delivery.Conflict !== null && delivery.Conflict !== undefined) {
             result.departure = formatDbPoint(delivery.Conflict.lastLocation);
@@ -177,7 +174,10 @@ function getDeliveryModule({associatedModels, model}) {
         members.forEach(function (userId) {
             deliveryModel.emitEvent(
                 "delivery-end",
-                {userId, payload: delivery.id}
+                {
+                    payload: delivery.id,
+                    userId
+                }
             );
         });
         members.push(delivery.driverId);
@@ -194,7 +194,13 @@ function getDeliveryModule({associatedModels, model}) {
         let updated;
         try {
             if (!isValidLocation(data)) {
-                throw new Error("invalid location datas: " + data);
+                deliveryModel.emitEvent("driver-position-update-failed", {
+                    payload: {
+                        data: "Invalid Location Datas",
+                        message: errors.invalidLocation.message
+                    },
+                    userId: driverId
+                });
             }
             if (Array.isArray(data)) {
                 position = data.at(-1);
@@ -225,17 +231,10 @@ function getDeliveryModule({associatedModels, model}) {
                             },
                             userId
                         }
-                    )
+                    );
                 });
             });
-        } catch (error) {
-            deliveryModel.emitEvent("driver-position-update-failed", {
-                payload: {
-                    data: error.message,
-                    message: errors.invalidLocation.message
-                },
-                userId: driverId
-            });
+        } catch (ignore) {
         }
     }
 
@@ -262,7 +261,10 @@ function getDeliveryModule({associatedModels, model}) {
             others.push(delivery.clientId);
             deliveryModel.emitEvent(
                 "itinerary-update-fulfilled",
-                {userId, payload: {updated: true}}
+                {
+                    payload: {updated: true},
+                    userId
+                }
             );
             others.forEach(function (id) {
                 deliveryModel.emitEvent("itinerary-updated", {
@@ -317,7 +319,7 @@ function getDeliveryModule({associatedModels, model}) {
             const {id, role} = req.user.token;
             const {delivery} = req;
             const isExternal = allowedExternals.includes(role);
-            let isInvited = delivery.getRecipientsId()
+            let isInvited = delivery.getRecipientsId();
             let isInvolved = (delivery.clientId === id) || (
                 delivery.driverId === id
             );
@@ -344,7 +346,7 @@ function getDeliveryModule({associatedModels, model}) {
             req.balance = balance;
             next();
         } else {
-            sendResponse(res, errors.cannotPerformAction);
+            sendResponse(res, errors.emptyWallet);
         }
     }
 
@@ -519,8 +521,14 @@ function getDeliveryModule({associatedModels, model}) {
         let main = {};
         let others = [];
         let otherUsers = [];
-        if (typeof request?.phone === "string" && typeof request?.name === "string") {
-            main = {phone: request.phone, name: request.name};
+        if (
+            typeof request?.phone === "string" &&
+            typeof request?.name === "string"
+        ) {
+            main = {
+                name: request.name,
+                phone: request.phone
+            };
             otherUsers.push(request.phone);
         }
         if (Array.isArray(request?.otherPhones) && request.otherPhones.every(
@@ -573,11 +581,11 @@ function getDeliveryModule({associatedModels, model}) {
             delivery.getRecipientPhones()
         );
         notification = {
-            userId: delivery.clientId,
             payload: {
                 deliveryId: delivery.id,
                 driver: driver.toShortResponse()
-            }
+            },
+            userId: delivery.clientId
         };
         deliveryModel.emitEvent("delivery-accepted", notification);
         notification = {
@@ -597,14 +605,13 @@ function getDeliveryModule({associatedModels, model}) {
     }
 
     async function archiveConflict(req, res) {
+        let client;
         const {conflict} = req;
         const {id} = req.user.token;
         const delivery = await conflict.getDelivery();
         const members = delivery.getRecipientsId();
-        const conflictType = deliveryModel
-        .getSettings()
-        .conflict_types
-        .filter((type) => type.code === conflict.type);
+        const conflictType = deliveryModel.getSettings(
+        ).conflict_types.filter((type) => type.code === conflict.type);
         members.push(delivery.clientId);
         conflict.status = conflictStatuses.cancelled;
         conflict.assignerId = id;
@@ -621,6 +628,18 @@ function getDeliveryModule({associatedModels, model}) {
                 userId
             });
         });
+        client = await delivery.getClient();
+        client = client.toResponse();
+        mailer.notifyWithEmail({
+            email: client.email,
+            notification: eventMessages.withTransfomedBody(
+                eventMessages.deliveryArchived,
+                (body, lang) => body.replace(
+                    "{cause}",
+                    conflictType[0][lang] ?? "N/A"
+                )
+            )[client.lang ?? "en"]
+        });
     }
 
     async function assignDriver(req, res) {
@@ -636,8 +655,8 @@ function getDeliveryModule({associatedModels, model}) {
         res.status(200).send({assigned: true});
         payload = formatDriverResponse({delivery, id: driver.id});
         deliveryModel.emitEvent("new-assignment", {
-            userId: driver.id,
-            payload
+            payload,
+            userId: driver.id
         });
         delivery.departure = conflict.lastLocation;
         delivery.deliveryMeta.departureAddress = conflict.lastLocationAdress;
@@ -691,8 +710,8 @@ function getDeliveryModule({associatedModels, model}) {
         res.status(200).send({started: true});
         others.forEach(
             (userId) => deliveryModel.emitEvent("delivery-started", {
-                userId,
-                payload: delivery.id
+                payload: delivery.id,
+                userId
             })
         );
     }
@@ -850,7 +869,10 @@ calculation of at delivery */
         let others;
         const {id} = req.user.token;
         const {delivery} = req;
-        const {conflictType: type, lastPosition} = req.body;
+        const {
+            lastPosition,
+            conflictType: type
+        } = req.body;
         const conflict = {lastPosition, type};
         conflict.reporter = await associations.User.findOne({where: {id}});
         conflict.reporter = conflict.reporter.toShortResponse();
@@ -872,7 +894,10 @@ calculation of at delivery */
         others.forEach(
             (userId) => deliveryModel.emitEvent(
                 "delivery/new-conflict",
-                {userId, payload: delivery.id}
+                {
+                    payload: delivery.id,
+                    userId
+                }
             )
         );
         deliveryModel.emitEvent("manager/new-conflict", {payload: conflict});
@@ -899,8 +924,8 @@ calculation of at delivery */
         res.status(200).send({driverRecieved: true});
         others.forEach(
             (userId) => deliveryModel.emitEvent("delivery-received", {
-                userId,
-                payload: delivery.id
+                payload: delivery.id,
+                userId
             })
         );
     }
@@ -972,8 +997,8 @@ calculation of at delivery */
         response = await terminatedPagination({
             getParams,
             maxPageSize,
-            skip,
-            pageToken
+            pageToken,
+            skip
         });
         response.results = response.results.map(
             (delivery) => formatResponse({delivery, id, role})

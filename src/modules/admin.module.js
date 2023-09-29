@@ -11,6 +11,7 @@ const {
 } = require("../utils/config");
 const {
     propertiesPicker,
+    ressourcePaginator,
     sendResponse
 } = require("../utils/helpers");
 
@@ -22,6 +23,8 @@ function getAdminModule({associatedModels}) {
     };
     const sponsorProps = ["phone", "name", "code"];
     const adminCreationProps = ["phone", "password", "email"];
+    const rankingPagination = ressourcePaginator(Sponsor.getRanking);
+    const mentoringPagination = ressourcePaginator(Sponsor.getEnrolled);
 
     function ensureValidSetting(req, res, next) {
         let setting = {};
@@ -153,10 +156,37 @@ function getAdminModule({associatedModels}) {
         const {data} = req;
         const code = await sponsorCodeValid(data.code);
         if (code.exists) {
-            return sendResponse(res, errors.alreadyAssigned)
+            return sendResponse(res, errors.sponsorCodeExisting);
         }
         await Sponsor.create(data);
         res.status(200).json({created: true});
+    }
+
+    async function getSponsorRanking(req, res) {
+        let results;
+        const {maxPageSize, skip} = req.query;
+        const pageToken = req.headers["page-token"];
+        results = await rankingPagination({maxPageSize, skip, pageToken});
+        res.status(200).json(results);
+    }
+
+    async function getMentoredUsers(req, res) {
+        let results;
+        const {id, maxPageSize, skip} = req.query;
+        const pageToken = req.headers["page-token"];
+        const getParams = function (params) {
+            if (typeof id === "string" && id.length > 0) {
+                params.id = id.trim();
+            }
+            return params;
+        };
+        results = await mentoringPagination({
+            getParams,
+            maxPageSize,
+            pageToken,
+            skip
+        });
+        res.status(200).json(results);
     }
 
     return Object.freeze({
@@ -165,7 +195,9 @@ function getAdminModule({associatedModels}) {
         createSponsor,
         ensureUserExists,
         ensureValidSetting,
+        getMentoredUsers,
         getSettings,
+        getSponsorRanking,
         invalidateEveryOne,
         invalidateUser,
         logoutUser,

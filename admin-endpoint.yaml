@@ -7,7 +7,13 @@ DeliverySettingsData:
   value:
     search_radius: number representing the radius to search a driver in second
     ttl: number representing the delay within which a driver can accept a delivery
-
+sponsorData:
+  sponsor:
+    id: string
+    code: string
+    name: string
+    phone: string
+  sponsored: number
 
 /users/drivers:
   action: get drivers close to a location
@@ -98,6 +104,38 @@ admin-manager:
         ongoing: number
         terminated: number
         total: number
+  /sponsor/create:
+    action: create a new sponsor
+    type: post
+    body:
+      code: string
+      phone: string
+      name: string
+    response:
+      created: boolean
+  /sponsor/ranking:
+    action: provide the list of sponsors sorted by number of mentored users
+    type: get
+    queryString:
+      maxPageSize: number
+      skip: the number of item to skip
+    headers:
+      page-token: string representing the token of the requested page
+    response:
+      nextPageToken: string
+      results: sponsorData[]
+  /sponsor/enrolled:
+    action: provide the list of users mentored by a sponsor
+    type: get
+    queryString:
+      maxPageSize: number
+      skip: the number of item to skip
+      id: string representing the identifier of the sponsor
+    headers:
+      page-token: string representing the token of the requested page
+    response:
+      nextPageToken: string
+      results: shortUserData[]
 
   admin-manager:
   /bundle/new-bundle:

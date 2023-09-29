@@ -14,6 +14,8 @@ const {assert} = require("chai");
 const {
     Delivery,
     Settings,
+    Sponsor,
+    Sponsorship,
     User,
     connection
 } = require("../src/models");
@@ -22,26 +24,27 @@ const {toDbPoint} = require("../src/utils/helpers");
 const {generateDBDeliveries} = require("./fixtures/deliveries.data");
 const {
     generateToken,
+    getDatas,
     otpHandler,
     postData,
     setupServer,
-    users,
-    setupInterceptor,
-    syncInstances
+    subscriber,
+    syncInstances,
+    users
 } = require("./fixtures/helper");
 
 const newAdmins = [
     {
-        phoneNumber: "+234093059540955",
         email: "aMail@vamvamlogistics.com",
-        password: "heyneverthinkofit"
+        password: "heyneverthinkofit",
+        phoneNumber: "+234093059540955"
     },
     {
-        phoneNumber: "+342098403984398439579398",
         email: "foobar@vamvamlogistics.com",
-        password: "justguesswhat"
-    },
-]
+        password: "justguesswhat",
+        phoneNumber: "+342098403984398439579398"
+    }
+];
 describe("admin features tests", function () {
     let app;
     let server;
@@ -92,14 +95,16 @@ describe("admin features tests", function () {
         assert.equal(response.status, 200);
     });
     it("should provide the list of user", async function () {
-        let response = await app.get(
-            "/user/all?maxPageSize=3"
-        ).set("authorization", "Bearer " + dbUsers.admin.token);
-        assert.equal(response.status, 200);
-        response = await app.get(
-            "/user/all?maxPageSize=3"
-        ).set("authorization", "Bearer " + dbUsers.admin.token)
-        .set("page-token", response.body.nextPageToken);
+        let response = await getDatas({
+            app,
+            token: dbUsers.admin.token,
+            url: "/user/all?maxPageSize=3"
+        });
+        response = await getDatas({
+            app,
+            token: dbUsers.admin.token,
+            url: "/user/all?maxPageSize=3"
+        });
         assert.deepEqual(response.body.results.length, 3);
     });
     it("should provide the list of ongoing deliveries", async function () {
@@ -109,52 +114,83 @@ describe("admin features tests", function () {
             ...deliveryGenerator(deliveryStatuses.started)
         ];
         await Delivery.bulkCreate(deliveries);
-        response =
-        await app.get("/delivery/analytics")
-        .set("authorization", "Bearer " + dbUsers.admin.token);
+        response = await getDatas({
+            app,
+            token: dbUsers.admin.token
+        });
         assert.equal(response.status, 200);
     });
     it("should update a setting", async function () {
         let data = {
             type: "delivery",
             value: {ttl: 5500}
-        }
+        };
         let response = await postData({
             app,
             data,
-            url: "/admin/update-settings",
-            token: dbUsers.admin.token
+            token: dbUsers.admin.token,
+            url: "/admin/update-settings"
         });
         assert.equal(response.body.updated, true);
     });
 });
 
 describe("sponsoring tests", function () {
-   let app;
-   const data = {
-       name: "Trésor Dima",
-       phone: "3434343443",
-       code: "12345"
-   };
-   let server;
-   let admin;
-   before(function () {
-       const tmp = setupServer();
-       app = tmp.app;
-       server = tmp.server;
-   });
-   after(function () {
-       server.close();
-   });
-   beforeEach(async function () {
-       await connection.sync();
-       admin = await User.create(users.admin);
-       admin.token = generateToken(admin);
-   });
-   afterEach(async function () {
-       await connection.drop();
-   });
-   it("should create a new sponsor", async function () {
+    let app;
+    const data = {
+        code: "12345",
+        name: "Trésor Dima",
+        phone: "3434343443"
+    };
+    let server;
+    let admin;
+    let allUsers;
+    let sponsors = [users.firstDriver, users.secondDriver];
+    before(function () {
+        const tmp = setupServer();
+        app = tmp.app;
+        server = tmp.server;
+    });
+    after(function () {
+        server.close();
+    });
+    beforeEach(async function () {
+        await connection.sync();
+        sponsors = await Sponsor.bulkCreate(sponsors.map(function (user) {
+            const result = {};
+            const code = String(Math.floor(10000 * Math.random()));
+            Object.assign(result, user);
+            result.code = code;
+            result.name = result.firstName + " " + result.lastName;
+            result.phone = user.phone + "-" + code;
+            return result;
+        }));
+        allUsers = new Array(10).fill(subscriber).map(function (user) {
+            const result = {};
+            const id = "-" + Math.floor(10000000 * Math.random());
+            Object.assign(result, user);
+            result.phone = result.phoneNumber + id;
+            result.firstName += id;
+            result.email = result.email.replace("@bar", id + "@bar");
+            return result;
+        });
+        admin = await User.create(users.admin);
+        admin.token = generateToken(admin);
+        allUsers = await User.bulkCreate(allUsers);
+        Sponsorship.bulkCreate(allUsers.map(function (user, index) {
+            let sponsorId;
+            if (index % 3 === 0) {
+                sponsorId = sponsors[0].id;
+            } else {
+                sponsorId = sponsors[1].id;
+            }
+            return {sponsorId, userId: user.id};
+        }));
+    });
+    afterEach(async function () {
+        await connection.drop();
+    });
+    it("should create a new sponsor", async function () {
         let response = await postData({
             app,
             data,
@@ -162,5 +198,21 @@ describe("sponsoring tests", function () {
             url: "/sponsor/create"
         });
         assert.equal(response.status, 200);
-   });
+    });
+    it("should provide the sponsor ranking", async function () {
+        let response = await getDatas({
+            app,
+            token: admin.token,
+            url: "/sponsor/ranking"
+        });
+        assert.equal(response.body.results[0].sponsored, 6);
+    });
+    it("should list all users sponsored by a sponsor", async function () {
+        let response = await getDatas({
+            app,
+            token: admin.token,
+            url: "/sponsor/enrolled?id=" + sponsors[0].id
+        });
+        assert.equal(response.body.results.length, 4);
+    });
 });
