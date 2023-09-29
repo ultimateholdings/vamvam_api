@@ -85,7 +85,7 @@ describe("Bundle CRUD test", function () {
       point: 20,
       unitPrice: 300,
     };
-    bundle = await Bundle.create(bundles[5]);
+    bundle = await Bundle.create(bundles[2]);
     updateData.id = bundle.id
     response = await app.post("/bundle/update")
     .send(updateData)
@@ -95,7 +95,7 @@ describe("Bundle CRUD test", function () {
   it("should delete bundle", async function(){
     let response;
     let bundle;
-    bundle = await Bundle.create(bundles[5]);
+    bundle = await Bundle.create(bundles[2]);
     const id = bundle.id;
     response = await app
       .post("/bundle/delete")

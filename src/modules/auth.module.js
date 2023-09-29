@@ -26,7 +26,6 @@ function getAuthModule({
     const authModel = model || User;
     const authOtpHandler = otpHandler || getOTPService(otpRequest);
     const authTokenService = tokenService || jwtWrapper;
-    const otpAllowedRoles = ["client", "driver"];
 
     function handleAuthSuccess(res, user) {
         const tokenFactory = authTokenService();
@@ -76,6 +75,17 @@ function getAuthModule({
         }
         req.user = user;
         next();
+    }
+
+    function allowedRoles(roles = []) {
+        return function (req, res, next) {
+            const {user} = req;
+            if (roles.includes(user.role)) {
+                next();
+            } else {
+                sendResponse(res, errors.forbiddenAccess);
+            }
+        };
     }
 
     async function ensureHasReset(req, res, next) {
@@ -206,14 +216,10 @@ function getAuthModule({
     async function verifyOTP(req, res) {
         const {
             code,
-            phoneNumber: phone,
-            role
+            phoneNumber: phone
         } = req.body;
         let currentUser;
         let otpResponse;
-        if (role !== undefined && !otpAllowedRoles.includes(role)) {
-            return sendResponse(res, errors.forbiddenAccess);
-        }
         otpResponse = await authOtpHandler.verifyCode({code, phone});
         if (otpResponse.verified === false) {
             return sendResponse(res, otpResponse);
@@ -248,6 +254,7 @@ function getAuthModule({
         sendResponse(res, errors.invalidCredentials);
     }
     return Object.freeze({
+        allowedRoles,
         changePassword,
         ensureExistingAccount,
         ensureHasReset,

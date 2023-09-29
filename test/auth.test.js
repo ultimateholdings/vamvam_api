@@ -30,7 +30,6 @@ describe("authentication tests", function () {
     let server;
     let app;
     let driver = {};
-    let sponsor;
     const signature = "1234567890";
     before(function () {
         Object.assign(driver, subscriber);
@@ -105,17 +104,18 @@ describe("authentication tests", function () {
         });
         assert.equal(response.status, errors.requestOTP.status);
     });
-    it("should create a new user on verified OTP", async function () {
+    it("should create a new client on verified OTP", async function () {
         let response;
         response = await app.post("/auth/verify-otp").send({
             code: "1234",
-            phoneNumber: users.goodUser.phone,
-            role: "driver",
-            sponsorCode: sponsor.code
+            phoneNumber: users.goodUser.phone
         });
         assert.equal(response.status, 200);
         response = await User.findAll({where: {phone: users.goodUser.phone}});
-        assert.equal(response.length, 1);
+        assert.isTrue(
+            response.length === 1 &&
+            response[0].role === availableRoles.clientRole
+        );
         response = await otpRequest.findOne(
             {where: {phone: users.goodUser.phone}}
         );
@@ -128,6 +128,7 @@ describe("authentication tests", function () {
         let resetToken;
         response = {status: User.statuses.activated};
         Object.assign(response, driver);
+        response.email = "test@foo.com";
         await User.create(response);
         await app.post("/auth/send-reset-otp").send({
             phoneNumber: driver.phone
@@ -156,8 +157,9 @@ describe("authentication tests", function () {
         let response;
         response = {status: User.statuses.activated};
         Object.assign(response, driver);
+        response.email = "test@foo.com";
         await User.create(response);
-        response = await app.post("/auth/login").send({
+        response = await app.post("/auth/driver/login").send({
             password: driver.password,
             phoneNumber: driver.phone
         });

@@ -64,17 +64,28 @@ DeliverySettingsData:
 
 
 non-auth-endpoints:
-  /auth/login : 
-      action: connect with password
-      type: post
-      body:
-        phoneNumber: "ex: +237xxxxxx"
-        password: string
-      response:
-        valid: boolean
-        token: string
-        userExists: boolean
-        message: errorData
+  loginBody:
+    phoneNumber: "ex: +237xxxxxx"
+    password: string
+  loginResponse:
+    valid: boolean
+    token: string
+    message: errorData
+  /auth/admin/login : 
+    action: authenticate as an administrator
+    type: post
+    body: loginBody
+    response: loginResponse
+  /auth/client/login:
+    action: authenticate as a client
+    type: post
+    body: loginBody
+    response: loginResponse
+  /auth/driver/login:
+    action: authenticate as a driver
+    type: post
+    body: loginBody
+    response: loginResponse
 
   /auth/send-otp :
       action: send the OTP code
