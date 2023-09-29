@@ -60,10 +60,14 @@ function defineSponsorModel({connection, model, name}) {
         foreignKey,
         primaryKey: true
     });
-    model.handleSponsoringRequest = async function (code, memberId) {
+    model.handleSponsoringRequest = async function (code = null, memberId) {
         let where = {};
+        let sponsor;
         let sponsoring;
-        let sponsor = await Sponsor.findOne({where: {code}});
+        if (code === null) {
+            return;
+        }
+        sponsor = await Sponsor.findOne({where: {code}});
         where[foreignKey] = memberId;
         sponsoring = await Sponsorship.findOne({where});
         if (sponsor !== null && sponsoring === null) {
