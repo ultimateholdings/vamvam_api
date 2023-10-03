@@ -153,17 +153,26 @@ Message.getAllByRoom = async function ({
     };
 };
 
-Message.getMissedMessages = async function (userId) {
+Message.getMissedMessages = async function (id) {
     let clause = [
         where(
-            fn("JSON_SEARCH", col("reader"), "one", userId),
+            fn("JSON_SEARCH", col("reader"), "one", id),
             {[Op.is] : null}
         ),
-        {senderId: {[Op.ne]: userId}}
+        {senderId: {[Op.ne]: id}}
     ];
     let result = await this.findAll({
         include: [
-            {attributes: ["id", "name"], model: Room, required: true},
+            {
+                attributes: ["id", "name"],
+                include: {
+                    model: User,
+                    required: true,
+                    where: {id}
+                },
+                model: Room,
+                required: true
+            },
             {as: "sender", model: User, required: true}
         ],
         where: {

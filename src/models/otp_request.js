@@ -48,7 +48,7 @@ function define_OTP_request(connection) {
             where(fn(
                 "TIMESTAMPDIFF",
                 literal("SECOND"),
-                col("createdAt"),
+                col("updatedAt"),
                 fn("NOW")
             ), {[Op.lt]: ttlInSeconds}),
             {phone, type}

@@ -147,12 +147,12 @@ const config = Object.freeze({
                     channel: "generic",
                     from: "VAMVAM",
                     message_text: "Your verification code is" +
-                    " @vamvam@ \n\n" + signature,
+                    " <vamvam> \n\n" + signature,
                     message_type: "ALPHANUMERIC",
                     pin_attempts: 3,
                     pin_length: 6,
-                    pin_placeholder: "@vamvam@",
-                    pin_time_to_live: 3,
+                    pin_placeholder: "<vamvam>",
+                    pin_time_to_live: 60,
                     to: receiver
                 };
             },
