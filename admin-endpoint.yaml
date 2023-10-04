@@ -14,6 +14,17 @@ sponsorData:
     name: string
     phone: string
   sponsored: number
+registrationData:
+  age: string
+  carInfos: File
+  firstName: string
+  email: string
+  gender: M | F
+  lang: string
+  lastName: string
+  password: string
+  phoneNumber: string
+  sponsorCode: string
 
 /users/drivers:
   action: get drivers close to a location
@@ -33,13 +44,59 @@ conflict-manager:
     response:
       assigned: boolean
   /delivery/conflict/archive:
-      action: archive a conflicting delivery
-      type: post
-      body:
-        id: string representing the conflict Id
-      response:
-        archived: boolean
+    action: archive a conflicting delivery
+    type: post
+    body:
+      id: string representing the conflict Id
+    response:
+      archived: boolean
+
+registration-manager:
+  /driver/register-intern:
+    action: create an internal driver (mostly used to solve conflict)
+    type: post
+    body: registrationData
+    response:
+      registered: boolean
+  /driver/update-registration:
+    action: update a driver registration
+    type: post
+    body: registrationData
+    response:
+      updated: boolean
+  /driver/validate-registration:
+    action: validate a driver registration
+    type: post
+    body:
+      id: string representing the registration Id
+    response:
+      valdiated: boolean
+  /driver/reject-registration:
+    action: reject a driver registration
+    type: post
+    body:
+      id: string representing the registration Id
+    response:
+      rejected: boolean
+  /driver/new-registrations:
+    action: get new driver registrations
+    type: get
+    queryString:
+      maxPageSize: number
+      name: string representing the full name of the driver to match
+      skip: number
+  /driver/all-validated:
+    action: get new driver registrations
+    type: get
+    queryString:
+      from: date after which the validation has been done (YYYY-MM-DD)
+      maxPageSize: number
+      name: string representing the full name of the driver to match
+      skip: number
+      to: date before which the validation has been done (YYYY-MM-DD)
+
   
+
 admin-manager:
   /admin/block-user:
     action: "block a user account"
@@ -136,8 +193,6 @@ admin-manager:
     response:
       nextPageToken: string
       results: shortUserData[]
-
-  admin-manager:
   /bundle/new-bundle:
     action: "create new bundle"
     type: post
@@ -184,9 +239,7 @@ admin-manager:
     type: post
     body:
       id: string
-    response:
 
-  admin-manager:
   /transaction/payment-history:
     action: "lists payments within a given time interval"
     type: get

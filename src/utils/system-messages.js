@@ -147,6 +147,13 @@ const errors = {
         },
         status: 400
     },
+    nonexistingUser: {
+        message: {
+            en: "This user does not exists please consider signing up",
+            fr: "Cet utilisateur n'existe pas, veuillez vous inscrire"
+        },
+        status: 404
+    },
     notAuthorized: {
         message: {
             en: "You are not authorized to perform this action",
@@ -175,17 +182,17 @@ const errors = {
         },
         status: 440
     },
-    paymentApproveFail: {
-        message: {
-            en: "Unapproved payment!",
-            fr: "Paiement non approuvé!"
-        },
-        status: 401
-    },
     paymentAlreadyVerified: {
         message: {
             en: "This payment has already been verified!",
             fr: "Ce paiement a déjà été vérifié !"
+        },
+        status: 401
+    },
+    paymentApproveFail: {
+        message: {
+            en: "Unapproved payment!",
+            fr: "Paiement non approuvé!"
         },
         status: 401
     },
@@ -238,12 +245,12 @@ const errors = {
 const eventMessages = {
     addBonus: {
         en: {
-            title:"Incentive bonus!",
-            body: "You have received number bonus points "
+            body: "You have received number bonus points ",
+            title: "Incentive bonus!"
         },
         fr: {
-            title:"Prime d'encouragement!",
-            body: "Vous avez reçus number points bonus"
+            body: "Vous avez reçus number points bonus",
+            title: "Prime d'encouragement!"
         }
     },
     deliveryAccepted: {
@@ -314,12 +321,13 @@ const eventMessages = {
     },
     failurePayment: {
         en: {
-            body: "You have tried to make a payment of amount XAF without success",
+            body: "You have tried to make a payment of amount XAF" +
+            " without success",
             title: "Failed payment!"
         },
         fr: {
-            body:
-            "Vous avez essayé d'effectuer un paiement de amount XAF sans succès",
+            body: "Vous avez essayé d'effectuer un paiement de" +
+            " amount XAF sans succès",
             title: "Echec du paiement!"
         }
     },
@@ -398,13 +406,27 @@ const eventMessages = {
             title: "Nouvelle discussion"
         }
     },
+    registrationRejected: {
+        en: {
+            body: "Hello {userName},\n we are sorry to announce you that " +
+            "your souscription has been rejected so please consider " +
+            "reaching out the support.",
+            title: "Souscription rejected"
+        },
+        fr: {
+            body: "Bonjour {userName}, nous sommes désolés " +
+            "de vous annoncer que votre souscription a été rejetée. " +
+            "Veuillez donc contacter le service d'assistance.",
+            title: "Souscription rejétée"
+        }
+    },
     registrationValidated: {
         en: {
             body: "Hello {userName},\n we are proud to welcome you to our" +
             " amazing community of vamvam driver you can now receive " +
             "new delivery order once you'll top up your account for more " +
             "informations please contact the support for further informations",
-            title:"Souscription validated"
+            title: "Souscription validated"
         },
         fr: {
             body: "Bonjour {userName}, nous sommes fiers de vous " +
@@ -412,31 +434,17 @@ const eventMessages = {
             "vamvam. Vous pouvez maintenant recevoir de nouveaux ordres" +
             " de livraison une fois que vous aurez rechargé votre compte," +
             " veuillez contacter le support pour plus d'informations.",
-            title:"Souscription validée"
-        }
-    },
-    registrationRejected: {
-        en: {
-            body: "Hello {userName},\n we are sorry to announce you that " +
-            "your souscription has been rejected so please consider " +
-            "reaching out the support.",
-            title:"Souscription rejected"
-        },
-        fr: {
-            body: "Bonjour {userName}, nous sommes désolés " +
-            "de vous annoncer que votre souscription a été rejetée. " +
-            "Veuillez donc contacter le service d'assistance.",
-            title:"Souscription rejétée"
+            title: "Souscription validée"
         }
     },
     removeBonus: {
         en: {
             body: "Your account has been debited with number bonus points",
-            title:"Withdrawal of bonus points!"
+            title: "Withdrawal of bonus points!"
         },
         fr: {
             body: "Votre compte a été débité de number points bonus",
-            title:"Retrait de point bonus!"
+            title: "Retrait de point bonus!"
         }
     },
     roomDeletedBody: {

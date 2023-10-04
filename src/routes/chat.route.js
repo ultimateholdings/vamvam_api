@@ -8,6 +8,7 @@ const {errorHandler} = require("../utils/helpers");
 const {availableRoles: roles} = require("../utils/config");
 const {
     allowRoles,
+    parsePaginationHeaders,
     protectRoute
 } = require("../utils/middlewares");
 
@@ -29,6 +30,7 @@ function getChatRouter(module) {
         allowRoles([roles.clientRole, roles.driverRole]),
         chatModule.ensureRoomExists,
         chatModule.ensureUserInRoom,
+        parsePaginationHeaders,
         errorHandler(chatModule.getRoomMessages)
     );
     router.get(

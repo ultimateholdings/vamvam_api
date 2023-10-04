@@ -79,14 +79,6 @@ function getUserModule({
             }
             return params;
         };
-        maxPageSize = Number.parseInt(maxPageSize, 10);
-        if (!Number.isFinite(maxPageSize)) {
-            maxPageSize = 10;
-        }
-        skip = Number.parseInt(skip, 10);
-        if (!Number.isFinite(skip)) {
-            skip = undefined;
-        }
         results = await userPagination({
             getParams,
             maxPageSize,

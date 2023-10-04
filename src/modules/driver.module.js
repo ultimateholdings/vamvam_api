@@ -5,6 +5,7 @@ const {
     fileExists,
     pathToURL,
     propertiesPicker,
+    ressourcePaginator,
     sendResponse
 } = require("../utils/helpers");
 const {errors, eventMessages} = require("../utils/system-messages");
@@ -15,6 +16,7 @@ const mailer = require("../utils/email-handler")();
 function getRegistrationModule({associatedModels, model}) {
     const registrationModel = model || Registration;
     const associations = associatedModels || {User};
+    const paginateRegistrations = ressourcePaginator(Registration.getAll);
 
     async function ensureValidDatas(req, res, next) {
         const requiredDatas = registrationModel.requiredProps ?? [];
@@ -199,6 +201,44 @@ function getRegistrationModule({associatedModels, model}) {
         });
     }
 
+    async function getNewRegistrations(req, res) {
+        const {maxPageSize, name, skip} = req.query;
+        const pageToken = req.headers["page-token"];
+        const getParams = function (params) {
+            params.name = name;
+            return params;
+        };
+        const registrations = await paginateRegistrations({
+            getParams,
+            maxPageSize,
+            pageToken,
+            skip
+        });
+        res.status(200).json(registrations);
+    }
+    
+    async function getValidated(req, res) {
+        const {from, maxPageSize, name, skip, to} = req.query;
+        const pageToken = req.headers["page-token"];
+        const getParams = function (params) {
+            params.name = name;
+            params.from = from;
+            if (Number.isNaN(Date.parse(to))) {
+                params.to = new Date();
+            } else {
+                params.to = to;
+            }
+            return params;
+        };
+        const registrations = await paginateRegistrations({
+            getParams,
+            maxPageSize,
+            pageToken,
+            skip
+        });
+        res.status(200).json(registrations);
+    }
+
     return Object.freeze({
         ensureIsGranted,
         ensureRegistrationExists,
@@ -206,6 +246,8 @@ function getRegistrationModule({associatedModels, model}) {
         ensureUnregistered,
         ensureUserNotExists,
         ensureValidDatas,
+        getNewRegistrations,
+        getValidated,
         registerDriver,
         registerIntern,
         rejectRegistration,

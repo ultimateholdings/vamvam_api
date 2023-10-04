@@ -5,7 +5,11 @@ const express = require("express");
 const getRegistrationModule = require("../modules/driver.module");
 const {errorHandler} = require("../utils/helpers");
 const {carInfosValidator, hashedUploadHandler} = require("../utils/upload");
-const {allowRoles, protectRoute} = require("../utils/middlewares");
+const {
+    allowRoles,
+    parsePaginationHeaders,
+    protectRoute
+} = require("../utils/middlewares");
 const {
     availableRoles: roles
 } = require("../utils/config");
@@ -20,6 +24,21 @@ const fieldsOptions = {
 function buildRegistrationRoutes(module) {
     const routeModule = module || getRegistrationModule({});
     const router = new express.Router();
+
+    router.get(
+        "/new-registrations",
+        protectRoute,
+        allowRoles([roles.registrationManager]),
+        parsePaginationHeaders,
+        errorHandler(routeModule.getNewRegistrations)
+    );
+    router.get(
+        "/all-validated",
+        protectRoute,
+        allowRoles([roles.registrationManager]),
+        parsePaginationHeaders,
+        errorHandler(routeModule.getValidated)
+    );
     router.post(
         "/register",
         hashedUploadHandler(fieldsOptions).single("carInfos"),

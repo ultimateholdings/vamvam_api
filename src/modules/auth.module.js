@@ -71,7 +71,7 @@ function getAuthModule({
             phone: phone ?? phoneNumber
         }});
         if (user === null) {
-            return sendResponse(res, errors.notFound, {phone});
+            return sendResponse(res, errors.nonexistingUser, {phone});
         }
         req.user = user;
         next();

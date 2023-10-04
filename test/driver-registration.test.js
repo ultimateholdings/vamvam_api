@@ -12,6 +12,7 @@ const {
 } = require("mocha");
 const {assert} = require("chai");
 const {
+    Delivery,
     Registration,
     Sponsor,
     Sponsorship,
@@ -21,6 +22,7 @@ const {
 const {
     clientSocketCreator,
     generateToken,
+    getDatas,
     listenEvent,
     loginUser,
     otpHandler,
@@ -35,8 +37,25 @@ const registrationHandler = require("../src/modules/driver.socket-handler");
 const {errors} = require("../src/utils/system-messages");
 const {fileExists, getFileHash} = require("../src/utils/helpers");
 
+const carInfosPath = "test/fixtures/specs.pdf";
+function generateSubscribers(total, validated = false) {
+    const date = Date.now();
+    return Array(total).fill(subscriber).map(function (infos) {
+        const random = Math.floor(Math.random() * 100000 * total);
+        const driver = {};
+        const id = "-" + random;
+        Object.assign(driver, infos);
+        driver.firstName = infos.firstName + id;
+        driver.email = infos.email.replace("@", id + "@");
+        driver.phoneNumber = infos.phoneNumber + id;
+        driver.carInfos = carInfosPath;
+        if (validated) {
+            driver.validationDate = new Date(date - random);
+        }
+        return driver;
+    })
+}
 describe("registration tests", function () {
-    const carInfosPath = "test/fixtures/specs.pdf";
     let carInfoHash;
     let app;
     let server;
@@ -50,7 +69,7 @@ describe("registration tests", function () {
         app = tmp.app;
         socketServer = getSocketManager({
             httpServer: server,
-            registrationHandler: registrationHandler(Registration)
+            registrationHandler: registrationHandler(Delivery)
         });
         carInfoHash = await getFileHash(carInfosPath);
         carInfoHash = "public/registrations/vamvam_" + carInfoHash + ".pdf";
@@ -168,5 +187,27 @@ with the date serialization to avoid false negative*/
         assert.equal(response.status, 200);
         response = await User.findOne({where: {id: response.body.id}});
         assert.isTrue(response.internal);
+    });
+    it("should provide the list of registration demands", async function () {
+        let response;
+        await Registration.bulkCreate(generateSubscribers(6));
+        response = await getDatas({
+            app,
+            token: managerToken,
+            url: "/driver/new-registrations?name=Nkang"
+        });
+        assert.equal(response.body?.results?.length, 6);
+    });
+    it("should provide the list of validated registration", async function () {
+        let response;
+        await Registration.bulkCreate(
+            generateSubscribers(10, true).concat(generateSubscribers(4))
+        );
+        response = await getDatas({
+            app,
+            token: managerToken,
+            url: "/driver/all-validated"
+        });
+        assert.equal(response.body?.results?.length, 10);
     });
 });

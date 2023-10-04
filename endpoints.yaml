@@ -3,14 +3,16 @@ locationData:
   longitude: double
   latitude: double
 registrationData:
-  phoneNumber: string
-  firstName: string
-  lastName: string
-  password: string
-  email: string
-  gender: M | F
   age: string
   carInfos: File
+  firstName: string
+  email: string
+  gender: M | F
+  lang: string
+  lastName: string
+  password: string
+  phoneNumber: string
+  sponsorCode: string
 errorData: 
   en: string
   fr: string

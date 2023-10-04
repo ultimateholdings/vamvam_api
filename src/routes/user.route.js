@@ -3,7 +3,11 @@ node
 */
 const express = require("express");
 const getUserModule = require("../modules/user.module");
-const {allowRoles, protectRoute} = require("../utils/middlewares");
+const {
+    allowRoles,
+    parsePaginationHeaders,
+    protectRoute
+} = require("../utils/middlewares");
 const {errorHandler} = require("../utils/helpers");
 const {availableRoles: roles} = require("../utils/config");
 const {
@@ -41,6 +45,7 @@ function getUserRouter(userModule) {
         "/all",
         protectRoute,
         allowRoles([roles.adminRole]),
+        parsePaginationHeaders,
         errorHandler(routerModule.getAllUsers)
     )
 

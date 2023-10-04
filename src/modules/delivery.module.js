@@ -734,14 +734,6 @@ function getDeliveryModule({associatedModels, model}) {
             params.from = from;
             return params;
         };
-        maxPageSize = Number.parseInt(maxPageSize, 10);
-        if (!Number.isFinite(maxPageSize)) {
-            maxPageSize = 10;
-        }
-        skip = Number.parseInt(skip, 10);
-        if (!Number.isFinite(skip)) {
-            skip = undefined;
-        }
         results = await deliveryPagination({
             getParams,
             maxPageSize,
@@ -986,14 +978,6 @@ calculation of at delivery */
             params.userId = id;
             return params;
         };
-        skip = Number.parseInt(skip, 10);
-        maxPageSize = Number.parseInt(maxPageSize, 10);
-        if (!Number.isFinite(maxPageSize)) {
-            maxPageSize = 10;
-        }
-        if (!Number.isFinite(skip)) {
-            skip = undefined;
-        }
         response = await terminatedPagination({
             getParams,
             maxPageSize,

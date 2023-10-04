@@ -8,6 +8,7 @@ const {errorHandler} = require("../utils/helpers");
 const {availableRoles: roles} = require("../utils/config");
 const {
     allowRoles,
+    parsePaginationHeaders,
     protectRoute
 } = require("../utils/middlewares");
 
@@ -38,14 +39,16 @@ function getDeliveryRouter(module) {
         "/terminated",
         protectRoute,
         allowRoles([roles.clientRole, roles.driverRole]),
+        parsePaginationHeaders,
         errorHandler(deliveryModule.getTerminatedDeliveries)
-    );
+        );
     router.get(
         "/all",
         protectRoute,
         allowRoles([roles.adminRole]),
+        parsePaginationHeaders,
         errorHandler(deliveryModule.getAllPaginated)
-    );
+        );
     router.get(
         "/analytics",
         protectRoute,
