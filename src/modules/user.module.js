@@ -65,8 +65,12 @@ function getUserModule({
         return response;
     }
 
-    function getInformations(req, res) {
-        res.status(200).json(req.userData.toResponse());
+    async function getInformations(req, res) {
+        let result;
+        const code = await req.userData.getSponsorCode();
+        result = req.userData.toResponse();
+        result.sponsorCode = code;
+        res.status(200).json(result);
     }
 
     async function getAllUsers(req, res) {

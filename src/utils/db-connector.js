@@ -2,14 +2,27 @@
 node
 */
 "use strict";
-const  {DataTypes, Sequelize} = require("sequelize");
+const {DataTypes, Sequelize} = require("sequelize");
 const {getdbConfig} = require("./config.js");
+
+const defaultResponse = {
+    with(opts) {
+        const result = {};
+        Object.assign(result, this);
+        if (typeof opts === "object") {
+            Object.entries(opts).forEach(function ([key, value]) {
+                result[key] = value;
+            });
+        }
+        return result;
+    }
+};
 
 function sequelizeConnect({
     database,
     password = null,
     port,
-    username,
+    username
 }) {
     let connection = new Sequelize(database, username, password, {
         dialect: "mariadb",
@@ -18,20 +31,13 @@ function sequelizeConnect({
     });
     return connection;
 }
-function uniqueString() {
-    return {
-        allowNull: false,
-        type: DataTypes.STRING,
-        unique: true
-    };
-};
 function uuidType() {
     return {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
         type: DataTypes.UUID
     };
-};
+}
 
 function enumType(initialValue, set) {
     let values = set;
@@ -47,16 +53,17 @@ function enumType(initialValue, set) {
 }
 
 function required(type) {
-    return {
+    const result = {};
+    Object.assign(result, defaultResponse);
+    return result.with({
         allowNull: false,
         type: type ?? new DataTypes.GEOMETRY("POINT")
-    };
+    });
 }
 
-module.exports =  Object.freeze({
+module.exports = Object.freeze({
     enumType,
-    sequelizeConnection: (config = getdbConfig()) => sequelizeConnect(config),
     required,
-    uniqueString,
+    sequelizeConnection: (config = getdbConfig()) => sequelizeConnect(config),
     uuidType
 });

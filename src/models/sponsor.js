@@ -2,16 +2,16 @@
 const {DataTypes, col, fn} = require("sequelize");
 const {CustomEmitter} = require("../utils/helpers");
 const {constraints, join, paginationQuery} = require("./helper");
-const {uniqueString, uuidType} = require("../utils/db-connector");
+const {required, uuidType} = require("../utils/db-connector");
 
 
 function defineSponsorModel({connection, model, name}) {
     const emitter = new CustomEmitter("Sponsor Emitter");
     const schema = {
-        code: uniqueString(),
+        code: required(DataTypes.STRING).with({unique: true}),
         id: uuidType(),
         name: DataTypes.STRING,
-        phone: uniqueString()
+        phone: required(DataTypes.STRING).with({unique: true})
     };
     const sponsorshipSchema = {id: uuidType()};
     const Sponsor = connection.define("sponsor", schema);
@@ -44,6 +44,13 @@ function defineSponsorModel({connection, model, name}) {
             await Sponsorship.create(where);
         }
     };
+    model.prototype.getSponsorCode = async function () {
+        let result;
+        const {phone} = this.dataValues;
+        const where = {phone};
+        result = await Sponsor.findOne({where});
+        return result?.code ?? null;
+    }
     Sponsor.getRanking = async function ({maxSize, offset}) {
         let formerLastId;
         let results;
@@ -61,9 +68,10 @@ function defineSponsorModel({connection, model, name}) {
             formerLastId = formerLastId?.dataValues?.sponsor?.id;
         }
         results = results.map(function (sponsorship) {
-            let {sponsor, totalUsers: sponsored} = sponsorship.dataValues;
-            sponsor = sponsor.toResponse();
-            return {sponsor, sponsored};
+            let {sponsor, totalUsers} = sponsorship.dataValues;
+            const result = {sponsored: totalUsers};
+            result.sponsor = sponsor.toResponse();
+            return result;
         });
         return {
             formerLastId,

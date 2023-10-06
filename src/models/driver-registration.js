@@ -1,10 +1,8 @@
 /*jslint node this*/
 const {DataTypes, Op, col, fn, where} = require("sequelize");
+const {ages, userStatuses} = require("../utils/config");
 const {
-    ages,
-    userStatuses
-} = require("../utils/config");
-const {
+    CustomEmitter,
     hashPassword,
     pathToURL,
     propertiesPicker
@@ -92,6 +90,7 @@ function defineDriverRegistration(connection) {
         },
         validationDate: DataTypes.DATE
     };
+    const emitter = new CustomEmitter("Registration emitter");
     const registration = connection.define("driver_registration", schema, {
         hooks: {
             beforeCreate: async function (record) {
@@ -164,6 +163,7 @@ function defineDriverRegistration(connection) {
             values: results.map((result) => result.toResponse())
         };
     };
+    emitter.decorate(registration);
     return registration;
 }
 

@@ -67,7 +67,7 @@ Settings.addEventListener("settings-update", function (data) {
     }
 });
 Settings.forward("user-revocation-requested").to(delivery);
-
+Registration.forward("new-registration").to(delivery);
 function formatRoomMessage(row) {
     const {content, createdAt, id, room, sender} = row;
     return Object.freeze({
