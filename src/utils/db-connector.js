@@ -2,7 +2,7 @@
 node
 */
 "use strict";
-const  {Sequelize} = require("sequelize");
+const  {DataTypes, Sequelize} = require("sequelize");
 const {getdbConfig} = require("./config.js");
 
 function sequelizeConnect({
@@ -18,7 +18,45 @@ function sequelizeConnect({
     });
     return connection;
 }
+function uniqueString() {
+    return {
+        allowNull: false,
+        type: DataTypes.STRING,
+        unique: true
+    };
+};
+function uuidType() {
+    return {
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+        type: DataTypes.UUID
+    };
+};
+
+function enumType(initialValue, set) {
+    let values = set;
+    let defaultValue;
+    const type = DataTypes.ENUM;
+    if (!Array.isArray(set)) {
+        values = Object.values(set);
+    }
+    if (typeof initialValue === "string") {
+        defaultValue = initialValue;
+    }
+    return {defaultValue, type, values};
+}
+
+function required(type) {
+    return {
+        allowNull: false,
+        type: type ?? new DataTypes.GEOMETRY("POINT")
+    };
+}
 
 module.exports =  Object.freeze({
-    sequelizeConnection: (config = getdbConfig()) => sequelizeConnect(config)
+    enumType,
+    sequelizeConnection: (config = getdbConfig()) => sequelizeConnect(config),
+    required,
+    uniqueString,
+    uuidType
 });

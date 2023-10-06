@@ -1,46 +1,19 @@
 /*jslint node this */
 const {DataTypes, col, fn} = require("sequelize");
 const {CustomEmitter} = require("../utils/helpers");
+const {constraints, join, paginationQuery} = require("./helper");
+const {uniqueString, uuidType} = require("../utils/db-connector");
 
-const initialQuery = function (offset, maxSize) {
-    let query = {};
-    if (offset > 0) {
-        query.limit = maxSize + 1;
-        query.offset = offset - 1;
-    } else {
-        query.limit = maxSize;
-        query.offset = offset;
-    }
-    return query;
-};
 
 function defineSponsorModel({connection, model, name}) {
     const emitter = new CustomEmitter("Sponsor Emitter");
     const schema = {
-        code: {
-            allowNull: false,
-            type: DataTypes.STRING,
-            unique: true
-        },
-        id: {
-            defaultValue: DataTypes.UUIDV4,
-            primaryKey: true,
-            type: DataTypes.UUID
-        },
+        code: uniqueString(),
+        id: uuidType(),
         name: DataTypes.STRING,
-        phone: {
-            allowNull: false,
-            type: DataTypes.STRING,
-            unique: true
-        }
+        phone: uniqueString()
     };
-    const sponsorshipSchema = {
-        id: {
-            defaultValue: DataTypes.UUIDV4,
-            primaryKey: true,
-            type: DataTypes.UUID
-        }
-    };
+    const sponsorshipSchema = {id: uuidType()};
     const Sponsor = connection.define("sponsor", schema);
     const Sponsorship = connection.define("sponsorship", sponsorshipSchema);
     const foreignKey = name + "Id";
@@ -48,19 +21,15 @@ function defineSponsorModel({connection, model, name}) {
     Sponsor.prototype.toResponse = function () {
         return this.dataValues;
     };
-    Sponsorship.belongsTo(Sponsor, {
-        as: "sponsor",
-        constraints: false,
-        foreignKey: "sponsorId",
-        primaryKey: true
-    });
-    Sponsorship.belongsTo(model, {
-        as: name,
-        constraints: false,
-        foreignKey,
-        primaryKey: true
-    });
-    model.handleSponsoringRequest = async function (code = null, memberId) {
+    Sponsorship.belongsTo(
+        Sponsor,
+        constraints("sponsorId", "sponsor").with({primaryKey: true})
+    );
+    Sponsorship.belongsTo(
+        model,
+        constraints(foreignKey, name).with({primaryKey: true})
+    );
+    model.handleSponsoringRequest = async function (memberId, code = null) {
         let where = {};
         let sponsor;
         let sponsoring;
@@ -78,18 +47,12 @@ function defineSponsorModel({connection, model, name}) {
     Sponsor.getRanking = async function ({maxSize, offset}) {
         let formerLastId;
         let results;
-        const query = initialQuery(offset, maxSize);
+        const query = paginationQuery(offset, maxSize);
         query.attributes = [
             "sponsorId",
             [fn("COUNT", col("sponsorId")), "totalUsers"]
         ];
-        query.include = [
-            {
-                as: "sponsor",
-                model: Sponsor,
-                required: true
-            }
-        ];
+        query.include = join(Sponsor, "sponsor");
         query.group = ["sponsorId"];
         query.order = [["totalUsers", "DESC"]];
         results = await Sponsorship.findAll(query);
@@ -98,11 +61,9 @@ function defineSponsorModel({connection, model, name}) {
             formerLastId = formerLastId?.dataValues?.sponsor?.id;
         }
         results = results.map(function (sponsorship) {
-            const {sponsor, totalUsers} = sponsorship.dataValues;
-            return {
-                sponsor: sponsor.toResponse(),
-                sponsored: totalUsers
-            };
+            let {sponsor, totalUsers: sponsored} = sponsorship.dataValues;
+            sponsor = sponsor.toResponse();
+            return {sponsor, sponsored};
         });
         return {
             formerLastId,
@@ -117,19 +78,10 @@ function defineSponsorModel({connection, model, name}) {
     }) {
         let results;
         let formerLastId;
-        const query = initialQuery(offset, maxSize);
+        const query = paginationQuery(offset, maxSize);
         query.include = [
-            {
-                as: "sponsor",
-                model: Sponsor,
-                required: true,
-                where: {id}
-            },
-            {
-                as: name,
-                model,
-                required: true
-            }
+            join(Sponsor, "sponsor").with({where: {id}}),
+            join(model, name)
         ];
         query.order = [["createdAt", "DESC"]];
         results = await Sponsorship.findAll(query);

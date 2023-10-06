@@ -181,8 +181,8 @@ function getRegistrationModule({associatedModels, model}) {
             )[registration.lang ?? "en"]
         });
         await associations.User.handleSponsoringRequest(
-            registration.sponsorCode,
-            createdUser.id
+            createdUser.id,
+            registration.sponsorCode
         );
     }
     async function rejectRegistration(req, res) {

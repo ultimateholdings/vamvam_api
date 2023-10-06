@@ -437,21 +437,12 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
 }
 
 
-function sendCloudMessage({ body, meta, title, to }) {
-  const config = getFirebaseConfig();
-  return fetchUrl({
-    body: {
-      data: meta,
-      notification: {
-        body,
-        mutable_content: true,
-        title,
-      },
-      to,
-    },
-    headers: config.headers,
-    url: config.url,
-  });
+function sendCloudMessage({body, meta: data, title, to}) {
+  const {headers, url} = getFirebaseConfig();
+  const mutable_content = true;
+  const notification = {body, mutable_content, title};
+  const content = {data, notification, to};
+  return fetchUrl({body: content, headers, url});
 }
 function getPaymentService(paymentModel) {
   async function initTrans(payload, driverId, packId) {

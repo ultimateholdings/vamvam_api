@@ -163,7 +163,7 @@ function getUserModule({
                 updated: updated > 0,
                 updatedProps
             }));
-            await userModel.handleSponsoringRequest(req.body.sponsorCode, id);
+            await userModel.handleSponsoringRequest(id, req.body.sponsorCode);
         } else {
             sendResponse(res, errors.invalidUploadValues);
         }
