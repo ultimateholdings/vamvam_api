@@ -127,6 +127,13 @@ function getDeliveryRouter(module) {
         parsePaginationHeaders,
         errorHandler(deliveryModule.getNewConflicts)
     );
+    conflictRouter.get(
+        "/",
+        protectRoute,
+        allowRoles([roles.conflictManager]),
+        parsePaginationHeaders,
+        errorHandler(deliveryModule.getAssignedConflicts)
+    );
     conflictRouter.post(
         "/verify-code",
         protectRoute,

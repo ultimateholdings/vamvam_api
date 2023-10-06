@@ -1005,6 +1005,27 @@ calculation of at delivery */
         res.status(200).json(response);
     }
 
+    async function getAssignedConflicts(req, res) {
+        let response;
+        const {id} = req.user.token;
+        const {maxPageSize, skip} = req.query;
+        const pageToken = req.headers["page-token"];
+        const getParams = function (params) {
+            const result = Object.create(null);
+            Object.assign(result, params);
+            result.assignerId = id;
+            return result;
+        };
+        response = await conflictPagination({
+            getParams,
+            maxPageSize,
+            pageToken,
+            skip
+        });
+        res.status(200).json(response);
+
+    }
+
 
     return Object.freeze({
         acceptDelivery,
@@ -1024,6 +1045,7 @@ calculation of at delivery */
         ensureNotExpired,
         getAllPaginated,
         getAnalytics,
+        getAssignedConflicts,
         getInfos,
         getNewConflicts,
         getOngoingDeliveries,

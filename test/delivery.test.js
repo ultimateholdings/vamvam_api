@@ -80,11 +80,21 @@ describe("delivery CRUD test", function () {
 
         conflicts = testDeliveries.filter(
             (delivery) => delivery.status === deliveryStatuses.inConflict
-        ).map((delivery) => Object.freeze({
-                reporterId: dbUsers.firstDriver.id,
-                deliveryId: delivery.id,
-                lastLocation: toDbPoint(missoke),
-                type: "fake type"
+        ).map((delivery, index) => Object.freeze({
+            assigneeId: (
+                index === 0
+                ? dbUsers.secondDriver.id
+                : null
+            ),
+            assignerId: (
+                index === 0
+                ? dbUsers.conflictManager.id
+                : null
+            ),
+            deliveryId: delivery.id,
+            lastLocation: toDbPoint(missoke),
+            reporterId: dbUsers.firstDriver.id,
+            type: "fake type"
         }));
         conflicts = await DeliveryConflict.bulkCreate(conflicts);
         await Promise.all(conflicts.map(function (conflict, index) {
@@ -342,12 +352,14 @@ describe("delivery CRUD test", function () {
         });
     });
     it("should provide all ongoing deliveries", async function () {
+        /* because the second Driver has been assigned to 1 conflict
+           he will have 1 delivery as ongoing */
         let response = await getDatas({
             app,
             token: dbUsers.secondDriver.token,
             url: "/delivery/started"
         });
-        assert.equal(response.body.deliveries.length, 3);
+        assert.equal(response.body.deliveries.length, 1);
     });
     it("should provide all terminated deliveries", async function () {
         let response;
@@ -400,7 +412,15 @@ describe("delivery CRUD test", function () {
             token: dbUsers.conflictManager.token,
             url: "/delivery/conflict/all-new"
         });
-        assert.equal(response.body.results?.length, 3);
+        assert.equal(response.body.results?.length, 2);
+    });
+    it ("should provide a manager's conflicts", async function () {
+        let response = await getDatas({
+            app,
+            token: dbUsers.conflictManager.token,
+            url: "/delivery/conflict"
+        });
+        assert.equal(response.body.results?.length, 1);
     });
 
 });

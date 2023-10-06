@@ -134,6 +134,18 @@ function deliveryResquestor(tokenGetter, model) {
     return Object.freeze({requestDelivery, setupDelivery});
 }
 
+function formatRecipientInfos(infos) {
+    let result = {main: {}, others: []};
+    result.main.name = infos?.name;
+    result.main.phone = infos?.phone;
+    if (Array.isArray(infos.otherPhones)) {
+        infos.otherPhones.forEach(function (phone) {
+            result.others.push({phone});
+        });
+    }
+    return result;
+}
+
 function generateDBDeliveries({
     clientId,
     dbPointFormatter,
@@ -158,6 +170,7 @@ function generateDBDeliveries({
             : initialState
         );
         result.code = "230293-sdfs";
+        result.recipientInfos = formatRecipientInfos(result.recipientInfos);
         return result;
     });
 }

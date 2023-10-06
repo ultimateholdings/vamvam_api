@@ -4,6 +4,7 @@ node
 const {DataTypes, Op} = require("sequelize");
 const {
     CustomEmitter,
+    formatDbPoint,
     formatDbLineString,
     propertiesPicker
 } = require("../utils/helpers");
@@ -80,17 +81,12 @@ function defineDeliveryModel(connection) {
         );
         let recipientInfos = {otherPhones: []};
         let result = this.dataValues;
-        if (typeof result.deliveryMeta === "object") {
-            result.destination = {
-                address: result.deliveryMeta["destinationAddress"],
-                latitude: result.destination.coordinates[0],
-                longitude: result.destination.coordinates[1]
-            };
-            result.departure = {
-                address: result.deliveryMeta["departureAddress"],
-                latitude: result.departure.coordinates[0],
-                longitude: result.departure.coordinates[1]
-            };
+        const meta = result.deliveryMeta;
+        result.departure = formatDbPoint(result.departure);
+        result.destination = formatDbPoint(result.destination);
+        if (typeof meta === "object") {
+            result.departure.address = meta.departureAddress;
+            result.destination.address = meta.destinationAddress;
         }
         if (result.route !== null) {
             result.route = formatDbLineString(result.route);
@@ -98,12 +94,10 @@ function defineDeliveryModel(connection) {
         recipientInfos.name = (
             result.recipientInfos?.main?.firstName
             ?? result.recipientInfos?.main?.name
-            ?? result.recipientInfos?.name
             ?? ""
         );
         recipientInfos.phone = (
             result.recipientInfos?.main?.phone
-            ?? result.recipientInfos.phone
             ?? ""
         );
         if (Array.isArray(result.recipientInfos.others)) {
@@ -112,10 +106,6 @@ function defineDeliveryModel(connection) {
                     recipientInfos.otherPhones.push(data.phone);
                 }
             });
-        } else {
-            recipientInfos.otherPhones.push(
-                ...result.recipientInfos.otherPhones
-            );
         }
         result.recipientInfos = recipientInfos;
         return propertiesPicker(result)(allowedProps);
@@ -139,19 +129,8 @@ function defineDeliveryModel(connection) {
     these 4 properties are used to enable background compatibility
     of models due to the fact that recipientInfos structure changed
 */
-        let {
-            phone,
-            main,
-            others,
-            otherPhones
-        } = this.dataValues.recipientInfos;
+        let {main, others} = this.dataValues.recipientInfos;
         let result = [];
-        if (typeof phone === "string") {
-            result.push(phone);
-        }
-        if (Array.isArray(otherPhones)) {
-            result.push(...otherPhones);
-        }
         if (typeof main?.phone === "string") {
             result.push(main.phone);
         }
