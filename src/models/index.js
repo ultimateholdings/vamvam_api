@@ -106,6 +106,14 @@ Settings.addEventListener("settings-update", function (data) {
     }
 });
 Settings.forward("user-revocation-requested").to(Delivery);
+function initialQuery(offset, maxSize) {
+    let query = {maxSize, offset};
+    if (offset > 0) {
+        query.limit = maxSize + 1;
+        query.offset = offset - 1;
+    }
+    return query;
+};
 
 function formatRoomMessage(row) {
     const {content, createdAt, id, room, sender} = row;
@@ -432,6 +440,47 @@ Delivery.getDeliveryDetails = async function (id) {
 }
 
 Delivery.getDriverBalance = Trans.getDriverBalance;
+
+DeliveryConflict.getAll = async function ({assignerId, maxSize = 10, offset = 0}) {
+    let results;
+    let formerLastId;
+    const query = initialQuery(offset, maxSize);
+    query.where = {assignerId: null};
+    query.include = [
+        {
+            include: [
+                {as: "Driver", model: User, required: true},
+                {as: "Client", model: User, required: true}
+            ],
+            as: "Delivery",
+            model: Delivery
+        },
+        {as: "Reporter", model: User, required: true}
+    ];
+    if (typeof assignerId === "string") {
+        query.where = {assignerId};
+    }
+    results = await DeliveryConflict.findAll(query);
+    if (offset > 0) {
+        formerLastId = results.shift();
+        formerLastId = formerLastId?.id;
+    }
+    return {
+        formerLastId,
+        lastId: results.at(-1)?.id,
+        values: results.map(function (conflict) {
+            const result = conflict.toResponse();
+            const delivery = conflict.Delivery.toResponse();
+            const client = conflict.Delivery.Client.toShortResponse();
+            const driver = conflict.Delivery.Driver.toShortResponse();
+            delivery.client = client;
+            delivery.driver = driver;
+            result.reporter = conflict.Reporter.toShortResponse();
+            result.delivery = delivery;
+            return result;
+        })
+    }
+};
 
 module.exports = Object.freeze({
     Blacklist,

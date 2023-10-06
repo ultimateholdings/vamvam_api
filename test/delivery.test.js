@@ -80,23 +80,18 @@ describe("delivery CRUD test", function () {
 
         conflicts = testDeliveries.filter(
             (delivery) => delivery.status === deliveryStatuses.inConflict
-        ).map(
-            (delivery) => Object.freeze({
-                assigneeId: dbUsers.secondDriver.id,
+        ).map((delivery) => Object.freeze({
+                reporterId: dbUsers.firstDriver.id,
                 deliveryId: delivery.id,
                 lastLocation: toDbPoint(missoke),
                 type: "fake type"
-            })
-        )
+        }));
         conflicts = await DeliveryConflict.bulkCreate(conflicts);
-        testDeliveries[3].conflictId = conflicts[0].id;
-        testDeliveries[4].conflictId = conflicts[1].id;
-        testDeliveries[5].conflictId = conflicts[2].id;
-        await Promise.all([
-            testDeliveries[3].save(),
-            testDeliveries[4].save(),
-            testDeliveries[5].save()
-        ]);
+        await Promise.all(conflicts.map(function (conflict, index) {
+            const delivery = testDeliveries[index + 3];
+            delivery.conflictId = conflict.id;
+            return delivery.save();
+        }));
     });
 
     afterEach(async function () {
@@ -397,5 +392,15 @@ describe("delivery CRUD test", function () {
             assert.equal(response.body.deliveries.length, 1);
         }
     );
+
+    it("should provide the opened conflict list", async function () {
+        let response;
+        response = await getDatas({
+            app,
+            token: dbUsers.conflictManager.token,
+            url: "/delivery/conflict/all-new"
+        });
+        assert.equal(response.body.results?.length, 3);
+    });
 
 });

@@ -72,6 +72,9 @@ function getDeliveryModule({associatedModels, model}) {
     const terminatedPagination = ressourcePaginator(
         deliveryModel.getTerminated
     );
+    const conflictPagination = ressourcePaginator(
+        associations.DeliveryConflict.getAll
+    );
     const ongoingState = [
         deliveryStatuses.pendingReception,
         deliveryStatuses.toBeConfirmed,
@@ -990,6 +993,18 @@ calculation of at delivery */
         res.status(200).json(response);
     }
 
+    async function getNewConflicts(req, res) {
+        let response;
+        const {maxPageSize, skip} = req.query;
+        const pageToken = req.headers["page-token"];
+        response = await conflictPagination({
+            maxPageSize,
+            pageToken,
+            skip
+        });
+        res.status(200).json(response);
+    }
+
 
     return Object.freeze({
         acceptDelivery,
@@ -1010,6 +1025,7 @@ calculation of at delivery */
         getAllPaginated,
         getAnalytics,
         getInfos,
+        getNewConflicts,
         getOngoingDeliveries,
         getTerminatedDeliveries,
 /*jslint-disable*/

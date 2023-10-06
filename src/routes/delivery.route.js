@@ -120,6 +120,13 @@ function getDeliveryRouter(module) {
         deliveryModule.canAccessDelivery(),
         errorHandler(deliveryModule.rateDelivery)
     );
+    conflictRouter.get(
+        "/all-new",
+        protectRoute,
+        allowRoles([roles.conflictManager]),
+        parsePaginationHeaders,
+        errorHandler(deliveryModule.getNewConflicts)
+    );
     conflictRouter.post(
         "/verify-code",
         protectRoute,
