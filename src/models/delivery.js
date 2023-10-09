@@ -126,6 +126,14 @@ function defineDeliveryModel(connection, userModel) {
         result.recipientInfos = recipientInfos;
         return propertiesPicker(result)(allowedProps);
     };
+    delivery.prototype.toShortResponse = function () {
+        const {deliveryMeta, id} = this.dataValues;
+        return {
+            departure: deliveryMeta.departureAddress,
+            destination: deliveryMeta.destinationAddress,
+            id
+        };
+    };
     conflict.prototype.toResponse = function () {
         const result = this.dataValues;
         result.lastLocation = formatDbPoint(result.lastLocation);
