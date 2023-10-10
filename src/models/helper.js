@@ -1,17 +1,7 @@
 /*jslint node this*/
 const {Op} = require("sequelize");
+const {mergableObject} = require("../utils/helpers");
 
-const defaultResponse = {
-    with(opts) {
-        const result = this;
-        if (typeof opts === "object") {
-            Object.entries(opts).forEach(function ([key, value]) {
-                result[key] = value;
-            });
-        }
-        return result;
-    }
-};
 
 const stringName = (val) => (
     typeof val === "string"
@@ -42,21 +32,19 @@ function buildClause(operator, value) {
 }
 
 function join(model, joinName, inner = true) {
-    const result = {}
+    const result = Object.create(mergableObject);
     const as = stringName(joinName);
-    Object.assign(result, defaultResponse);
     return result.with({as, model, required: inner});
 }
 
 function constraints(foreignKey, name, rigid = false) {
-    const result = {foreignKey};
+    const result = Object.create(mergableObject);
     const as = stringName(name);
-    Object.assign(result, defaultResponse);
-    return result.with({as, constraints: rigid});
+    return result.with({as, constraints: rigid, foreignKey});
 }
 
 function buildPeriodQuery(from, to) {
-    const result = [];
+    let result = [];
     const begin = Date.parse(from);
     const end = Date.parse(to);
     if (Number.isFinite(begin)) {

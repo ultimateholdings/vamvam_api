@@ -35,7 +35,9 @@ function defineRoomModel(connection, userModel, deliveryModel) {
         let result;
         const datas = this.dataValues;
         result = propertiesPicker(datas)(Object.keys(roomSchema));
-        result.createdAt = datas.createdAt.toISOString();
+        if (typeof datas.createdAt?.toISOString === "function") {
+            result.createdAt = datas.createdAt.toISOString();
+        }
         
         if (deliveryModel.prototype.isPrototypeOf(datas.delivery)) {
             result.delivery = datas.delivery.toShortResponse();

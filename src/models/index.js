@@ -1,5 +1,5 @@
 /*jslint node*/
-const {Op, col, fn, where} = require("sequelize");
+const {Op} = require("sequelize");
 const {sequelizeConnection} = require("../utils/db-connector.js");
 const connection = sequelizeConnection();
 const User = require("./user.js")(connection);
@@ -41,8 +41,6 @@ Registration.belongsTo(User, {
     foreignKey: "contributorId"
 });
 
-User.getSettings = delivery.getSettings;
-
 Settings.addEventListener("settings-update", function (data) {
     if(data.type === "delivery") {
         delivery.setSettings(data.value);
@@ -53,16 +51,6 @@ Settings.addEventListener("settings-update", function (data) {
 });
 Settings.forward("user-revocation-requested").to(delivery);
 Registration.forward("new-registration").to(delivery);
-function formatRoomMessage(row) {
-    const {content, createdAt, id, room, sender} = row;
-    return Object.freeze({
-        content,
-        date: createdAt.toISOString(),
-        id,
-        room: room.toResponse(),
-        sender: sender.toShortResponse()
-    });
-}
 
 Trans.getAllByTime= async function ({limit, offset, start, end, type}) {
     let result;

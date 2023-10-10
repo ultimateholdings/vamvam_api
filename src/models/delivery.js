@@ -304,6 +304,7 @@ function defineDeliveryModel(connection, userModel) {
     };
     emitter.decorate(delivery);
     delivery.getSettings = () => settings;
+    userModel.getSettings = () => settings;
     delivery.setSettings = (data) => Object.entries(data).forEach(
         function ([key, val]) {
             settings[key] = val;

@@ -4,19 +4,7 @@ node
 "use strict";
 const {DataTypes, Sequelize} = require("sequelize");
 const {getdbConfig} = require("./config.js");
-
-const defaultResponse = {
-    with(opts) {
-        const result = {};
-        Object.assign(result, this);
-        if (typeof opts === "object") {
-            Object.entries(opts).forEach(function ([key, value]) {
-                result[key] = value;
-            });
-        }
-        return result;
-    }
-};
+const {mergableObject} = require("./helpers.js");
 
 function sequelizeConnect({
     database,
@@ -53,11 +41,10 @@ function enumType(initialValue, set) {
 }
 
 function required(type) {
-    const result = {};
-    Object.assign(result, defaultResponse);
+    const result = Object.create(mergableObject);
     return result.with({
         allowNull: false,
-        type: type ?? new DataTypes.GEOMETRY("POINT")
+        type: type ?? DataTypes.GEOMETRY("POINT")
     });
 }
 
