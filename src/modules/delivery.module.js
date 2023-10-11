@@ -30,32 +30,6 @@ const dbStatusMap = Object.entries(apiDeliveryStatus).reduce(
     Object.create(null)
 );
 
-function formatBody(deliveryRequest) {
-    const locationProps = ["departure", "destination"];
-    const result = Object.entries(deliveryRequest).reduce(
-        function (acc, [key, value]) {
-            if (acc.deliveryMeta === undefined) {
-                acc.deliveryMeta = {};
-            }
-            if (locationProps.includes(key)) {
-                if (!isValidLocation(value)) {
-                    throw new Error(
-                        key +
-                        " latitude and longitude should be a valid number"
-                    );
-                }
-                acc[key] = toDbPoint(value);
-                acc.deliveryMeta[key + "Address"] = value.address;
-                return acc;
-            }
-            acc[key] = value;
-            return acc;
-        },
-        Object.create(null)
-    );
-    return result;
-}
-
 
 /*
 this function was created just to mimic the delivery
@@ -75,12 +49,6 @@ function getDeliveryModule({associatedModels, model}) {
     const conflictPagination = ressourcePaginator(
         associations.DeliveryConflict.getAll
     );
-    const ongoingState = [
-        deliveryStatuses.pendingReception,
-        deliveryStatuses.toBeConfirmed,
-        deliveryStatuses.started,
-        deliveryStatuses.inConflict
-    ];
 
     async function notifyNearbyDrivers({
         by = 5500,
@@ -317,254 +285,6 @@ function getDeliveryModule({associatedModels, model}) {
         sendCloudMessage
     );
 
-    function canAccessDelivery(allowedExternals = []) {
-        return function verifyAccess(req, res, next) {
-            const {id, role} = req.user.token;
-            const {delivery} = req;
-            const isExternal = allowedExternals.includes(role);
-            let isInvited = delivery.getRecipientsId();
-            let isInvolved = (delivery.clientId === id) || (
-                delivery.driverId === id
-            );
-            isInvited = (
-                isInvited.includes(id) &&
-                ongoingState.includes(delivery.status)
-            );
-            isInvolved = isInvolved && (typeof id === "string");
-            if (isExternal || isInvolved || isInvited) {
-                req.isExternal = isExternal;
-                req.isInvolved = isInvolved;
-                req.isInvited = isInvited;
-                next();
-            } else {
-                sendResponse(res, errors.forbiddenAccess);
-            }
-        };
-    }
-
-    async function ensureHasCredit(req, res, next) {
-        const {id} = req.user.token;
-        let balance = await deliveryModel.getDriverBalance(id);
-        if (balance.hasCredit) {
-            req.balance = balance;
-            next();
-        } else {
-            sendResponse(res, errors.emptyWallet);
-        }
-    }
-
-    async function ensureCanReport(req, res, next) {
-        let conflict;
-        let {conflictType, lastPosition} = req.body;
-        const {delivery} = req;
-        const {role} = req.user.token;
-        const allowedTypes = deliveryModel.getSettings().conflict_types;
-        if (!ongoingState.includes(delivery.status)) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
-        if (!allowedTypes.some((type) => type.code === conflictType)) {
-            return sendResponse(
-                res,
-                errors.unsupportedType,
-                {prop: "conflictType"}
-            );
-        }
-        conflict = await associations.DeliveryConflict.findOne({
-            where: {deliveryId: delivery.id}
-        });
-        if (conflict !== null) {
-            return sendResponse(res, errors.alreadyReported);
-        }
-        if (!isValidLocation(lastPosition) && role !== roles.adminRole) {
-            return sendResponse(res, errors.invalidLocation);
-        }
-        if (!isValidLocation(lastPosition)) {
-            conflict = await delivery.getDriver();
-            if (conflict.position === null) {
-                return sendResponse(res, errors.invalidLocation);
-            }
-            req.body.lastPosition = formatDbPoint(conflict.position);
-        }
-        next();
-    }
-
-    async function validateContent(req, res, next) {
-        let body;
-        let tmp;
-        let allowedTypes = Delivery.getSettings().package_types;
-        try {
-            body = formatBody(propertiesPicker(req.body)(
-                deliveryModel?.updatableProps ?? []
-            ));
-        } catch (error) {
-            tmp = {content: error.message};
-            return sendResponse(res, errors.invalidLocation, tmp);
-        }
-        try {
-            body.recipientInfos = await getOtherInfos(body.recipientInfos);
-        } catch (error) {
-            tmp = {content: error.message};
-            return sendResponse(res, errors.invalidValues, tmp);
-        }
-        if (!allowedTypes.some((type) => type.code === body.packageType)) {
-            return sendResponse(
-                res,
-                errors.unsupportedType,
-                {prop: "packageType"}
-            );
-        }
-        req.body = body;
-        next();
-    }
-
-    function ensureCanTerminate(req, res, next) {
-        const {started} = deliveryStatuses;
-        const {id} = req.user.token;
-        const {delivery} = req;
-        const {code} = req.body;
-
-        if (delivery.driverId !== id) {
-            return sendResponse(res, errors.forbiddenAccess);
-        }
-        if (delivery.status !== started) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
-        if (delivery.code !== code) {
-            return sendResponse(res, errors.invalidCode);
-        }
-        next();
-    }
-
-    async function ensureConflictOpened(req, res, next) {
-        const {id} = req.body;
-        const conflict = await associations.DeliveryConflict.findOne({
-            where: {id}
-        });
-        if (conflict === null) {
-            return sendResponse(res, errors.conflictNotFound);
-        }
-        if (conflict.status !== conflictStatuses.opened) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
-        req.conflict = conflict;
-        next();
-    }
-
-    async function ensureConflictingDelivery(req, res, next) {
-        const {deliveryId} = req.body;
-        const conflict = await associations.DeliveryConflict.findOne({
-            where: {deliveryId}
-        });
-        if (conflict === null) {
-            return sendResponse(res, errors.deliveryNotConflicted);
-        }
-        if (conflict.status !== conflictStatuses.opened) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
-        req.conflict = conflict;
-        next();
-    }
-
-    async function ensureDeliveryExists(req, res, next) {
-        const {id} = req.body;
-        let delivery;
-        if (typeof id !== "string" || id === "") {
-            return sendResponse(res, errors.invalidValues);
-        }
-        delivery = await deliveryModel?.findOne({where: {id}});
-
-        if (delivery === null) {
-            return sendResponse(res, errors.notFound);
-        }
-        req.delivery = delivery;
-        next();
-    }
-
-    function ensureNotExpired(req, res, next) {
-        const {delivery} = req;
-        let deadline = Date.parse(delivery.createdAt);
-        deadline += deliveryModel.getSettings().ttl * 1000;
-        if (deadline < Date.now()) {
-            return sendResponse(res, errors.deliveryTimeout);
-        }
-        next();
-    }
-
-    function ensureInitial(req, res, next) {
-        const {delivery} = req;
-        if (delivery.driverId !== null) {
-            return sendResponse(res, errors.alreadyAssigned);
-        }
-        if (delivery.status === deliveryStatuses.cancelled) {
-            return sendResponse(res, errors.alreadyCancelled);
-        }
-        if (delivery.status !== deliveryStatuses.initial) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
-        next();
-    }
-
-    async function ensureDriverExists(req, res, next) {
-        const {driverId} = req.body;
-        let driver;
-        if (typeof driverId !== "string" || driverId === "") {
-            return sendResponse(res, errors.invalidValues);
-        }
-        driver = await associations.User.findOne({
-            where: {id: driverId}
-        });
-        if (driver === null) {
-            return sendResponse(res, errors.driverNotFound);
-        }
-        req.driver = driver;
-        next();
-    }
-
-    async function getOtherInfos(request) {
-        let main = {};
-        let others = [];
-        let otherUsers = [];
-        if (
-            typeof request?.phone === "string" &&
-            typeof request?.name === "string"
-        ) {
-            main = {
-                name: request.name,
-                phone: request.phone
-            };
-            otherUsers.push(request.phone);
-        }
-        if (Array.isArray(request?.otherPhones) && request.otherPhones.every(
-            (phone) => typeof phone === "string"
-        )) {
-            request.otherPhones.forEach(function (phone) {
-                otherUsers.push(phone);
-                others.push({phone});
-            });
-        }
-        otherUsers = await associations.User.getAllByPhones(otherUsers);
-        otherUsers.forEach(function (user) {
-            let tmp;
-            if (user.phone === main.phone) {
-                tmp = user.toShortResponse();
-                tmp.firstName = main.name;
-                main = tmp;
-            } else {
-                tmp = others.findIndex(
-                    (other) => other.phone === user.phone
-                );
-                others[tmp] = user.toShortResponse();
-            }
-        });
-        if (
-            Object.keys(main).length === 0 &&
-            Object.keys(others).length === 0
-        ) {
-            throw new Error("Invalid values sent " + JSON.stringify(request));
-        }
-        return {main, others};
-    }
-
     async function acceptDelivery(req, res) {
         let driver;
         let client;
@@ -721,13 +441,7 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function getAllPaginated(req, res) {
         let results;
-        let {
-            from,
-            maxPageSize,
-            skip,
-            status,
-            to
-        } = req.query;
+        let {from, maxPageSize, skip, status, to} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
             if (apiDeliveryStatus[status] !== undefined) {
@@ -956,7 +670,7 @@ calculation of at delivery */
         await delivery.save();
         await conflict.save();
         res.status(200).send({terminated: true});
-        deliveryModel?.emitEvent("conflict-solved", {
+        deliveryModel.emitEvent("conflict-solved", {
             assignerId: conflict.assignerId,
             conflictId: conflict.id
         });
@@ -965,7 +679,10 @@ calculation of at delivery */
 
     async function getOngoingDeliveries(req, res) {
         let {id, role} = req.user.token;
-        let deliveries = await deliveryModel.withStatuses(id, ongoingState);
+        let deliveries = await deliveryModel.withStatuses(
+            id,
+            deliveryModel.ongoingStates
+        );
         deliveries = deliveries.map(
             (delivery) => formatResponse({delivery, id, role})
         ).filter((delivery) => delivery !== null);
@@ -1031,18 +748,8 @@ calculation of at delivery */
         acceptDelivery,
         archiveConflict,
         assignDriver,
-        canAccessDelivery,
         cancelDelivery,
         confirmDeposit,
-        ensureCanReport,
-        ensureCanTerminate,
-        ensureConflictOpened,
-        ensureConflictingDelivery,
-        ensureDeliveryExists,
-        ensureDriverExists,
-        ensureHasCredit,
-        ensureInitial,
-        ensureNotExpired,
         getAllPaginated,
         getAnalytics,
         getAssignedConflicts,
@@ -1059,7 +766,6 @@ calculation of at delivery */
         requestDelivery,
         signalReception,
         terminateDelivery,
-        validateContent,
         verifyConflictingDelivery
     });
 }

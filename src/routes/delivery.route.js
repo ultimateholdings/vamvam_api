@@ -4,24 +4,33 @@ node
 
 const express = require("express");
 const getDeliveryModule = require("../modules/delivery.module");
-const {errorHandler} = require("../utils/helpers");
+const {errorHandler, isValidLocation} = require("../utils/helpers");
 const {availableRoles: roles} = require("../utils/config");
+const {errors} = require("../utils/system-messages");
 const {
     allowRoles,
+    delivery,
     parsePaginationHeaders,
-    protectRoute
-} = require("../utils/middlewares");
+    protectRoute,
+    requiredBodyProps
+} = require("../middlewares");
 
 function getDeliveryRouter(module) {
     const deliveryModule = module || getDeliveryModule({});
     const router = new express.Router();
     const conflictRouter = new express.Router();
+    const requiredString = (id) => typeof id === "string" && id.length > 0;
+    const requiredLocation = (keys) => keys.reduce(function(acc, key) {
+        acc[key] = isValidLocation;
+        return acc;
+    }, Object.create(null));
     
     router.get(
         "/infos",
         protectRoute,
-        deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery([roles.adminRole, roles.conflictManager]),
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
+        delivery.userCanAccess([roles.adminRole, roles.conflictManager]),
         errorHandler(deliveryModule.getInfos)
     );
     router.get(
@@ -59,7 +68,11 @@ function getDeliveryRouter(module) {
     router.post(
         "/request",
         protectRoute,
-        deliveryModule.validateContent,
+        requiredBodyProps(
+            requiredLocation(["destination", "departure"]),
+            errors.invalidLocation
+        ),
+        delivery.isValidRequest,
         errorHandler(deliveryModule.requestDelivery)
     );
 
@@ -67,9 +80,10 @@ function getDeliveryRouter(module) {
         "/relaunch",
         protectRoute,
         allowRoles([roles.clientRole]),
-        deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery([]),
-        deliveryModule.ensureInitial,
+        requiredBodyProps({id: requiredString}), 
+        delivery.itExists,
+        delivery.userCanAccess([], []),
+        delivery.isInitial,
         errorHandler(deliveryModule.relaunchDelivery)
     );
 
@@ -77,47 +91,53 @@ function getDeliveryRouter(module) {
         "/verify-code",
         protectRoute,
         allowRoles([roles.driverRole]),
-        deliveryModule.ensureDeliveryExists,
-        deliveryModule.ensureCanTerminate,
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
+        delivery.canTerminate,
         errorHandler(deliveryModule.terminateDelivery)
     );
     router.post(
         "/accept",
         protectRoute,
         allowRoles([roles.driverRole]),
-        deliveryModule.ensureDeliveryExists,
-        deliveryModule.ensureInitial,
-        deliveryModule.ensureNotExpired,
-        deliveryModule.ensureHasCredit,
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
+        delivery.isInitial,
+        delivery.notExpired,
+        delivery.hasCredit,
         errorHandler(deliveryModule.acceptDelivery)
-    );
+        );
     router.post(
         "/cancel",
         protectRoute,
         allowRoles([roles.clientRole]),
-        deliveryModule.ensureDeliveryExists,
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
         errorHandler(deliveryModule.cancelDelivery)
     );
     router.post(
         "/signal-on-site",
         protectRoute,
         allowRoles([roles.driverRole]),
-        deliveryModule.ensureDeliveryExists,
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
         errorHandler(deliveryModule.signalReception)
     );
     router.post(
         "/confirm-deposit",
         protectRoute,
         allowRoles([roles.clientRole]),
-        deliveryModule.ensureDeliveryExists,
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
         errorHandler(deliveryModule.confirmDeposit)
     );
     router.post(
         "/rate",
         protectRoute,
         allowRoles([roles.clientRole]),
-        deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery(),
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
+        delivery.userCanAccess([], []),
         errorHandler(deliveryModule.rateDelivery)
     );
     conflictRouter.get(
@@ -138,31 +158,39 @@ function getDeliveryRouter(module) {
         "/verify-code",
         protectRoute,
         allowRoles([roles.driverRole]),
-        deliveryModule.ensureConflictingDelivery,
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
+        delivery.isConflicting,
         errorHandler(deliveryModule.verifyConflictingDelivery)
     )
     conflictRouter.post(
         "/report",
         protectRoute,
         allowRoles([roles.driverRole, roles.adminRole]),
-        deliveryModule.ensureDeliveryExists,
-        deliveryModule.canAccessDelivery([roles.adminRole]),
-        deliveryModule.ensureCanReport,
+        requiredBodyProps({id: requiredString}),
+        delivery.itExists,
+        delivery.userCanAccess([roles.adminRole]),
+        delivery.canReport,
         errorHandler(deliveryModule.reportDelivery)
     );
     conflictRouter.post(
         "/assign-driver",
         protectRoute,
         allowRoles([roles.conflictManager]),
-        deliveryModule.ensureConflictOpened,
-        deliveryModule.ensureDriverExists,
+        requiredBodyProps({
+            id: requiredString,
+            driverId: requiredString
+        }),
+        delivery.conflictOpened,
+        delivery.driverExists,
+        delivery.conflictNotAssigned,
         errorHandler(deliveryModule.assignDriver)
     );
     conflictRouter.post(
         "/archive",
         protectRoute,
         allowRoles([roles.conflictManager]),
-        deliveryModule.ensureConflictOpened,
+        delivery.conflictOpened,
         errorHandler(deliveryModule.archiveConflict)
     );
     router.use("/conflict", conflictRouter);

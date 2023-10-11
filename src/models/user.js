@@ -2,15 +2,7 @@
 node, nomen, this
 */
 const fs = require("fs");
-const {
-/*jslint-disable*/
-    Op,
-    col,
-    fn,
-    where,
-/*jslint-enable*/
-    DataTypes
-} = require("sequelize");
+const {DataTypes, Op, col, fn, where} = require("sequelize");
 const {
     fileExists,
     formatDbPoint,
@@ -23,81 +15,48 @@ const {
     availableRoles,
     userStatuses
 } = require("../utils/config");
-
+const {enumType, required, uuidType} = require("../utils/db-connector");
+const types = require("./helper");
+const schema = {
+    age: enumType(ages),
+    available: required(DataTypes.BOOLEAN, true).with({defaultValue: true}),
+    avatar: DataTypes.STRING,
+    carInfos: DataTypes.STRING,
+    deviceToken: DataTypes.STRING,
+    email: {
+        type: DataTypes.STRING,
+        unique: true,
+        validate: {isEmail: true}
+    },
+    firstName: DataTypes.STRING,
+    gender: enumType(["F", "M"], "M"),
+    id: uuidType(),
+    internal: required(DataTypes.BOOLEAN, true).with({defaultValue: false}),
+    lang: required(DataTypes.STRING, true).with({defaultValue: false}),
+    lastName: DataTypes.STRING,
+    password: DataTypes.STRING,
+    phone: required(DataTypes.STRING).with({unique: true}),
+    position: new DataTypes.GEOMETRY("POINT"),
+    role: enumType(availableRoles, availableRoles.clientRole),
+    status: enumType(userStatuses, userStatuses.activated)
+};
+const excludedProps = ["password", "deviceToken"];
+const forbiddenUpdate = [
+    "position",
+    "role",
+    "id",
+    "available",
+    "phone",
+    "password"
+];
+const shortDescriptionProps = [
+    "id",
+    "avatar",
+    "firstName",
+    "lastName",
+    "phone"
+];
 function defineUserModel(connection) {
-    const schema = {
-        age: {
-            type: DataTypes.ENUM,
-            values: ages
-        },
-        available: {
-            defaultValue: true,
-            type: DataTypes.BOOLEAN
-        },
-        avatar: DataTypes.STRING,
-        carInfos: DataTypes.STRING,
-        deviceToken: DataTypes.STRING,
-        email: {
-            type: DataTypes.STRING,
-            unique: true,
-            validate: {
-                isEmail: true
-            }
-        },
-        firstName: DataTypes.STRING,
-        gender: {
-            defaultValue: "M",
-            type: DataTypes.ENUM,
-            values: ["F", "M"]
-        },
-        id: {
-            defaultValue: DataTypes.UUIDV4,
-            primaryKey: true,
-            type: DataTypes.UUID
-        },
-        internal: {
-            defaultValue: false,
-            type: DataTypes.BOOLEAN
-        },
-        lang: {
-            defaultValue: "en",
-            type: DataTypes.STRING
-        },
-        lastName: DataTypes.STRING,
-        password: DataTypes.STRING,
-        phone: {
-            allowNull: false,
-            type: DataTypes.STRING,
-            unique: true
-        },
-        position: new DataTypes.GEOMETRY("POINT"),
-        role: {
-            defaultValue: availableRoles.clientRole,
-            type: DataTypes.ENUM,
-            values: Object.values(availableRoles)
-        },
-        status: {
-            defaultValue: userStatuses.activated,
-            type: DataTypes.ENUM,
-            values: Object.values(userStatuses)
-        }
-    };
-    const excludedProps = ["password", "deviceToken"];
-    const forbiddenUpdate = [
-        "position",
-        "role",
-        "id",
-        "available",
-        "phone",
-        "password"
-    ];
-    const shortDescriptionProps = [
-        "id",
-        "avatar",
-        "firstName",
-        "lastName",
-        "phone"
-    ];
     const allowedProps = Object.keys(schema).filter(
         (key) => !excludedProps.includes(key)
     );
@@ -169,14 +128,12 @@ function defineUserModel(connection) {
         return propertiesPicker(result)(shortDescriptionProps);
     };
 
-/*
-Please note that these GIS functions are only supported on
-PostgreSql, Mysql and MariaDB so if your DB doesn't support it
-its better to use the haversine formula to get the distance between 2 points
-link: https://en.wikipedia.org/wiki/Haversine_formula
-*/
-/*jslint-disable*/
-    user.nearTo = async function ({by, params, point}) {
+/**Please note that these GIS functions are only supported on
+ * PostgreSql, Mysql and MariaDB so if your DB doesn't support it
+ * its better to use the haversine formula to get the distance between 2 points
+ * link: https://en.wikipedia.org/wiki/Haversine_formula
+ */
+    user.nearTo = async function nearTo({by, params, point}) {
         let result = [];
         let coordinates = point?.coordinates;
         let distanceQuery;
@@ -188,8 +145,8 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
                 "ST_GeomFromText",
                 fn("ST_AsText", col("position")),
                 4326
-            ),fn("ST_GeomFromText", coordinates, 4326));
-            clause.push(where(distanceQuery(), {[Op.lte]: by}));
+            ), fn("ST_GeomFromText", coordinates, 4326));
+            clause.push(where(distanceQuery(), types.buildClause(Op.lte, by)));
             if (params !== null && typeof params === "object") {
                 clause.push(params);
             }
@@ -197,9 +154,7 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
                 attributes: {
                     includes: [[distanceQuery(), "distance"]]
                 },
-                where: {
-                    [Op.and]: clause
-                }
+                where: types.buildClause(Op.and, clause)
             });
         }
         return result ?? [];
@@ -209,19 +164,14 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
         offset = 0,
         role
     }) {
-        let query;
+        let query = types.paginationQuery(offset, maxSize);
         let results;
         let formerLastId;
-        query = {
-            limit: (offset > 0 ? maxSize + 1: maxSize),
-            offset: (offset > 0 ? offset - 1: offset),
-            order: [["createdAt", "DESC"]]
-        };
         if (typeof role === "string") {
             query.where = {role};
         } else {
             query.where = {
-                role: {[Op.notIn]: [availableRoles.adminRole]}
+                role: types.buildClause(Op.notIn, [availableRoles.adminRole])
             };
         }
         results = await user.findAll(query);
@@ -230,32 +180,26 @@ link: https://en.wikipedia.org/wiki/Haversine_formula
             formerLastId = formerLastId?.id;
         }
         return {
-            lastId: results.at(-1)?.id,
             formerLastId,
+            lastId: results.at(-1)?.id,
             values: results.map((user) => user.toResponse())
         };
     };
-    user.prototype.setAvailability = function available (isAvailable) {
+    user.prototype.setAvailability = function available(isAvailable) {
         this.available = isAvailable;
         return this.save();
-    }
+    };
     user.getAllWithRoles = function (roles = []) {
-        const role = {};
-        role[Op.in] = roles;
+        const role = types.buildClause(Op.in, roles);
         return user.findAll({where: {role}});
     };
-/*jslint-enable*/
     user.genericProps = genericProps;
     user.statuses = userStatuses;
-/*jslint-disable*/
     user.getAllByPhones = function (phoneList) {
         return user.findAll({
-            where: {
-                phone: {[Op.in]: phoneList}
-            }
+            where: {phone: types.buildClause(Op.in, phoneList)}
         });
     };
-/*jslint-enable*/
     return user;
 }
 

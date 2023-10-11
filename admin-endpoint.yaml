@@ -78,13 +78,18 @@ registration-manager:
       id: string representing the registration Id
     response:
       rejected: boolean
-  /driver/new-registrations:
+  /driver/registrations:
     action: get new driver registrations
     type: get
     queryString:
       maxPageSize: number
       name: string representing the full name of the driver to match
       skip: number
+      status: string representing the registration status (pending | rejected) default to pending
+    response:
+      nextPageToken: string
+      refreshed: boolean
+      results: registrationData[]
   /driver/all-validated:
     action: get new driver registrations
     type: get
@@ -94,8 +99,11 @@ registration-manager:
       name: string representing the full name of the driver to match
       skip: number
       to: date before which the validation has been done (YYYY-MM-DD)
+    response:
+      nextPageToken: string
+      refreshed: boolean
+      results: registrationData[]
 
-  
 
 admin-manager:
   /admin/block-user:

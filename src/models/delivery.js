@@ -57,14 +57,14 @@ const deliverySchema = {
     price: DataTypes.DOUBLE,
     recipientInfos: types.required(DataTypes.JSON),
     route: new DataTypes.GEOMETRY("LINESTRING"),
-    status: types.enumType(deliveryStatuses.initial, deliveryStatuses)
+    status: types.enumType(deliveryStatuses, deliveryStatuses.initial)
 };
 const conflictSchema = {
     cancellationDate: DataTypes.DATE,
     id: types.uuidType(),
     lastLocation: types.required(),
     lastLocationAddress: DataTypes.STRING,
-    status: types.enumType(conflictStatuses.opened, conflictStatuses),
+    status: types.enumType(conflictStatuses, conflictStatuses.opened),
     type: types.required(DataTypes.STRING)
 };
 const updatableProps = [
@@ -261,6 +261,24 @@ function defineDeliveryModel(connection, userModel) {
         ]);
         return getDeliveries({clause, order});
     };
+    delivery.getDriverById = (id) => userModel.findOne({where: {id}});
+    delivery.getConflict = function ({deliveryId, id}) {
+        const where = {};
+        if (typeof deliveryId === "string") {
+            where.deliveryId = deliveryId;
+        }
+        if (typeof id === "string") {
+            where.id = id;
+        }
+        if (Object.keys(where).length > 0) {
+            return conflict.findOne({where});
+        }
+        return null;
+    };
+    delivery.getById = (id) => delivery.findOne({where: {id}});
+    delivery.getUsersWithPhone = (phoneList) => userModel.findAll({
+        where: {phone: buildClause(Op.in, phoneList)}
+    });
     conflict.getAll = async function ({assignerId, maxSize, offset}) {
         let results;
         let formerLastId;
@@ -311,6 +329,13 @@ function defineDeliveryModel(connection, userModel) {
         }
     );
     delivery.updatableProps = updatableProps;
+    delivery.ongoingStates = [
+        deliveryStatuses.pendingReception,
+        deliveryStatuses.toBeConfirmed,
+        deliveryStatuses.started,
+        deliveryStatuses.inConflict
+    ];
+    
     return Object.freeze({conflict, delivery});
 }
 

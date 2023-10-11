@@ -27,7 +27,7 @@ function uuidType() {
     };
 }
 
-function enumType(initialValue, set) {
+function enumType(set, initialValue) {
     let values = set;
     let defaultValue;
     const type = DataTypes.ENUM;
@@ -40,10 +40,10 @@ function enumType(initialValue, set) {
     return {defaultValue, type, values};
 }
 
-function required(type) {
+function required(type, nullable = false) {
     const result = Object.create(mergableObject);
     return result.with({
-        allowNull: false,
+        allowNull: nullable,
         type: type ?? DataTypes.GEOMETRY("POINT")
     });
 }

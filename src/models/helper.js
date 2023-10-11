@@ -43,18 +43,18 @@ function constraints(foreignKey, name, rigid = false) {
     return result.with({as, constraints: rigid, foreignKey});
 }
 
-function buildPeriodQuery(from, to) {
+function buildPeriodQuery(from, to, key = "createdAt") {
     let result = [];
     const begin = Date.parse(from);
     const end = Date.parse(to);
     if (Number.isFinite(begin)) {
         result = result.concat(
-            {createdAt: buildClause(Op.gte, new Date(begin))}
+            buildClause(key, buildClause(Op.gte, new Date(begin)))
         );
     }
     if (Number.isFinite(Date.parse(to))) {
         result = result.concat(
-            {createdAt: buildClause(Op.lte, new Date(end))}
+            buildClause(key, buildClause(Op.lte, new Date(end)))
         );
     }
     return result;

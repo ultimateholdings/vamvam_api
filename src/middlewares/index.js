@@ -1,7 +1,8 @@
 /*jslint node */
 const {jwtWrapper, sendResponse} = require("../utils/helpers");
 const {errors} = require("../utils/system-messages");
-const {Blacklist} = require("../models");
+const {Blacklist, Delivery} = require("../models");
+const deliveryMiddleware = require("./delivery.middleware.js");
 let routeProtector;
 function routeProtectionFactory(model) {
     const jwtHandler = jwtWrapper();
@@ -94,7 +95,7 @@ function allowRoles(roles = []) {
 }
 
 function parsePaginationHeaders(req, ignore, next) {
-    let  {maxPageSize, skip} = req.query;
+    let {maxPageSize, skip} = req.query;
     maxPageSize = Number.parseInt(maxPageSize, 10);
     if (!Number.isFinite(maxPageSize)) {
         maxPageSize = 10;
@@ -108,30 +109,25 @@ function parsePaginationHeaders(req, ignore, next) {
     next();
 }
 
-function requiredBodyProps(props, middleware) {
-    let parsedProps = Object.entries(props ?? {}).reduce(
-        function (acc, [key, value]) {
-            acc[key] = value;
-        },
-        {}
-    );
+function requiredBodyProps(props, error = errors.invalidValues) {
     return function validateBody(req, res, next) {
-        const invalidEntries = Object.entries(parsedProps).filter(
-            function([key, type]) {
+        const invalidEntries = Object.entries(props ?? {}).filter(
+            function ([key, type]) {
+                const keyType = typeof req.body[key];
                 return (
                     typeof type === "function"
                     ? type(req.body[key])
-                    : typeof req.body[key] === type
+                    : keyType === type
                 ) !== true;
 
             }
         );
         if (invalidEntries.length > 0) {
-            return sendResponse(res, errors.invalidValues, {
-                props: invalidEntries.map((entry) => entry[0])
-            });
+            return sendResponse(res, error, {props: invalidEntries.map(
+                (entry) => entry[0]
+            )});
         }
-        middleware(req, res, next);
+        next();
     };
 }
 
@@ -139,6 +135,7 @@ routeProtector = routeProtectionFactory(Blacklist);
 
 module.exports = Object.freeze({
     allowRoles,
+    delivery: deliveryMiddleware(Delivery),
     parsePaginationHeaders,
     protectRoute: routeProtector.protectRoute,
     requiredBodyProps,

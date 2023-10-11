@@ -7,89 +7,31 @@ const {
     pathToURL,
     propertiesPicker
 } = require("../utils/helpers");
+const {buildClause, buildPeriodQuery, paginationQuery} = require("./helper");
+const types = require("../utils/db-connector");
 
 const order = [["createdAt", "DESC"]];
 
-function initialQuery(offset, maxSize) {
-    const query = Object.create(null);
-    query.limit = maxSize;
-    query.offset = offset;
-    if (offset > 0) {
-        query.limit = maxSize + 1;
-        query.offset = offset - 1;
-    }
-    return query;
-}
-
-function getValidationClause(from, to) {
-    let after;
-    let before;
-    const clause = {};
-    clause[Op.and] = [];
-    before = Date.parse(to);
-    after = Date.parse(from);
-    if (Number.isFinite(before)) {
-        clause[Op.and].push({
-/*jslint-disable*/
-            validationDate: {[Op.lte]: new Date(before)}
-/*jslint-enable*/
-        });
-    }
-    if (Number.isFinite(after)) {
-        clause[Op.and].push({
-/*jslint-disable*/
-            validationDate: {[Op.gte]: new Date(after)}
-/*jslint-enable*/
-        });
-    }
-    if (clause[Op.and].length <= 0) {
-        clause[Op.and].push({validationDate: null});
-    }
-    return clause;
-}
-
+const schema = {
+    age: types.enumType(ages).with({allowNull: false}),
+    carInfos: DataTypes.STRING,
+    email: {
+        type: DataTypes.STRING,
+        unique: true,
+        validate: {isEmail: true}
+    },
+    firstName: DataTypes.STRING,
+    gender: types.enumType(["F", "M"], "M"),
+    id: types.uuidType(),
+    lang: DataTypes.STRING,
+    lastName: DataTypes.STRING,
+    password: DataTypes.STRING,
+    phoneNumber: types.required(DataTypes.STRING).with({unique: true}),
+    sponsorCode: DataTypes.STRING,
+    status: types.enumType(userStatuses, userStatuses.pendingValidation),
+    validationDate: DataTypes.DATE
+};
 function defineDriverRegistration(connection) {
-    const schema = {
-        age: {
-            allowNull: false,
-            type: DataTypes.ENUM,
-            values: ages
-        },
-        carInfos: DataTypes.STRING,
-        email: {
-            type: DataTypes.STRING,
-            unique: true,
-            validate: {
-                isEmail: true
-            }
-        },
-        firstName: DataTypes.STRING,
-        gender: {
-            defaultValue: "M",
-            type: DataTypes.ENUM,
-            values: ["F", "M"]
-        },
-        id: {
-            defaultValue: DataTypes.UUIDV4,
-            primaryKey: true,
-            type: DataTypes.UUID
-        },
-        lang: DataTypes.STRING,
-        lastName: DataTypes.STRING,
-        password: DataTypes.STRING,
-        phoneNumber: {
-            allowNull: false,
-            type: DataTypes.STRING,
-            unique: true
-        },
-        sponsorCode: DataTypes.STRING,
-        status: {
-            defaultValue: userStatuses.pendingValidation,
-            type: DataTypes.ENUM,
-            values: Object.values(userStatuses)
-        },
-        validationDate: DataTypes.DATE
-    };
     const emitter = new CustomEmitter("Registration emitter");
     const registration = connection.define("driver_registration", schema, {
         hooks: {
@@ -137,20 +79,24 @@ function defineDriverRegistration(connection) {
         maxSize,
         name,
         offset,
+        status,
         to
     }) {
         let formerLastId;
         let results;
         const clause = {};
-        const query = initialQuery(offset, maxSize);
+        const query = paginationQuery(offset, maxSize);
         query.order = order;
         query.where = {};
-        query.where[Op.and] = [getValidationClause(from, to)];
+        query.where[Op.and] = [buildPeriodQuery(from, to, "validationDate")];
         if (typeof name === "string" && name.length > 0) {
             clause[Op.like] = "%" + name + "%";
             query.where[Op.and].push(
                 where(fn("CONCAT", col("firstName"), col("lastName")), clause)
             );
+        }
+        if (typeof status === "string") {
+            query.where[Op.and].push({status: buildClause(Op.eq, status)});
         }
         results = await registration.findAll(query);
         if (offset > 0) {

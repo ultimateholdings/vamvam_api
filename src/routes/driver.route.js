@@ -26,7 +26,7 @@ function buildRegistrationRoutes(module) {
     const router = new express.Router();
 
     router.get(
-        "/new-registrations",
+        "/registrations",
         protectRoute,
         allowRoles([roles.registrationManager]),
         parsePaginationHeaders,

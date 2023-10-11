@@ -217,10 +217,12 @@ describe("delivery side effects test", function () {
             );
             dbUsers.firstDriver.position = toDbPoint(nearByPoint);
             await dbUsers.firstDriver.save();
-            await app.post("/delivery/cancel").send({id: initialRequest.id}).set(
-                "authorization",
-                "Bearer " + dbUsers.goodUser.token
-            );
+            data =  await postData({
+                app,
+                data: {id: initialRequest.id},
+                token: dbUsers.goodUser.token,
+                url: "/delivery/cancel"
+            });
             data = await listenEvent({
                 name: "delivery-cancelled",
                 socket: driverSocket
@@ -465,7 +467,7 @@ describe("delivery side effects test", function () {
 
         it("should notify a driver on new assignment", async function () {
             let response;
-            const endPoint = "/delivery/conflict/assign-driver";
+            const url = "/delivery/conflict/assign-driver";
             let sockets;
             let payload = {
                 driverId: dbUsers.secondDriver.id,
@@ -475,12 +477,12 @@ describe("delivery side effects test", function () {
                 clientSocketCreator("delivery", dbUsers.secondDriver.token),
                 clientSocketCreator("delivery", dbUsers.goodUser.token)
             ]);
-            response = await app.post(endPoint).send(payload).set(
+            response = await app.post(url).send(payload).set(
                 "authorization",
                 "Bearer " + dbUsers.firstDriver.token
             );
             assert.equal(response.status, errors.forbiddenAccess.status);
-            response = await app.post(endPoint).send(payload).set(
+            response = await app.post(url).send(payload).set(
                 "authorization",
                 "Bearer " + dbUsers.conflictManager.token
             );
@@ -515,7 +517,7 @@ describe("delivery side effects test", function () {
                     "/delivery/conflict/verify-code"
                 ).send({
                     code: testDeliveries[2].code,
-                    deliveryId: testDeliveries[2].id
+                    id: testDeliveries[2].id
                 }).set("authorization", "Bearer " + dbUsers.secondDriver.token);
                 assert.equal(response.status, 200);
                 response = await listenEvent({

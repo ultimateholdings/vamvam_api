@@ -17,6 +17,10 @@ function getRegistrationModule({associatedModels, model}) {
     const registrationModel = model || Registration;
     const associations = associatedModels || {User};
     const paginateRegistrations = ressourcePaginator(Registration.getAll);
+    const apiStatuses = {
+        pending: userStatuses.pendingValidation,
+        rejected: userStatuses.rejected,
+    };
 
     async function ensureValidDatas(req, res, next) {
         const requiredDatas = registrationModel.requiredProps ?? [];
@@ -202,10 +206,11 @@ function getRegistrationModule({associatedModels, model}) {
     }
 
     async function getNewRegistrations(req, res) {
-        const {maxPageSize, name, skip} = req.query;
+        const {maxPageSize, name, skip, status} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
             params.name = name;
+            params.status = apiStatuses[status] ?? apiStatuses.pending;
             return params;
         };
         const registrations = await paginateRegistrations({
@@ -223,11 +228,7 @@ function getRegistrationModule({associatedModels, model}) {
         const getParams = function (params) {
             params.name = name;
             params.from = from;
-            if (Number.isNaN(Date.parse(to))) {
-                params.to = new Date();
-            } else {
-                params.to = to;
-            }
+            params.to = to;
             return params;
         };
         const registrations = await paginateRegistrations({

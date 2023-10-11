@@ -194,7 +194,7 @@ with the date serialization to avoid false negative*/
         response = await getDatas({
             app,
             token: managerToken,
-            url: "/driver/new-registrations?name=Nkang"
+            url: "/driver/registrations?name=Nkang"
         });
         assert.equal(response.body?.results?.length, 6);
     });

@@ -42,6 +42,13 @@ const errors = {
         },
         status: 454
     },
+    conflictAssigned: {
+        message: {
+            en: "This conflict has already been assigned to a driver",
+            fr: "Ce conflit a déjà été attribué à un conducteur"
+        },
+        status: 410
+    },
     conflictNotFound: {
         message: {
             en: "you're looking for a non-existing conflict",
@@ -129,13 +136,12 @@ const errors = {
             en: "The latitude and longitude must be a valid number",
             fr: "La latitude et la longitude doivent être des nombres valides."
         },
-        status: 440
+        status: 400
     },
     invalidUploadValues: {
         message: {
             en: "you should provide informations you want to update",
-            fr:
-            "vous devez fournir les informations que vous " +
+            fr: "vous devez fournir les informations que vous " +
             "souhaitez mettre à jour"
         },
         status: 400

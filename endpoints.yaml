@@ -326,7 +326,7 @@ auth-endpoints:
       action: verify the code of a conflicting delivery
       type: post
       body:
-        id: string representing the conflict Id
+        id: string representing the delivery Id
         code: string
       response:
         terminated: boolean
