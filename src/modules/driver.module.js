@@ -18,7 +18,7 @@ function getRegistrationModule({associatedModels, model}) {
     const associations = associatedModels || {User};
     const paginateRegistrations = ressourcePaginator(Registration.getAll);
     const apiStatuses = {
-        pending: userStatuses.pendingValidation,
+        validated: userStatuses.activated,
         rejected: userStatuses.rejected,
     };
 
@@ -40,9 +40,6 @@ function getRegistrationModule({associatedModels, model}) {
     async function ensureRegistrationExists(req, res, next) {
         const {id} = req.body;
         let registration;
-        if (typeof id !== "string" || id === "") {
-            return sendResponse(res, errors.invalidValues);
-        }
         registration = await registrationModel.findOne({where: {id}});
         if (registration === null) {
             return sendResponse(res, errors.notFound);
@@ -51,9 +48,9 @@ function getRegistrationModule({associatedModels, model}) {
         next();
     }
 
-    function ensureRegistrationPending(req, res, next) {
+    function ensureNotValidated(req, res, next) {
         const {registration} = req;
-        if (registration.status !== userStatuses.pendingValidation) {
+        if (registration.status === apiStatuses.validated) {
             return sendResponse(res, errors.cannotPerformAction);
         }
         next();
@@ -62,16 +59,22 @@ function getRegistrationModule({associatedModels, model}) {
     function ensureIsGranted(req, res, next) {
         const {id} = req.user.token;
         const {registration} = req;
-        if ((registration.validatorId ?? id) !== id) {
+        if (registration.contributorId !== id) {
             return sendResponse(res, errors.forbiddenAccess);
         }
         next();
     }
 
+    function ensureNotHandled(req, res, next) {
+        const {registration} = req;
+        if (registration.contributorId !== null) {
+            return sendResponse(res, errors.alreadyAssigned);
+        }
+        next();
+    }
+
     async function ensureUserNotExists(req, res, next) {
-        const {
-            phoneNumber: phone
-        } = req.body;
+        const {phoneNumber: phone} = req.body;
         let user;
         if (typeof phone !== "string" || phone === "") {
             return sendResponse(res, errors.invalidValues);
@@ -143,14 +146,12 @@ function getRegistrationModule({associatedModels, model}) {
     }
 
     async function updateRegistration(req, res) {
-        const {id} = req.user.token;
         const {registration} = req;
         const requiredProps = registrationModel.requiredProps ?? [];
         let updated;
         let updates = req.body;
         updates.carInfos = req.file?.path;
         updates = propertiesPicker(updates)(requiredProps);
-        updates.contributorId = id;
         if (Object.keys(updates).length <= 0) {
             return sendResponse(res, errors.invalidValues);
         }
@@ -166,11 +167,9 @@ function getRegistrationModule({associatedModels, model}) {
     }
 
     async function validateRegistration(req, res) {
-        const {id} = req.user.token;
         const {registration} = req;
         let createdUser;
         registration.status = userStatuses.activated;
-        registration.contributorId = id;
         await registration.save();
         createdUser = await associations.User.create(
             registration.toUserData(),
@@ -190,10 +189,8 @@ function getRegistrationModule({associatedModels, model}) {
         );
     }
     async function rejectRegistration(req, res) {
-        const {id} = req.user.token;
         const {registration} = req;
         registration.status = userStatuses.rejected;
-        registration.contributorId = id;
         await registration.save();
         res.status(200).send({rejected: true});
         mailer.notifyWithEmail({
@@ -206,11 +203,10 @@ function getRegistrationModule({associatedModels, model}) {
     }
 
     async function getNewRegistrations(req, res) {
-        const {maxPageSize, name, skip, status} = req.query;
+        const {maxPageSize, name, skip} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
             params.name = name;
-            params.status = apiStatuses[status] ?? apiStatuses.pending;
             return params;
         };
         const registrations = await paginateRegistrations({
@@ -222,13 +218,16 @@ function getRegistrationModule({associatedModels, model}) {
         res.status(200).json(registrations);
     }
     
-    async function getValidated(req, res) {
-        const {from, maxPageSize, name, skip, to} = req.query;
+    async function getSettled(req, res) {
+        const {id} = req.user.token;
+        const {from, maxPageSize, name, skip, status, to} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
             params.name = name;
             params.from = from;
             params.to = to;
+            params.contributorId = id;
+            params.status = apiStatuses[status];
             return params;
         };
         const registrations = await paginateRegistrations({
@@ -240,15 +239,25 @@ function getRegistrationModule({associatedModels, model}) {
         res.status(200).json(registrations);
     }
 
+    async function handleRegistration(req, res) {
+        const {registration} = req;
+        const {id} = req.user.token;
+        registration.contributorId = id;
+        await registration.save();
+        res.status(200).json({});
+    }
+
     return Object.freeze({
         ensureIsGranted,
         ensureRegistrationExists,
-        ensureRegistrationPending,
+        ensureNotValidated,
+        ensureNotHandled,
         ensureUnregistered,
         ensureUserNotExists,
         ensureValidDatas,
         getNewRegistrations,
-        getValidated,
+        getSettled,
+        handleRegistration,
         registerDriver,
         registerIntern,
         rejectRegistration,
@@ -256,5 +265,4 @@ function getRegistrationModule({associatedModels, model}) {
         validateRegistration
     });
 }
-
 module.exports = getRegistrationModule;

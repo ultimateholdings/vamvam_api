@@ -85,20 +85,20 @@ registration-manager:
       maxPageSize: number
       name: string representing the full name of the driver to match
       skip: number
-      status: string representing the registration status (pending | rejected) default to pending
     response:
       nextPageToken: string
       refreshed: boolean
       results: registrationData[]
-  /driver/all-validated:
-    action: get new driver registrations
+  /driver/all-settled:
+    action: get the registrations you've settled
     type: get
     queryString:
-      from: date after which the validation has been done (YYYY-MM-DD)
+      from: date after which the (validation or rejection) has been done (YYYY-MM-DD)
       maxPageSize: number
       name: string representing the full name of the driver to match
       skip: number
-      to: date before which the validation has been done (YYYY-MM-DD)
+      to: date before which the (validation or rejection) has been done (YYYY-MM-DD)
+      status: string representing the registration status (validated | rejected) default to pending
     response:
       nextPageToken: string
       refreshed: boolean

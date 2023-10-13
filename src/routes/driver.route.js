@@ -33,11 +33,11 @@ function buildRegistrationRoutes(module) {
         errorHandler(routeModule.getNewRegistrations)
     );
     router.get(
-        "/all-validated",
+        "/all-settled",
         protectRoute,
         allowRoles([roles.registrationManager]),
         parsePaginationHeaders,
-        errorHandler(routeModule.getValidated)
+        errorHandler(routeModule.getSettled)
     );
     router.post(
         "/register",
@@ -78,8 +78,17 @@ function buildRegistrationRoutes(module) {
         allowRoles([roles.registrationManager]),
         routeModule.ensureRegistrationExists,
         routeModule.ensureIsGranted,
-        routeModule.ensureRegistrationPending,
+        routeModule.ensureNotValidated,
         errorHandler(routeModule.rejectRegistration)
+    );
+    router.post(
+        "/handle-registration",
+        protectRoute,
+        allowRoles([roles.registrationManager]),
+        routeModule.ensureRegistrationExists,
+        routeModule.ensureNotValidated,
+        routeModule.ensureNotHandled,
+        errorHandler(routeModule.handleRegistration)
     );
     return router;
 }

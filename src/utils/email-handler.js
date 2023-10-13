@@ -58,6 +58,9 @@ function createMailer() {
             content: notification.body,
             title: notification.title
         })();
+        if (process.env === "test") {
+            return;
+        }
         if (typeof email === "string" && email.length > 0) {
             sendEmail({
                 callback: handleResponse,

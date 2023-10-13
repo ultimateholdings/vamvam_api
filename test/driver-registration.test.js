@@ -24,8 +24,8 @@ const {
     generateToken,
     getDatas,
     listenEvent,
-    loginUser,
     otpHandler,
+    postData,
     registerDriver,
     setupServer,
     subscriber,
@@ -36,11 +36,12 @@ const getSocketManager = require("../src/utils/socket-manager");
 const registrationHandler = require("../src/modules/driver.socket-handler");
 const {errors} = require("../src/utils/system-messages");
 const {fileExists, getFileHash} = require("../src/utils/helpers");
+const { userStatuses } = require("../src/utils/config");
 
 const carInfosPath = "test/fixtures/specs.pdf";
-function generateSubscribers(total, validated = false) {
+function generateSubscribers(total, fn) {
     const date = Date.now();
-    return Array(total).fill(subscriber).map(function (infos) {
+    return new Array(total).fill(subscriber).map(function (infos) {
         const random = Math.floor(Math.random() * 100000 * total);
         const driver = {};
         const id = "-" + random;
@@ -49,11 +50,11 @@ function generateSubscribers(total, validated = false) {
         driver.email = infos.email.replace("@", id + "@");
         driver.phoneNumber = infos.phoneNumber + id;
         driver.carInfos = carInfosPath;
-        if (validated) {
-            driver.validationDate = new Date(date - random);
+        if (typeof fn === "function") {
+            return fn(driver, new Date(date - random));
         }
         return driver;
-    })
+    });
 }
 describe("registration tests", function () {
     let carInfoHash;
@@ -77,9 +78,9 @@ describe("registration tests", function () {
 
     beforeEach(async function () {
         const data = {
-            phone: "132129489433",
+            code: "12334",
             name: "Trésor Dima",
-            code: "12334"
+            phone: "132129489433"
         };
         await connection.sync({force: true});
         dbUsers = await syncUsers(users, User);
@@ -100,8 +101,9 @@ describe("registration tests", function () {
         server.close();
     });
     it("should register a new driver", async function () {
-        const driver = subscriber;
+        const driver = {};
         let response;
+        Object.assign(driver, subscriber);
         await Registration.create(subscriber);
         response = await registerDriver({app, driver});
         assert.equal(response.status, errors.alreadyRegistered.status);
@@ -130,46 +132,54 @@ describe("registration tests", function () {
 with the date serialization to avoid false negative*/
         assert.equal(response.id, driver.toResponse().id);
     });
-    it("should enable the manager to update the registration", async function () {
-        let response;
-        let registration = await Registration.create(subscriber);
-        response = await app.post("/driver/update-registration").field(
-            "id", "a--fake--id--of--registration"
-        ).field("firstName", "test").attach("carInfos", carInfosPath).set(
-            "authorization", 
-            "Bearer " + managerToken
-        );
-        assert.equal(response.status, errors.notFound.status);
-        response = await app.post("/driver/update-registration").field(
-            "id", registration.id
-        ).field("firstName", "test").attach("carInfos", carInfosPath).set(
-            "authorization", 
-            "Bearer " + managerToken
-        );
-        assert.equal(response.status, 200);
-    });
+    it(
+        "should enable the manager to update the registration",
+        async function () {
+            let registration;
+            let response = generateSubscribers(1)[0];
+            response.contributorId = dbUsers.registrationManager.id;
+            registration = await Registration.create(response);
+            response = await app.post("/driver/update-registration").field(
+                "id",
+                "a--fake--id--of--registration"
+            ).field("firstName", "test").attach("carInfos", carInfosPath).set(
+                "authorization",
+                "Bearer " + managerToken
+            );
+            assert.equal(response.status, errors.notFound.status);
+            response = await app.post("/driver/update-registration").field(
+                "id",
+                registration.id
+            ).field("firstName", "test").attach("carInfos", carInfosPath).set(
+                "authorization",
+                "Bearer " + managerToken
+            );
+            assert.equal(response.status, 200);
+        }
+    );
     it(
         "should create a driver account on registration validation",
         async function () {
             let registration;
-            let response;
-            subscriber.sponsorCode = "12334";
-            registration = await Registration.create(subscriber);
+            let response = generateSubscribers(1)[0];
+            response.sponsorCode = "12334";
+            response.contributorId = dbUsers.registrationManager.id;
+            registration = await Registration.create(response);
             response = await app.post("/driver/validate-registration").send({
                 id: registration.id
             }).set("authorization", "Bearer " + managerToken);
             assert.equal(response.status, 200);
-            response = await loginUser(
-                app,
-                subscriber.phoneNumber,
-                subscriber.password
-            );
+            response = await User.findOne({
+                where: {phone: registration.phoneNumber}
+            });
             assert.isNotNull(response);
             response = await app.post("/driver/reject-validation").send({
                 id: registration.id
             }).set("authorization", "Bearer " + managerToken);
             assert.equal(response.status, errors.cannotPerformAction.status);
-            response = await Sponsorship.findAll({where: {sponsorId: sponsor.id}});
+            response = await Sponsorship.findAll(
+                {where: {sponsorId: sponsor.id}}
+            );
             assert.equal(response.length, 1);
         }
     );
@@ -200,14 +210,36 @@ with the date serialization to avoid false negative*/
     });
     it("should provide the list of validated registration", async function () {
         let response;
+        const settle = (status) => function (registration) {
+            registration.contributorId = dbUsers.registrationManager.id;
+            registration.status = status;
+            return registration;
+        }
         await Registration.bulkCreate(
-            generateSubscribers(10, true).concat(generateSubscribers(4))
+            generateSubscribers(6, settle(userStatuses.activated)).concat(
+                generateSubscribers(2, settle(userStatuses.rejected))
+            )
         );
         response = await getDatas({
             app,
             token: managerToken,
-            url: "/driver/all-validated"
+            url: "/driver/all-settled"
         });
-        assert.equal(response.body?.results?.length, 10);
+        assert.equal(response.body?.results?.length, 8);
+    });
+    it("should allow a manager to handle a registration", async function () {
+        let response;
+        let data;
+        const post = (data) => postData({
+            app,
+            data: {id: data.id},
+            token: managerToken,
+            url: "/driver/handle-registration"
+        });
+        data = await Registration.create(subscriber);
+        response = await post(data);
+        assert.equal(response.status, 200);
+        response = await post(data);
+        assert.equal(response.status, errors.alreadyAssigned.status);
     });
 });

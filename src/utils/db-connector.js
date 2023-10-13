@@ -30,14 +30,15 @@ function uuidType() {
 function enumType(set, initialValue) {
     let values = set;
     let defaultValue;
-    const type = DataTypes.ENUM;
+    const result = Object.create(mergableObject);
+    result.type = DataTypes.ENUM;
     if (!Array.isArray(set)) {
         values = Object.values(set);
     }
     if (typeof initialValue === "string") {
         defaultValue = initialValue;
     }
-    return {defaultValue, type, values};
+    return result.with({defaultValue, values});
 }
 
 function required(type, nullable = false) {

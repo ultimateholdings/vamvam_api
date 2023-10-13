@@ -28,8 +28,7 @@ const schema = {
     password: DataTypes.STRING,
     phoneNumber: types.required(DataTypes.STRING).with({unique: true}),
     sponsorCode: DataTypes.STRING,
-    status: types.enumType(userStatuses, userStatuses.pendingValidation),
-    validationDate: DataTypes.DATE
+    status: types.enumType(userStatuses, userStatuses.pendingValidation)
 };
 function defineDriverRegistration(connection) {
     const emitter = new CustomEmitter("Registration emitter");
@@ -75,6 +74,7 @@ function defineDriverRegistration(connection) {
     };
     registration.requiredProps = requiredProps;
     registration.getAll = async function ({
+        contributorId,
         from,
         maxSize,
         name,
@@ -88,7 +88,13 @@ function defineDriverRegistration(connection) {
         const query = paginationQuery(offset, maxSize);
         query.order = order;
         query.where = {};
-        query.where[Op.and] = [buildPeriodQuery(from, to, "validationDate")];
+        query.where[Op.and] = [
+            buildPeriodQuery(from, to, "updatedAt"),
+            buildClause(
+                "contributorId",
+                buildClause(Op.eq, contributorId ?? null)
+            )
+        ];
         if (typeof name === "string" && name.length > 0) {
             clause[Op.like] = "%" + name + "%";
             query.where[Op.and].push(
