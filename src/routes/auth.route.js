@@ -7,6 +7,9 @@ const {availableRoles} = require("../utils/config");
 function buildAuthRoutes (authModule) {
     const routeModule = authModule || getAuthModule({});
     const router = new express.Router();
+    const phoneVerifier = routeModule.ensureUserExists(
+        (body) => Object.freeze({phone: body.phoneNumber ?? null})
+    )
     router.post(
         "/send-otp",
         routeModule.ensureUnregistered,
@@ -15,7 +18,7 @@ function buildAuthRoutes (authModule) {
     router.post("/verify-otp", errorHandler(routeModule.verifyOTP));
     router.post(
         "/admin/login",
-        routeModule.ensureExistingAccount,
+        phoneVerifier,
         routeModule.allowedRoles([
             availableRoles.adminRole,
             availableRoles.conflictManager,
@@ -25,24 +28,24 @@ function buildAuthRoutes (authModule) {
     );
     router.post(
         "/client/login",
-        routeModule.ensureExistingAccount,
+        phoneVerifier,
         routeModule.allowedRoles([availableRoles.clientRole]),
         errorHandler(routeModule.loginUser)
     );
     router.post(
         "/driver/login",
-        routeModule.ensureExistingAccount,
+        phoneVerifier,
         routeModule.allowedRoles([availableRoles.driverRole]),
         errorHandler(routeModule.loginUser)
     );
     router.post(
         "/send-reset-otp",
-        routeModule.ensureExistingAccount,
+        phoneVerifier,
         errorHandler(routeModule.sendResetOTP)
     );
     router.post(
         "/verify-reset",
-        routeModule.ensureExistingAccount,
+        phoneVerifier,
         routeModule.ensureHasReset,
         errorHandler(routeModule.verifyReset)
     );

@@ -566,18 +566,17 @@ async function generateCode(byteSize = 5) {
     return encoder(crypto.randomBytes(byteSize), "Crockford");
 }
 
+function comparePassword(givenPassword, hash) {
+    return bcrypt.compare(givenPassword, hash)
+}
+async function hashPassword(password) {
+    const salt = await bcrypt.genSalt(12);
+    return bcrypt.hash(password, salt);
+}
+
 module.exports = Object.freeze({
     CustomEmitter,
-    comparePassword(givenPassword, hash) {
-        return new Promise(function executor(resolve, reject) {
-            bcrypt.compare(givenPassword, hash, function (err, result) {
-                if (err !== null && err !== undefined) {
-                    reject(err);
-                }
-                resolve(result === true);
-            });
-        });
-    },
+    comparePassword,
     deleteFile,
     errorHandler,
     fileExists,
@@ -587,16 +586,7 @@ module.exports = Object.freeze({
     getFileHash,
     getOTPService,
     getPaymentService,
-    hashPassword(password) {
-        return new Promise(function executor(resolve, reject) {
-            bcrypt.hash(password, 10, function (err, result) {
-                if (err !== null && err !== undefined) {
-                    reject(err);
-                }
-                resolve(result);
-            });
-        });
-    },
+    hashPassword,
     isValidLocation,
     jwtWrapper,
     mergableObject,

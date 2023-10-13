@@ -65,16 +65,15 @@ function getAuthModule({
         }
     }
 
-    async function ensureExistingAccount(req, res, next) {
-        const {phone, phoneNumber} = req.body;
-        const user = await authModel.findOne({where: {
-            phone: phone ?? phoneNumber
-        }});
-        if (user === null) {
-            return sendResponse(res, errors.nonexistingUser, {phone});
+    function ensureUserExists(getParams) {
+        return async function verify(req, res, next) {
+            const user = await authModel.findOne({where: getParams(req.body)});
+            if (user === null) {
+                return sendResponse(res, errors.nonexistingUser);
+            }
+            req.user = user;
+            next();
         }
-        req.user = user;
-        next();
     }
 
     function allowedRoles(roles = []) {
@@ -183,19 +182,15 @@ function getAuthModule({
     }
 
     async function verifyReset(req, res) {
-        const {
-            code,
-            phoneNumber: phone
-        } = req.body;
+        const {code} = req.body;
         let {user} = req;
         let response;
         if (user.status !== authModel.statuses?.activated) {
             return sendResponse(res, errors.inactiveAccount);
         }
-
         response = await authOtpHandler.verifyCode({
             code,
-            phone,
+            phone: user.phone,
             type: otpTypes.reset
         });
         if (response.verified === false) {
@@ -234,11 +229,8 @@ function getAuthModule({
     }
 
     async function loginUser(req, res) {
-        let {
-            password,
-            phoneNumber: phone
-        } = req.body;
-        let currentUser = await authModel.findOne({where: {phone}});
+        let currentUser = req.user;
+        let {password = ""} = req.body
         let isVerified;
         if (currentUser !== null) {
             if (currentUser.status !== authModel.statuses?.activated) {
@@ -257,9 +249,9 @@ function getAuthModule({
     return Object.freeze({
         allowedRoles,
         changePassword,
-        ensureExistingAccount,
         ensureHasReset,
         ensureUnregistered,
+        ensureUserExists,
         loginUser,
         registerDriver,
         resetPassword,
