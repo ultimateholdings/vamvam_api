@@ -3,7 +3,8 @@ const {fn, literal} = require("sequelize");
 const {errors} = require("../utils/system-messages");
 const {
   staticPaymentProps,
-  getPaymentConfig
+  getPaymentConfig,
+  bundleStatuses
 } = require("../utils/config");
 const {
   sendResponse,
@@ -11,23 +12,13 @@ const {
   paymentManager,
 } = require("../utils/helpers");
 
-function getTransactionModule({
-  modelTrans,
-  modelPay,
-  modelBundle,
-  deliveryModel,
-  paymentHan,
-  modelUser,
-}) {
-  const transactionModel = modelTrans || Transaction;
-  const paymentModel = modelPay || Payment;
-  const bundleModel = modelBundle || Bundle;
-  const deliveriesModel = deliveryModel || Delivery;
-  const userModel = modelUser || User;
+function getTransactionModule({associatedModels, model, paymentHandling}) {
+  const transactionModel = model || Transaction;
+  const associations = associatedModels || {Payment, Bundle, Delivery, User};
   const paymentHandler =
-    paymentHan || paymentManager(getPaymentService(paymentModel));
+    paymentHandling || paymentManager(getPaymentService(associations.Payment));
 
-  deliveriesModel.addEventListener("point-withdrawal-requested", withdrawal);
+    associations.Delivery.addEventListener("point-withdrawal-requested", withdrawal);
 
   async function verifyPaymentData(req, res, next) {
     let pack;
@@ -37,7 +28,7 @@ function getTransactionModule({
     const signature = req.headers["verif-hash"];
     const { id, amount, status } = req.body.data;
     if (signature !== secretHash && status !== "successful") {
-      deliveriesModel.emitEvent("failure-payment", {
+      associations.Delivery.emitEvent("failure-payment", {
         payload:{
           amount: amount
         },
@@ -45,7 +36,7 @@ function getTransactionModule({
       });
       return sendResponse(res, errors.notAuthorized);
     }
-    payment = await paymentModel.findOne({
+    payment = await associations.Payment.findOne({
       where: {
         transId: id
       },
@@ -54,7 +45,7 @@ function getTransactionModule({
       return sendResponse(res, errors.paymentAlreadyVerified)
     }
     res.status(200).send({});
-    pack = await bundleModel.findOne({
+    pack = await associations.Bundle.findOne({
       attributes: [
         "bonus",
         "point",
@@ -83,13 +74,16 @@ function getTransactionModule({
       attributes: [
         [fn("SUM", literal("`point` * `unitPrice`" )), "amount"]
     ],
-    where: { id: packId }
+    where: {
+      id: packId,
+      status: bundleStatuses.activated
     }
-    bundle = await bundleModel.findOne(query);
+    }
+    bundle = await associations.Bundle.findOne(query);
     if (bundle === null) {
       return sendResponse(res, errors.notFound);
     }
-    driver = await userModel.findOne({
+    driver = await associations.User.findOne({
       where: { id: id },
       attributes: ["id", "firstName", "lastName", "email"],
     });
@@ -103,7 +97,7 @@ function getTransactionModule({
     const {amount} = req.bundle.dataValues;
     const {phoneNumber, packId} = req.body;
     const {id: driverId, lastName, firstName, email} = req.driver;
-    payload = await bundleModel.buildBundlePayload({amount, phoneNumber, lastName, firstName, email});
+    payload = await associations.Bundle.buildBundlePayload({amount, phoneNumber, lastName, firstName, email});
     const {init, code, message} = await paymentHandler.initTransaction(
       payload,
       driverId,
@@ -130,7 +124,7 @@ function getTransactionModule({
       });
       payment.isVerify = true;
       await payment.save();
-      deliveriesModel.emitEvent("successful-payment", {
+      associations.Delivery.emitEvent("successful-payment", {
         payload: {
           amount: expectedAmount,
           bonus: bonus*unitPrice,
@@ -140,7 +134,7 @@ function getTransactionModule({
       });
     } else {
       sendResponse(res, errors.paymentApproveFail);
-      deliveriesModel.emitEvent("failure-payment", {
+      associations.Delivery.emitEvent("failure-payment", {
         payload: {
           amount: amount
         },
@@ -158,7 +152,7 @@ function getTransactionModule({
         type: staticPaymentProps.debit_type,
         unitPrice: staticPaymentProps.debit_amount
     });
-    deliveriesModel.emitEvent("point-withdrawal-fulfill", {
+    associations.Delivery.emitEvent("point-withdrawal-fulfill", {
       payload: {
         amount: point * staticPaymentProps.debit_amount,
         bonus,
@@ -180,7 +174,7 @@ function getTransactionModule({
     });
     res.status(200).json({});
     if( type === "recharge"){
-      deliveriesModel.emitEvent("incentive-bonus", {
+      associations.Delivery.emitEvent("incentive-bonus", {
         payload: {
           amount: bonus * staticPaymentProps.debit_amount,
           bonus
@@ -188,7 +182,7 @@ function getTransactionModule({
         userId: driverId
       });
     } else {
-      deliveriesModel.emitEvent("bonus-withdrawal", {
+      associations.Delivery.emitEvent("bonus-withdrawal", {
         payload: {
           amount: bonus * staticPaymentProps.debit_amount,
           bonus
