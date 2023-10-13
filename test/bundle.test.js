@@ -71,7 +71,7 @@ describe("Bundle CRUD test", function () {
     response = await app
       .get("/bundle/infos")
       .send({ id })
-      .set("authorization", "Bearer " + tokens[0]);
+      .set("authorization", "Bearer " + tokens[2]);
     assert.equal(response.status, 200);
     assert.equal(response.body.id, id);
   });
@@ -101,6 +101,6 @@ describe("Bundle CRUD test", function () {
       .post("/bundle/delete")
       .send({ id })
       .set("authorization", "Bearer " + tokens[2]);
-    assert.equal(response.status, 204);
+    assert.equal(response.status, 200);
   })
 });

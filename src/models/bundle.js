@@ -3,6 +3,7 @@ node, nomen, this
 */
 const {DataTypes} = require("sequelize");
 const {staticPaymentProps} = require("../utils/config");
+const {bundleStatuses} = require("../utils/config");
 
 function defineBundleModel(connection) {
     const schema = {
@@ -17,6 +18,11 @@ function defineBundleModel(connection) {
         unitPrice: {
             type: DataTypes.DOUBLE,
             allowNull: false
+        },
+        status: {
+            defaultValue: bundleStatuses.activated,
+            type: DataTypes.ENUM,
+            values: Object.values(bundleStatuses)
         },
         id: {
             defaultValue: DataTypes.UUIDV4,
@@ -37,8 +43,12 @@ function defineBundleModel(connection) {
           tx_ref: "transfer-" + Date.now()
         };
         return payload
-      } 
+    }
+    bundle.changeBundleStatuse = async function({id, status}) {
+        return await this.update({status}, {
+            where: {id}
+        });
+    } 
     return bundle;
 }
-
 module.exports = defineBundleModel;
