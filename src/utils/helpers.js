@@ -302,13 +302,14 @@ function getOTPService(model) {
             response.content = error.toString();
             return response;
         }
+        // 549eacf0-4406-4521-9cf8-f590c453f628
         if (response.ok) {
             response = await response.json();
             await model.upsert({
                 pinId: response.pinId,
                 phone,
                 type
-            }, {fields: ["phone", "type"]});
+            }, {fields: ["pinId"]});
             return {pinId: response.pinId, sent: true};
         } else {
             response = await response.json();
@@ -341,11 +342,15 @@ function getOTPService(model) {
                     await model.destroy({where: {phone, type}});
                     return {verified: true};
                 }
-                response = cloneObject(errors.forbiddenAccess);
+                response = cloneObject(
+                    response.verified
+                    ? errors.forbiddenAccess
+                    : errors.invalidCredentials
+                );
                 response.verified = false;
                 return response;
             } else {
-                response = cloneObject(errors.invalidCredentials);
+                response = cloneObject(errors.otpVerificationFail);
                 response.verified = false;
                 return response;
             }

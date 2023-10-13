@@ -155,7 +155,6 @@ function getAuthModule({
             phoneNumber: phone,
             signature
         } = req.body;
-        debugger;
         const response = await authOtpHandler.sendCode({phone, signature});
         if (response.sent === true) {
             res.status(200).send({sent: true, ttl: authOtpHandler.getTtl()});

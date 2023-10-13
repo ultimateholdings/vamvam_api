@@ -183,8 +183,8 @@ const errors = {
     },
     otpVerificationFail: {
         message: {
-            en: "Could not verify OTP right now",
-            fr: "Impossible de vérifier l'OTP pour le moment"
+            en: "Your code has expired please, consider asking for a new one",
+            fr: "Votre code a expiré, veuillez demander un nouveau code."
         },
         status: 440
     },
