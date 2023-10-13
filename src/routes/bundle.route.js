@@ -21,6 +21,7 @@ function getBundleRouter(module) {
     router.get(
         "/infos",
         protectRoute,
+        allowRoles([roles.adminRole]),
         errorHandler(bundleModule.getBundleInfos)
     );
     router.get(
@@ -38,7 +39,7 @@ function getBundleRouter(module) {
         "/delete",
         protectRoute,
         allowRoles([roles.adminRole]),
-        errorHandler(bundleModule.deleteBunch)
+        errorHandler(bundleModule.changePackageStatus)
     )
     return router;
 }

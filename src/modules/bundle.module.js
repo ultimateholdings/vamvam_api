@@ -1,13 +1,13 @@
-const {Bundle, Delivery} = require("../models");
+const {Bundle} = require("../models");
+const {bundleStatuses} = require("../utils/config");
 const {errors} = require("../utils/system-messages");
 const {
   propertiesPicker,
   sendResponse,
 } = require("../utils/helpers");
 const minDeliveryPrice = 1000;
-function getBundleModule({ model, deliveryModel }) {
+function getBundleModule({model}) {
   const BundleModel = model || Bundle;
-  const deliveriesModel = deliveryModel || Delivery;
   const bundleProps = ["bonus", "point", "unitPrice"];
   
   async function ensureBundleExists(req, res, next) {
@@ -68,8 +68,7 @@ function getBundleModule({ model, deliveryModel }) {
     }
   }
   async function getAllBundle(req, res) {
-    try {
-      let data;
+    let data;
       let bunchs;
       let query;
       query = {
@@ -81,7 +80,10 @@ function getBundleModule({ model, deliveryModel }) {
         ],
         order: [
           ['point', 'ASC']
-        ]
+        ],
+        where: {
+          status: bundleStatuses.activated
+        }
       }
       bunchs = await BundleModel.findAll(query);
       data = bunchs.map(function(bunch){
@@ -93,7 +95,7 @@ function getBundleModule({ model, deliveryModel }) {
         } = bunch;
         return {
           id,
-          bonus,
+          bonus: bonus * minDeliveryPrice,
           point,
           unitPrice,
           price: point * unitPrice,
@@ -101,9 +103,6 @@ function getBundleModule({ model, deliveryModel }) {
         }
       });
       res.status(200).json({ data });
-    } catch (error) {
-      sendResponse(res, errors.internalError);
-    }
   }
   async function updateBunch(req, res) {
     let { id } = req.body;
@@ -119,15 +118,13 @@ function getBundleModule({ model, deliveryModel }) {
         sendResponse(res, errors.invalidValues);
       }
   }
-  async function deleteBunch(req, res) {
+  async function changePackageStatus (req, res) {
+    let result;
     const { id } = req.body;
-    try {
-      await BundleModel.destroy({
-        where: { id: id },
-      });
-      res.status(204).send();
-    } catch (error) {
-      sendResponse(res, errors.internalError);
+    const status = bundleStatuses.inactive;
+    result = await BundleModel.changeBundleStatuse({id, status});
+    if (result.length !== 0) {
+      res.status(200).send();
     }
   }
   return Object.freeze({
@@ -136,7 +133,7 @@ function getBundleModule({ model, deliveryModel }) {
     getBundleInfos,
     getAllBundle,
     updateBunch,
-    deleteBunch
+    changePackageStatus
   });
 }
 module.exports = getBundleModule;

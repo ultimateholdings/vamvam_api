@@ -105,20 +105,25 @@ const otpTypes = {
     reset: "reset"
 };
 
+const bundleStatuses = {
+    activated: "active",
+    inactive: "desactiveted"
+};
 const staticPaymentProps = {
     country: "CM",
     currency: "XAF",
     debit_amount: 300,
     debit_type: "withdrawal",
-    recharge_point: 0
+    recharge_point: 0,
+    
 };
-
 const config = Object.freeze({
     ages,
     apiDeliveryStatus,
     apiRoles: Object.freeze(apiRoles),
     apiSettings: Object.freeze(apiSettings),
     availableRoles: Object.freeze(availableRoles),
+    bundleStatuses,
     conflictStatuses,
     dbSettings: Object.freeze(Object.entries(apiSettings).reduce(
         settingReducer,
