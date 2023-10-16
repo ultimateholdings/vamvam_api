@@ -70,6 +70,14 @@ const errors = {
         },
         status: 410
     },
+    distanceExceeding: {
+        message: {
+            en: "The distance to fulfill your delivery cannot exceed 35km",
+            fr: "La distance à parcourir pour effectuer la livraison " +
+            "ne peut excéder 35 km."
+        },
+        status: 400
+    },
     driverNotFound: {
         message: {
             en: "The driver you're looking for does not exists",

@@ -14,7 +14,6 @@ const {
     formatDbPoint,
     generateCode,
     isValidLocation,
-    propertiesPicker,
     ressourcePaginator,
     sendCloudMessage,
     sendResponse,
@@ -30,13 +29,20 @@ const dbStatusMap = Object.entries(apiDeliveryStatus).reduce(
     Object.create(null)
 );
 
-
-/*
-this function was created just to mimic the delivery
-price calculation due to lack of informations
-*/
-function calculatePrice() {
-    return 1000;
+function calculatePrice(distanceInKm) {
+    let price;
+    if (distanceInKm <= 10) {
+        price = 1000;
+    } else if (distanceInKm > 10 && distanceInKm <= 15) {
+        price = 1400;
+    } else {
+        price = 2000 + (
+            distanceInKm > 20
+            ? distanceInKm - 20
+            : 0
+        ) * 100;
+    }
+    return price;
 }
 
 function getDeliveryModule({associatedModels, model}) {
@@ -508,15 +514,12 @@ function getDeliveryModule({associatedModels, model}) {
         res.status(200).send(response);
     }
 
-/*This function is actually a placeholder for the price
-calculation of at delivery */
-/*jslint-disable*/
     function getPrice(req, res) {
+        const {distance} = req;
         res.status(200).send({
-            price: calculatePrice()
+            price: calculatePrice(Math.ceil(distance / 1000))
         });
     }
-/*jslint-enable*/
 
     async function rateDelivery(req, res) {
         const {note} = req.body;
@@ -537,11 +540,11 @@ calculation of at delivery */
     async function requestDelivery(req, res) {
         const {id, phone} = req.user.token;
         let user;
-        let {body} = req;
+        let {body, distance} = req;
         let tmp;
         user = await associations.User.findOne({where: {id, phone}});
         tmp = await generateCode();
-        body.price = calculatePrice();
+        body.price = calculatePrice(Math.ceil(distance / 1000));
         body.code = tmp;
         tmp = await deliveryModel.create(body);
         await tmp.setClient(user);
@@ -756,10 +759,8 @@ calculation of at delivery */
         getInfos,
         getNewConflicts,
         getOngoingDeliveries,
-        getTerminatedDeliveries,
-/*jslint-disable*/
         getPrice,
-/*jslint-enable*/
+        getTerminatedDeliveries,
         rateDelivery,
         relaunchDelivery,
         reportDelivery,

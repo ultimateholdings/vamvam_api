@@ -122,7 +122,6 @@ describe("delivery CRUD test", function () {
         });
         assert.equal(response.status, errors.invalidLocation.status);
     });
-
     it("should provide the infos of a delivery", async function () {
         let response = await getDatas({
             app,

@@ -5,6 +5,7 @@ const {
     deliveryStatuses
 } = require("../utils/config");
 const {
+    distanceBetween,
     formatDbPoint,
     isValidLocation,
     propertiesPicker,
@@ -111,6 +112,18 @@ function getDeliveryMiddlewares(model) {
             return sendResponse(res, errors.notFound);
         }
         req.delivery = delivery;
+        next();
+    }
+    function canCoverDistance(req, res, next) {
+        const {departure, destination} = req.body;
+        const distance = distanceBetween(departure).and(destination);
+        if (distance === null) {
+            return sendResponse(res, errors.invalidLocation);
+        }
+        if (distance > 35e3) {
+            return sendResponse(res, errors.distanceExceeding, {distance});
+        }
+        req.distance = distance;
         next();
     }
     function canTerminate(req, res, next) {
@@ -263,6 +276,7 @@ function getDeliveryMiddlewares(model) {
         next();
     }
     return Object.freeze({
+        canCoverDistance,
         canReport,
         canTerminate,
         conflictNotAssigned,

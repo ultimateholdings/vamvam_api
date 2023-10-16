@@ -44,6 +44,10 @@ const {
 } = process.env;
 CustomEmitter.prototype = EventEmitter.prototype;
 
+Number.prototype.toRadians = function () {
+    return this.valueOf() * (Math.PI / 180);
+};
+
 function cloneObject(object) {
     const tmp = Object.create(null);
     Object.assign(tmp, object);
@@ -302,12 +306,11 @@ function getOTPService(model) {
             response.content = error.toString();
             return response;
         }
-        // 549eacf0-4406-4521-9cf8-f590c453f628
         if (response.ok) {
             response = await response.json();
             await model.upsert({
-                pinId: response.pinId,
                 phone,
+                pinId: response.pinId,
                 type
             }, {fields: ["pinId"]});
             return {pinId: response.pinId, sent: true};
@@ -572,17 +575,52 @@ async function generateCode(byteSize = 5) {
 }
 
 function comparePassword(givenPassword, hash) {
-    return bcrypt.compare(givenPassword, hash)
+    return bcrypt.compare(givenPassword, hash);
 }
 async function hashPassword(password) {
     const salt = await bcrypt.genSalt(12);
     return bcrypt.hash(password, salt);
 }
 
+function distanceBetween(point1) {
+    let lat1;
+    let long1;
+    if (!isValidPoint(point1)) {
+        return {and: () => null};
+    }
+    lat1 = point1.latitude.toRadians();
+    long1 = point1.longitude.toRadians();
+    return {
+        and(point2, radius = 6563e3) {
+            let lat2;
+            let long2;
+            let deltaLat;
+            let deltaLong;
+            let result;
+            let haversine;
+            if (!isValidLocation(point2) || !isValidLocation(point1)) {
+                return null;
+            }
+            lat2 = point2.latitude.toRadians();
+            long2 = point2.longitude.toRadians();
+            deltaLat = lat2 - lat1;
+            deltaLong = long2 - long1;
+            haversine = Math.pow(Math.sin(deltaLat / 2), 2) +
+                Math.cos(lat1) * Math.cos(lat2) * Math.pow(
+                    Math.sin(deltaLong / 2),
+                    2
+            );
+            result = 2 * radius * Math.asin(Math.sqrt(haversine));
+            return result;
+        }
+    };
+}
+
 module.exports = Object.freeze({
     CustomEmitter,
     comparePassword,
     deleteFile,
+    distanceBetween,
     errorHandler,
     fileExists,
     formatDbLineString,

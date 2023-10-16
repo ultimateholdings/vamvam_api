@@ -10,9 +10,9 @@ const deliveries = [
             longitude: 9.74284
         },
         destination: {
-            address: "Nouvelle route Bonabassem",
-            latitude: 4.0731928,
-            longitude: 9.7133626
+            address: "Ndobo bonabéri",
+            latitude: 4.077683,
+            longitude: 9.650841
         },
         packageType: packageTypes[0].code,
         recipientInfos: {
@@ -41,14 +41,14 @@ const deliveries = [
     },
     {
         departure: {
-            address: "Carrefour Logbessou",
-            latitude: 4.0845127,
-            longitude: 9.7806557
+            address: "Dibamba",
+            latitude: 3.980695,
+            longitude: 9.880883
         },
         destination: {
-            address: "Tribunal de premiere instance de bonaberi",
-            latitude: 4.070708,
-            longitude: 9.683527
+            address: "Bekoko",
+            latitude: 4.113979,
+            longitude: 9.579520
         },
         packageType: packageTypes[0].code,
         recipientInfos: {

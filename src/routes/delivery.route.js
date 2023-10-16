@@ -36,6 +36,7 @@ function getDeliveryRouter(module) {
     router.get(
         "/price",
         protectRoute,
+        delivery.canCoverDistance,
         errorHandler(deliveryModule.getPrice)
     );
     router.get(
@@ -72,6 +73,7 @@ function getDeliveryRouter(module) {
             requiredLocation(["destination", "departure"]),
             errors.invalidLocation
         ),
+        delivery.canCoverDistance,
         delivery.isValidRequest,
         errorHandler(deliveryModule.requestDelivery)
     );
