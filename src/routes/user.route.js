@@ -70,6 +70,15 @@ function getUserRouter(userModule) {
         routerModule.ensureCanUpdateAvailability,
         errorHandler(routerModule.updateAvailabilty)
     );
+    router.post(
+        "/delete-account",
+        protectRoute,
+        routerModule.ensureUserExists,
+        allowRoles(Object.values(roles).filter(
+            (value) => value !== roles.adminRole
+        )),
+        errorHandler(routerModule.deleteAccount)
+    );
     return router;
 }
 

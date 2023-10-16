@@ -101,10 +101,13 @@ function defineUserModel(connection) {
                     fs.unlink(previous.carInfos, console.log);
                 }
             }
-        }
+        },
+        paranoid: true
     });
     user.prototype.toResponse = function () {
-        let result = this.dataValues;
+        let data = this.dataValues;
+        let result = {};
+        Object.assign(result, data);
         result.position = formatDbPoint(result.position);
         if (result.avatar !== null && result.avatar !== undefined) {
             result.avatar = pathToURL(result.avatar);
@@ -117,7 +120,11 @@ function defineUserModel(connection) {
             delete result.available;
             delete result.position;
         }
-        return propertiesPicker(result)(allowedProps);
+        result = propertiesPicker(result)(allowedProps);
+        if (data.deletedAt !== null) {
+            result.deleted = true;
+        }
+        return result;
     };
 
     user.prototype.toShortResponse = function () {
@@ -174,6 +181,7 @@ function defineUserModel(connection) {
                 role: types.buildClause(Op.notIn, [availableRoles.adminRole])
             };
         }
+        query.paranoid = false;
         results = await user.findAll(query);
         if (offset > 0) {
             formerLastId = results.shift();

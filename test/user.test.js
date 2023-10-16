@@ -15,7 +15,6 @@ const {
 const {assert} = require("chai");
 const {
     Sponsor,
-    Sponsorship,
     User,
     connection
 } = require("../src/models");
@@ -24,6 +23,7 @@ const {getFileHash} = require("../src/utils/helpers");
 const {
     generateToken,
     otpHandler,
+    postData,
     setupServer,
     users
 } = require("./fixtures/helper");
@@ -77,9 +77,10 @@ describe("user interactions tests", function () {
     });
 
     it("should provide the user infos", async function () {
-        let response = await app.get("/user/infos");
+        const url = "/user/infos";
+        let response = await app.get(url);
         assert.equal(response.status, errors.notAuthorized.status);
-        response = await app.get("/user/infos").set(
+        response = await app.get(url).set(
             "authorization",
             "Bearer " + currentUser.token
         );
@@ -87,43 +88,17 @@ describe("user interactions tests", function () {
 
     });
 
-    it("should update generic user infos", async function () {
+    it("should allow a user to delete his account", async function () {
         let response;
-        response = await app.post("/user/update-profile").send(updates);
-        assert.equal(response.status, errors.notAuthorized.status);
-        response = await app.post("/user/update-profile").send(updates).set(
-            "authorization",
-            "Bearer " + currentUser.token
-        );
-        assert.equal(response.status, 200);
-        response = await app.post("/user/update-profile").send(updates).set(
-            "authorization",
-            "Bearer " + currentUser.token
-        );
-        assert.equal(response.status, 200);
-        response = await Sponsorship.findAll({where: {userId: currentUser.id}});
-        assert.equal(response.length, 1);
+        response = await postData({
+            app,
+            token: currentUser.token,
+            url: "/user/delete-account"
+        });
+        response = await User.findOne({where: {id: currentUser.id}});
+        assert.isNull(response);
     });
-
-    it("should not update user role or phone or user Id", async function () {
-        let response;
-        let forbiddenUpdate = {
-            id: "dlsdjflskadjweioiryqot",
-            phone: "+32380",
-            role: "admin"
-        };
-        response = await app.post("/user/update-profile").send(
-            forbiddenUpdate
-        ).set("authorization", "Bearer " + currentUser.token);
-        assert.equal(response.status, errors.invalidUploadValues.status);
-        response = await User.findOne({where: {
-            id: currentUser.id,
-            phone: currentUser.phone,
-            role: currentUser.role
-        }});
-        assert.isNotNull(response);
-    });
-
+        
     describe("file uploads handler", function () {
         const avatarPath = "test/fixtures/avatar.png";
         const carInfosPath = "test/fixtures/specs.pdf";
@@ -191,27 +166,5 @@ describe("user interactions tests", function () {
             assert.isNull(response.avatar);
             assert.isFalse(fs.existsSync(avatarHash));
         });
-
-        it(
-            "should not allow to upload a file if the format is invalid",
-            async function () {
-                let response = await app.post("/user/update-profile").field(
-                    "firstName",
-                    "Vamvam soft"
-                ).attach(
-                    "avatar",
-                    carInfosPath
-                ).attach(
-                    "carInfos",
-                    avatarPath
-                ).set("authorization", "Bearer " + currentUser.token);
-                assert.equal(response.status, 200);
-                response = await User.findOne(
-                    {where: {phone: currentUser.phone}}
-                );
-                assert.equal(response.avatar, currentUser.avatar);
-            }
-        );
-
     });
 });

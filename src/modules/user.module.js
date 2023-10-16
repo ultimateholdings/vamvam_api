@@ -3,6 +3,7 @@ node
 */
 const {User} = require("../models");
 const {
+    generateCode,
     isValidLocation,
     propertiesPicker,
     ressourcePaginator,
@@ -37,6 +38,20 @@ function getUserModule({
             where: {id, phone}
         });
         res.status(200).json({updated: updated > 0});
+    }
+
+    async function deleteAccount(req, res) {
+        let updated;
+        let {id} = req.user.token;
+        const code = await generateCode(10);
+        const user = await userModel.findOne({where: {id}});
+        if (user.email !== null) {
+            user.email = user.email.replace("@", "-deleted-" + code + "@");
+        }
+        user.phone += "-deleted-" + code;
+        await user.save();
+        updated = await user.destroy();
+        res.status(200).json({deleted: updated.isSoftDeleted()});
     }
 
     async function ensureCanUpdateAvailability(req, res, next) {
@@ -174,6 +189,7 @@ function getUserModule({
     }
 
     return Object.freeze({
+        deleteAccount,
         deleteAvatar,
         ensureCanUpdateAvailability,
         ensureUserExists,

@@ -93,6 +93,9 @@ function defineRoomModel(connection, userModel, deliveryModel) {
             include,
             where: {id: userId}
         });
+        if (result === null) {
+            return [];
+        }
         return result.rooms.map(function (room) {
             const result = room.toResponse();
             const messages = room.Messages.map(function (msg) {
