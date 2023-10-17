@@ -43,18 +43,17 @@ function format(error) {
 }());
 
 process.on("uncaughtException", function (error) {
-    // const {admin_email} = process.env;
-    // const text = JSON.stringify(format(error), null, 4);
-    // const mailTemplate = mailer.getEmailTemplate({
-    //     content: "<code>" + text + "</code>"
-    // });
-    // socketServer.close();
-    // httpServer.close();
-    // mailer.sendEmail({
-    //     callback: mailer.handleResponse,
-    //     html: mailTemplate(),
-    //     text,
-    //     to: admin_email
-    // });
-    console.dir(error)
+    const {admin_email} = process.env;
+    const text = JSON.stringify(format(error), null, 4);
+    const mailTemplate = mailer.getEmailTemplate({
+        content: "<code>" + text + "</code>"
+    });
+    socketServer.close();
+    httpServer.close();
+    mailer.sendEmail({
+        callback: mailer.handleResponse,
+        html: mailTemplate(),
+        text,
+        to: admin_email
+    });
 });

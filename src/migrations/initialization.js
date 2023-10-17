@@ -26,7 +26,7 @@ function createTable(connection, model) {
 
 async function up() {
     await createTable(connection, otpRequest);
-    await createTable(connection, User);
+    await User.sync({alter: true});
     await createTable(connection, Delivery);
     await createTable(connection, Room);
     await createTable(connection, Message);
