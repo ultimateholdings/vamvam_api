@@ -217,6 +217,15 @@ const errors = {
         },
         status: 440
     },
+    pendingRegistration: {
+        message: {
+            en: "we processing your registration please wait for our" +
+            " response and consider contacting the support",
+            fr: "Nous traitons votre inscription. Veuillez attendre notre" +
+            " réponse et envisager de contacter le service d'assistance."
+        },
+        status: 440
+    },
     requestOTP: {
         message: {
             en: "invalid OTP, you should consider requesting another one",

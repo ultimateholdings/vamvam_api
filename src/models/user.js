@@ -169,17 +169,23 @@ function defineUserModel(connection) {
     user.getAll = async function ({
         maxSize = 10,
         offset = 0,
+        name,
         role
     }) {
         let query = types.paginationQuery(offset, maxSize);
         let results;
         let formerLastId;
-        if (typeof role === "string") {
-            query.where = {role};
-        } else {
-            query.where = {
-                role: types.buildClause(Op.notIn, [availableRoles.adminRole])
-            };
+        query.where = types.buildClause(Op.and, []);
+        query.where[Op.and].push(types.buildClause("role",(
+            typeof role === "string"
+            ? role
+            : types.buildClause(Op.notIn, [availableRoles.adminRole])
+        )));
+        if (typeof name === "string") {
+            query.where[Op.and].push(where(
+                fn("CONCAT", col("firstName"), " ", col("lastName")),
+                types.buildClause(Op.like, "%" + name + "%")
+            ))
         }
         query.paranoid = false;
         results = await user.findAll(query);

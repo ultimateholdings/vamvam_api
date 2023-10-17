@@ -1,8 +1,10 @@
 /*jslint node */
 const {jwtWrapper, sendResponse} = require("../utils/helpers");
 const {errors} = require("../utils/system-messages");
-const {Blacklist, Delivery} = require("../models");
+const {Blacklist, Delivery, Registration, User} = require("../models");
 const deliveryMiddleware = require("./delivery.middleware.js");
+const registrationMiddleware = require("./registration.middleware.js");
+const userMiddleware = require("./user.middleware.js");
 let routeProtector;
 function routeProtectionFactory(model) {
     const jwtHandler = jwtWrapper();
@@ -138,6 +140,8 @@ module.exports = Object.freeze({
     delivery: deliveryMiddleware(Delivery),
     parsePaginationHeaders,
     protectRoute: routeProtector.protectRoute,
+    registration: registrationMiddleware(Registration),
     requiredBodyProps,
-    socketAuthenticator: routeProtector.socketAuthenticator
+    socketAuthenticator: routeProtector.socketAuthenticator,
+    user: userMiddleware(User)
 });

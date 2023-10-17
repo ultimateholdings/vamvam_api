@@ -1,15 +1,16 @@
 const express = require("express");
 const getAuthModule = require("../modules/auth.module");
 const {errorHandler} = require("../utils/helpers");
-const {protectRoute} = require("../utils/middlewares");
+const {protectRoute, registration, user} = require("../middlewares");
 const {availableRoles} = require("../utils/config");
 
 function buildAuthRoutes (authModule) {
     const routeModule = authModule || getAuthModule({});
     const router = new express.Router();
-    const phoneVerifier = routeModule.ensureUserExists(
-        (body) => Object.freeze({phone: body.phoneNumber ?? null})
-    )
+    const phoneGetter = (body) => Object.freeze({
+        phone: body.phoneNumber ?? null
+    });
+    const phoneVerifier = user.lookupUser(phoneGetter);
     router.post(
         "/send-otp",
         routeModule.ensureUnregistered,
@@ -35,6 +36,10 @@ function buildAuthRoutes (authModule) {
     router.post(
         "/driver/login",
         phoneVerifier,
+        registration.checkRegistration(
+            (body) => Object.freeze({phoneNumber: body.phoneNumber})
+        ),
+        user.handlePendingRegistration,
         routeModule.allowedRoles([availableRoles.driverRole]),
         errorHandler(routeModule.loginUser)
     );

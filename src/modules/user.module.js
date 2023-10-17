@@ -20,17 +20,6 @@ function getUserModule({
     const userModel = model || User;
     const userPagination = ressourcePaginator(userModel.getAll);
 
-    async function ensureUserExists(req, res, next) {
-        let {id, phone} = req.user.token;
-        const userData = await userModel.findOne({where: {id, phone}});
-        if (userData === null) {
-            sendResponse(res, errors.notFound);
-        } else {
-            req.userData = userData;
-            next();
-        }
-    }
-
     async function deleteAvatar(req, res) {
         let {id, phone} = req.user.token;
         const [updated] = await userModel.update({avatar: null}, {
@@ -52,15 +41,6 @@ function getUserModule({
         await user.save();
         updated = await user.destroy();
         res.status(200).json({deleted: updated.isSoftDeleted()});
-    }
-
-    async function ensureCanUpdateAvailability(req, res, next) {
-        const {id} = req.user.token;
-        const isDelivering = await userModel.hasOngoingDelivery(id);
-        if (isDelivering) {
-            return sendResponse(res, errors.cannotPerformAction);
-        }
-        next();
     }
 
     function formatResponse({avatar, carInfos, updated, updatedProps}) {
@@ -90,12 +70,11 @@ function getUserModule({
 
     async function getAllUsers(req, res) {
         let results;
-        let {maxPageSize, role, skip} = req.query;
+        let {maxPageSize, name, role, skip} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
-            if (apiRoles[role] !== undefined) {
-                params.role = apiRoles[role];
-            }
+            params.role = apiRoles[role];
+            params.name = name;
             return params;
         };
         results = await userPagination({
@@ -191,8 +170,6 @@ function getUserModule({
     return Object.freeze({
         deleteAccount,
         deleteAvatar,
-        ensureCanUpdateAvailability,
-        ensureUserExists,
         getAllUsers,
         getInformations,
         getNearByDrivers,

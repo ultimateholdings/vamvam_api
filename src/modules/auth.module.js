@@ -79,6 +79,9 @@ function getAuthModule({
     function allowedRoles(roles = []) {
         return function (req, res, next) {
             const {user} = req;
+            if (user === undefined) {
+                return sendResponse(res, errors.nonexistingUser);
+            }
             if (roles.includes(user.role)) {
                 next();
             } else {
@@ -89,7 +92,7 @@ function getAuthModule({
 
     async function ensureHasReset(req, res, next) {
         const {
-            phoneNumber: phone
+            phoneNumber: phone = null
         } = req.body;
         const request = await associations.otp.findOne({
             where: {
@@ -231,7 +234,7 @@ function getAuthModule({
         let currentUser = req.user;
         let {password = ""} = req.body
         let isVerified;
-        if (currentUser !== null) {
+        if (currentUser !== undefined) {
             if (currentUser.status !== authModel.statuses?.activated) {
                 return sendResponse(res, errors.inactiveAccount);
             }

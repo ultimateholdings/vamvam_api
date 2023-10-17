@@ -6,8 +6,9 @@ const getUserModule = require("../modules/user.module");
 const {
     allowRoles,
     parsePaginationHeaders,
-    protectRoute
-} = require("../utils/middlewares");
+    protectRoute,
+    user
+} = require("../middlewares");
 const {errorHandler} = require("../utils/helpers");
 const {availableRoles: roles} = require("../utils/config");
 const {
@@ -32,7 +33,7 @@ function getUserRouter(userModule) {
     router.get(
         "/infos",
         protectRoute,
-        routerModule.ensureUserExists,
+        user.ensureUserExists,
         errorHandler(routerModule.getInformations)
     );
     router.get(
@@ -67,13 +68,13 @@ function getUserRouter(userModule) {
         "/update-availability",
         protectRoute,
         allowRoles([roles.driverRole]),
-        routerModule.ensureCanUpdateAvailability,
+        user.ensureCanUpdateAvailability,
         errorHandler(routerModule.updateAvailabilty)
     );
     router.post(
         "/delete-account",
         protectRoute,
-        routerModule.ensureUserExists,
+        user.ensureUserExists,
         allowRoles(Object.values(roles).filter(
             (value) => value !== roles.adminRole
         )),

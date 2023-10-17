@@ -8,8 +8,10 @@ const {carInfosValidator, hashedUploadHandler} = require("../utils/upload");
 const {
     allowRoles,
     parsePaginationHeaders,
-    protectRoute
-} = require("../utils/middlewares");
+    protectRoute,
+    registration,
+    user,
+} = require("../middlewares");
 const {
     availableRoles: roles
 } = require("../utils/config");
@@ -24,6 +26,7 @@ const fieldsOptions = {
 function buildRegistrationRoutes(module) {
     const routeModule = module || getRegistrationModule({});
     const router = new express.Router();
+    const middleware = registration;
 
     router.get(
         "/registrations",
@@ -42,8 +45,8 @@ function buildRegistrationRoutes(module) {
     router.post(
         "/register",
         hashedUploadHandler(fieldsOptions).single("carInfos"),
-        routeModule.ensureUnregistered,
-        routeModule.ensureValidDatas,
+        middleware.ensureUnregistered,
+        middleware.ensureValidDatas,
         errorHandler(routeModule.registerDriver)
     );
     router.post(
@@ -51,8 +54,8 @@ function buildRegistrationRoutes(module) {
         protectRoute,
         allowRoles([roles.registrationManager]),
         hashedUploadHandler(fieldsOptions).single("carInfos"),
-        routeModule.ensureValidDatas,
-        routeModule.ensureUserNotExists,
+        middleware.ensureValidDatas,
+        user.lookupUser(null, "driver"),
         errorHandler(routeModule.registerIntern)
     );
     router.post(
@@ -60,34 +63,34 @@ function buildRegistrationRoutes(module) {
         protectRoute,
         allowRoles([roles.registrationManager]),
         hashedUploadHandler(fieldsOptions).single("carInfos"),
-        routeModule.ensureRegistrationExists,
-        routeModule.ensureIsGranted,
+        middleware.ensureRegistrationExists,
+        middleware.ensureIsGranted,
         errorHandler(routeModule.updateRegistration)
     );
     router.post(
         "/validate-registration",
         protectRoute,
         allowRoles([roles.registrationManager]),
-        routeModule.ensureRegistrationExists,
-        routeModule.ensureIsGranted,
+        middleware.ensureRegistrationExists,
+        middleware.ensureIsGranted,
         errorHandler(routeModule.validateRegistration)
     );
     router.post(
         "/reject-validation",
         protectRoute,
         allowRoles([roles.registrationManager]),
-        routeModule.ensureRegistrationExists,
-        routeModule.ensureIsGranted,
-        routeModule.ensureNotValidated,
+        middleware.ensureRegistrationExists,
+        middleware.ensureIsGranted,
+        middleware.ensureNotValidated,
         errorHandler(routeModule.rejectRegistration)
     );
     router.post(
         "/handle-registration",
         protectRoute,
         allowRoles([roles.registrationManager]),
-        routeModule.ensureRegistrationExists,
-        routeModule.ensureNotValidated,
-        routeModule.ensureNotHandled,
+        middleware.ensureRegistrationExists,
+        middleware.ensureNotValidated,
+        middleware.ensureNotHandled,
         errorHandler(routeModule.handleRegistration)
     );
     return router;
