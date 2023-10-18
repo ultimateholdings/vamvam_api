@@ -8,7 +8,7 @@ const {delivery, conflict} = require("./delivery.js")(connection, User);
 const Bundle = require("./bundle.js")(connection);
 const Trans = require("./transaction.js")(connection);
 const Payment = require("./payment.js")(connection);
-const Registration = require("./driver-registration.js")(connection);
+const Registration = require("./driver-registration.js")(connection, User);
 const roomModels = require("./room.model.js")(connection, User, delivery);
 const Blacklist = require("./blacklist.js")(connection);
 const Settings = require("./settings.js")(connection);
@@ -33,12 +33,6 @@ Trans.belongsTo(User, {
     as: "Driver",
     constraints: false,
     foreignKey: "driverId"
-});
-
-Registration.belongsTo(User, {
-    as: "contributor",
-    constraints: false,
-    foreignKey: "contributorId"
 });
 
 Settings.addEventListener("settings-update", function (data) {

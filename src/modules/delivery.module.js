@@ -306,7 +306,7 @@ function getDeliveryModule({associatedModels, model}) {
             accepted: true
         });
         client = await delivery.getClient();
-        others = await associations.User.getAllByPhones(
+        others = await associations.User.getClientByPhones(
             delivery.getRecipientPhones()
         );
         notification = {

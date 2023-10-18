@@ -31,7 +31,6 @@ function getUserMiddleware(model) {
     function lookupUser(propsGetter, requestProp = "user") {
         const getBodyProps = propsGetter ?? defaultGetter;
         return async function (req, ignore, next) {
-            debugger;
             const user = await model.findOne({where: getBodyProps(req.body)});
             if (user !== null) {
                 req[requestProp] = user;

@@ -38,7 +38,7 @@ function getRegistrationMidleware(model) {
         let body;
         let hasFile;
         req.body.carInfos = req.file?.path;
-        body = propertiesPicker(req.body)(requiredDatas);
+        body = model.format(req.body);
         hasFile = await fileExists(body.carInfos);
         if (Object.keys(body).length !== requiredDatas.length || !hasFile) {
             sendResponse(res, errors.invalidValues);

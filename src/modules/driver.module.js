@@ -13,10 +13,9 @@ const {availableRoles, userStatuses} = require("../utils/config");
 const {Registration, User} = require("../models");
 const mailer = require("../utils/email-handler")();
 
-function getRegistrationModule({associatedModels, model}) {
+function getRegistrationModule({model}) {
     const registrationModel = model || Registration;
-    const associations = associatedModels || {User};
-    const paginateRegistrations = ressourcePaginator(Registration.getAll);
+    const paginateRegistrations = ressourcePaginator(registrationModel.getAll);
     const apiStatuses = {
         validated: userStatuses.activated,
         rejected: userStatuses.rejected,
@@ -29,18 +28,16 @@ function getRegistrationModule({associatedModels, model}) {
             individualHooks: true
         });
         res.status(200).json({registered: true});
-        registrationModel?.emitEvent(
+        registrationModel.emitEvent(
             "new-registration",
             registration.toResponse()
         );
-        admins = await associations.User.getWithRoles([
-            availableRoles.registrationManager
-        ]);
+        admins = await registrationModel.getAdmins();
         admins.forEach(function (user) {
             mailer.notifyWithEmail({
                 email: registration.email,
                 notification: eventMessages.withTransfomedBody(
-                    eventMessages.deliveryArchived,
+                    eventMessages.newDriverRegistration,
                     (body) => body.replace(
                         "{userName}",
                         user.firstName
@@ -54,18 +51,16 @@ function getRegistrationModule({associatedModels, model}) {
     }
 
     async function registerIntern(req, res) {
-        let newUser;
+        let validation;
         const {body, driver} = req;
         body.internal = true;
-        debugger;
         if (driver !== undefined) {
             return sendResponse(res, errors.existingUser);
         }
         body.phone = body.phoneNumber;
-        newUser = await associations.User.create(body, {
-            individualHooks: true
-        });
-        res.status(200).send({id: newUser.id});
+        validation = await registrationModel.addDriver(body);
+        res.status(200).send({id: validation.value.id});
+        await validation.requestSponsoring();
     }
 
     async function updateRegistration(req, res) {
@@ -91,12 +86,11 @@ function getRegistrationModule({associatedModels, model}) {
 
     async function validateRegistration(req, res) {
         const {registration} = req;
-        let createdUser;
+        let validation;
         registration.status = userStatuses.activated;
         await registration.save();
-        createdUser = await associations.User.create(
-            registration.toUserData(),
-            {individualHooks: false}
+        validation = await registrationModel.addDriver(
+            registration.toUserData()
         );
         res.status(200).send({userCreated: true});
         mailer.notifyWithEmail({
@@ -106,10 +100,7 @@ function getRegistrationModule({associatedModels, model}) {
                 (body) => body.replace("{userName}", registration.firstName)
             )[registration.lang ?? "en"]
         });
-        await associations.User.handleSponsoringRequest(
-            createdUser.id,
-            registration.sponsorCode
-        );
+        await validation.requestSponsoring();
     }
     async function rejectRegistration(req, res) {
         const {registration} = req;

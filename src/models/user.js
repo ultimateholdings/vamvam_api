@@ -18,7 +18,7 @@ const {
 const {enumType, required, uuidType} = require("../utils/db-connector");
 const types = require("./helper");
 const schema = {
-    age: enumType(ages),
+    age: enumType(ages, ages[0]),
     available: required(DataTypes.BOOLEAN, true).with({defaultValue: true}),
     avatar: DataTypes.STRING,
     carInfos: DataTypes.STRING,
@@ -32,7 +32,7 @@ const schema = {
     gender: enumType(["F", "M"], "M"),
     id: uuidType(),
     internal: required(DataTypes.BOOLEAN, true).with({defaultValue: false}),
-    lang: required(DataTypes.STRING, true).with({defaultValue: false}),
+    lang: required(DataTypes.STRING, true).with({defaultValue: "en"}),
     lastName: DataTypes.STRING,
     password: DataTypes.STRING,
     phone: required(DataTypes.STRING).with({unique: true}),
@@ -209,9 +209,12 @@ function defineUserModel(connection) {
     };
     user.genericProps = genericProps;
     user.statuses = userStatuses;
-    user.getAllByPhones = function (phoneList) {
+    user.getClientByPhones = function (phoneList) {
         return user.findAll({
-            where: {phone: types.buildClause(Op.in, phoneList)}
+            where: types.buildClause(Op.and, [
+                {phone: types.buildClause(Op.in, phoneList)},
+                {role: types.buildClause(Op.eq, availableRoles.clientRole)}
+            ])
         });
     };
     return user;

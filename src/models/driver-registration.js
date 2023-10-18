@@ -1,13 +1,19 @@
 /*jslint node this*/
 const {DataTypes, Op, col, fn, where} = require("sequelize");
-const {ages, userStatuses} = require("../utils/config");
+const {ages, availableRoles, userStatuses} = require("../utils/config");
 const {
     CustomEmitter,
     hashPassword,
+    mergableObject,
     pathToURL,
     propertiesPicker
 } = require("../utils/helpers");
-const {buildClause, buildPeriodQuery, paginationQuery} = require("./helper");
+const {
+    buildClause,
+    buildPeriodQuery,
+    constraints,
+    paginationQuery
+} = require("./helper");
 const types = require("../utils/db-connector");
 
 const order = [["createdAt", "DESC"]];
@@ -30,7 +36,11 @@ const schema = {
     sponsorCode: DataTypes.STRING,
     status: types.enumType(userStatuses, userStatuses.pendingValidation)
 };
-function defineDriverRegistration(connection) {
+const optionalProps = ["id", "sponsorCode", "lang", "status"];
+const requiredProps = Object.keys(schema).filter(
+    (key) => !optionalProps.includes(key)
+);
+function defineDriverRegistration(connection, user) {
     const emitter = new CustomEmitter("Registration emitter");
     const registration = connection.define("driver_registration", schema, {
         hooks: {
@@ -44,30 +54,24 @@ function defineDriverRegistration(connection) {
             }
         }
     });
-    const optionalProps = [
-        "id",
-        "sponsorCode",
-        "lang",
-        "validationDate",
-        "status"
-    ];
-    const requiredProps = Object.keys(schema).filter(
-        (key) => !optionalProps.includes(key)
-    );
+    registration.belongsTo(user, constraints("contributorId", "contributor"));
     registration.prototype.toResponse = function () {
-        let result = this.dataValues;
-        let props = requiredProps.concat("status", "id", "createdAt");
+        const data = this.dataValues;
+        let result = Object.create(null);
+        Object.assign(result, data);
+        let props = requiredProps.concat("status", "id");
         result = propertiesPicker(result)(props);
-        result.registrationDate = result.createdAt.toISOString();
+        result.registrationDate = data.createdAt.toISOString();
         result.carInfos = pathToURL(result.carInfos);
-        delete result.createdAt;
         delete result.password;
         return result;
     };
 
     registration.prototype.toUserData = function () {
         let result = this.dataValues;
-        result = propertiesPicker(result)(requiredProps);
+        result = propertiesPicker(result)(
+            requiredProps.concat("sponsorCode", "lang")
+        );
         result.phone = result.phoneNumber;
         delete result.phoneNumber;
         return result;
@@ -115,6 +119,23 @@ function defineDriverRegistration(connection) {
             values: results.map((result) => result.toResponse())
         };
     };
+    registration.addDriver = async function (registrationData) {
+        const driver = await user.create(registrationData);
+        return {
+            requestSponsoring: () => user.handleSponsoringRequest(
+                    driver.id,
+                    registrationData.sponsorCode
+            ),
+            value: driver
+        };
+    };
+    registration.format = function (request) {
+        const result = Object.create(mergableObject);
+        return result.with(propertiesPicker(request)(requiredProps));
+    };
+    registration.getAdmins = function () {
+        return user.getAllWithRoles([availableRoles.registrationManager]);
+    }
     emitter.decorate(registration);
     return registration;
 }
