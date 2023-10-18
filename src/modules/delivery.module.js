@@ -45,15 +45,14 @@ function calculatePrice(distanceInKm) {
     return price;
 }
 
-function getDeliveryModule({associatedModels, model}) {
+function getDeliveryModule({model}) {
     const deliveryModel = model || Delivery;
-    const associations = associatedModels || {DeliveryConflict, User};
     const deliveryPagination = ressourcePaginator(deliveryModel.getAll);
     const terminatedPagination = ressourcePaginator(
         deliveryModel.getTerminated
     );
     const conflictPagination = ressourcePaginator(
-        associations.DeliveryConflict.getAll
+        deliveryModel.getAllConflicts
     );
 
     async function notifyNearbyDrivers({
@@ -62,7 +61,7 @@ function getDeliveryModule({associatedModels, model}) {
         eventName,
         params = {available: true, role: "driver"}
     }) {
-        let drivers = await associations?.User?.nearTo({
+        let drivers = await deliveryModel.getNearbyDrivers({
             by,
             params,
             point: delivery.departure
@@ -185,15 +184,12 @@ function getDeliveryModule({associatedModels, model}) {
                 position = data;
             }
             position = toDbPoint(position);
-            [updated] = await associations.User.update(
-                {position},
-                {where: {id: driverId}}
-            );
+            updated = await deliveryModel.updateUser(driverId).with({position});
             deliveries = await deliveryModel.getOngoing(driverId);
             deliveries = deliveries ?? [];
             deliveryModel.emitEvent(
                 "driver-position-update-completed",
-                {payload: {updated: updated > 0}, userId: driverId}
+                {payload: {updated}, userId: driverId}
             );
             deliveries.forEach(function (delivery) {
                 const recipients = delivery.getRecipientsId();
@@ -260,9 +256,7 @@ function getDeliveryModule({associatedModels, model}) {
 
     async function handleCloudMessageFallback(data) {
         let {message, meta, receiverId} = data;
-        const userInfos = await associations?.User?.findOne(
-            {where: {id: receiverId}}
-        );
+        const userInfos = await deliveryModel.getUserById(receiverId);
         message = message[userInfos?.lang ?? "en"];
         if (userInfos !== null && userInfos.deviceToken !== null) {
             await sendCloudMessage({
@@ -298,7 +292,7 @@ function getDeliveryModule({associatedModels, model}) {
         let notification;
         const {id} = req.user.token;
         const {balance, delivery} = req;
-        driver = await associations.User.findOne({where: {id}});
+        driver = await deliveryModel.getUserById(id);
         delivery.status = deliveryStatuses.pendingReception;
         await delivery.save();
         await delivery.setDriver(driver);
@@ -306,7 +300,7 @@ function getDeliveryModule({associatedModels, model}) {
             accepted: true
         });
         client = await delivery.getClient();
-        others = await associations.User.getClientByPhones(
+        others = await deliveryModel.getClientByPhones(
             delivery.getRecipientPhones()
         );
         notification = {
@@ -538,11 +532,11 @@ function getDeliveryModule({associatedModels, model}) {
     }
 
     async function requestDelivery(req, res) {
-        const {id, phone} = req.user.token;
+        const {id} = req.user.token;
         let user;
         let {body, distance} = req;
         let tmp;
-        user = await associations.User.findOne({where: {id, phone}});
+        user = await deliveryModel.getUserById(id);
         tmp = await generateCode();
         body.price = calculatePrice(Math.ceil(distance / 1000));
         body.code = tmp;
@@ -586,10 +580,10 @@ function getDeliveryModule({associatedModels, model}) {
             conflictType: type
         } = req.body;
         const conflict = {lastPosition, type};
-        conflict.reporter = await associations.User.findOne({where: {id}});
+        conflict.reporter = await deliveryModel.getUserById(id);
         conflict.reporter = conflict.reporter.toShortResponse();
         delivery.status = deliveryStatuses.inConflict;
-        others = await associations.DeliveryConflict.create({
+        others = await deliveryModel.addConflict({
             deliveryId: delivery.id,
             lastLocation: toDbPoint(lastPosition),
             lastLocationAdress: lastPosition.address,
@@ -613,9 +607,8 @@ function getDeliveryModule({associatedModels, model}) {
             )
         );
         deliveryModel.emitEvent("manager/new-conflict", {payload: conflict});
-        await associations.User.update(
-            {available: true},
-            {where: {id: delivery.driverId}}
+        await deliveryModel.updateUser(delivery.driverId).with(
+            {available: true}
         );
     }
 
@@ -648,7 +641,7 @@ function getDeliveryModule({associatedModels, model}) {
         delivery.status = deliveryStatuses.terminated;
         delivery.end = new Date().toISOString();
         await delivery.save();
-        await associations.User.update({available: true}, {where: {id}});
+        await deliveryModel.updateUser(id).with({available: true});
         res.status(200).send({
             terminated: true
         });
@@ -669,7 +662,7 @@ function getDeliveryModule({associatedModels, model}) {
         }
         conflict.status = conflictStatuses.closed;
         delivery.status = deliveryStatuses.terminated;
-        await associations.User.update({available: true}, {where: {id}});
+        await deliveryModel.updateUser(id).with({available: true});
         await delivery.save();
         await conflict.save();
         res.status(200).send({terminated: true});

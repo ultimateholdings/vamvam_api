@@ -49,7 +49,7 @@ function getDeliveryMiddlewares(model) {
                 others.push({phone});
             });
         }
-        otherUsers = await model.getUsersWithPhone(otherUsers);
+        otherUsers = await model.getClientByPhones(otherUsers);
         otherUsers.forEach(function (user) {
             let tmp;
             if (user.phone === main.phone) {
@@ -74,7 +74,7 @@ function getDeliveryMiddlewares(model) {
     async function driverExists(req, res, next) {
         const {driverId} = req.body;
         let driver;
-        driver = await model.getDriverById(driverId);
+        driver = await model.getUserById(driverId);
         if (driver === null) {
             return sendResponse(res, errors.driverNotFound);
         }

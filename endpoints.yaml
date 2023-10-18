@@ -1,18 +1,23 @@
+ageData: 18-24| 25-34| 35-44| 45-54| 55-64| 64+
+languageData: en | fr
+genderData: M | F (default to M)
 locationData:
   address: string
   longitude: double
   latitude: double
 registrationData:
-  age: string
-  carInfos: File
-  firstName: string
-  email: string
-  gender: M | F
-  lang: string
-  lastName: string
-  password: string
-  phoneNumber: string
+  gender: genderData
+  lang: languageData (default to en)
   sponsorCode: string
+  requiredProps:
+    age: ageData
+    carInfos: File
+    email: string
+    firstName: string
+    lastName: string
+    password: string
+    phoneNumber: string
+
 errorData: 
   en: string
   fr: string
@@ -22,11 +27,13 @@ userData:
   avatar: string
   email: string
   firstName: string
-  gender: string
+  gender: genderData
   id: string
   lastName: string
   position: locationData
   role: string
+  requiredProps:
+    phone: string
 deliveryData:
   begin: Date
   client: shortUserData

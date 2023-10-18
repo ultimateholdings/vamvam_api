@@ -36,7 +36,7 @@ const schema = {
     sponsorCode: DataTypes.STRING,
     status: types.enumType(userStatuses, userStatuses.pendingValidation)
 };
-const optionalProps = ["id", "sponsorCode", "lang", "status"];
+const optionalProps = ["id", "sponsorCode", "lang", "status", "gender"];
 const requiredProps = Object.keys(schema).filter(
     (key) => !optionalProps.includes(key)
 );

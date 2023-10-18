@@ -261,25 +261,33 @@ function defineDeliveryModel(connection, userModel) {
         ]);
         return getDeliveries({clause, order});
     };
-    delivery.getDriverById = (id) => userModel.findOne({where: {id}});
+    delivery.getUserById = (id) => userModel.findOne({where: {id}});
+    delivery.addConflict = (conflictDatas) => conflict.create(conflictDatas);
     delivery.getConflict = function ({deliveryId, id}) {
-        const where = {};
+        const clause = {};
         if (typeof deliveryId === "string") {
-            where.deliveryId = deliveryId;
+            clause.deliveryId = deliveryId;
         }
         if (typeof id === "string") {
-            where.id = id;
+            clause.id = id;
         }
-        if (Object.keys(where).length > 0) {
-            return conflict.findOne({where});
+        if (Object.keys(clause).length > 0) {
+            return conflict.findOne({where: clause});
         }
         return null;
     };
     delivery.getById = (id) => delivery.findOne({where: {id}});
-    delivery.getUsersWithPhone = (phoneList) => userModel.findAll({
-        where: {phone: buildClause(Op.in, phoneList)}
-    });
-    conflict.getAll = async function ({assignerId, maxSize, offset}) {
+    delivery.updateUser = function (id) {
+        return {
+            with: async function (datas) {
+                const [updated] = await userModel.update(datas, {where: {id}});
+                return updated > 0;
+            }
+        };
+    };
+    delivery.getClientByPhones = userModel.getClientByPhones;
+    delivery.getNearbyDrivers = userModel.nearTo;
+    delivery.getAllConflicts = async function ({assignerId, maxSize, offset}) {
         let results;
         let formerLastId;
         const query = paginationQuery(offset, maxSize ?? 10);
@@ -335,7 +343,6 @@ function defineDeliveryModel(connection, userModel) {
         deliveryStatuses.started,
         deliveryStatuses.inConflict
     ];
-    
     return Object.freeze({conflict, delivery});
 }
 

@@ -1,10 +1,18 @@
+AdminType: registration | conflict
+TranslatedData:
+  en: string
+  fr: string
+  code: string
 OTPSettingsData:
   type: "otp"
   value:
     ttl: number
 DeliverySettingsData:
   type: "delivery"
+  note: should have at least one of the provided attributes
   value:
+    conflict_types: TranslatedData[]
+    package_types: TranslatedData[]
     search_radius: number representing the radius to search a driver in second
     ttl: number representing the delay within which a driver can accept a delivery
 sponsorData:
@@ -57,13 +65,21 @@ registration-manager:
     type: post
     body: registrationData
     response:
-      registered: boolean
+      id: string representing the identifier of the newly added driver
+
   /driver/update-registration:
     action: update a driver registration
     type: post
     body: registrationData
     response:
       updated: boolean
+
+  /driver/handle-registration:
+    action: handle a new driver registration demand
+    type: post
+    body:
+      id: string representing the registration identifier
+    
   /driver/validate-registration:
     action: validate a driver registration
     type: post
@@ -71,6 +87,7 @@ registration-manager:
       id: string representing the registration Id
     response:
       valdiated: boolean
+
   /driver/reject-registration:
     action: reject a driver registration
     type: post
@@ -78,6 +95,7 @@ registration-manager:
       id: string representing the registration Id
     response:
       rejected: boolean
+
   /driver/registrations:
     action: get new driver registrations
     type: get
@@ -89,6 +107,7 @@ registration-manager:
       nextPageToken: string
       refreshed: boolean
       results: registrationData[]
+
   /driver/all-settled:
     action: get the registrations you've settled
     type: get
@@ -111,26 +130,31 @@ admin-manager:
     type: post
     body:
       id: string
+
   /admin/activate-user:
     action: "activate a user account"
     type: post
     body:
       id: string
+
   /admin/revoke-all:
     action: "invalidate all users token"
     type: post
+
   /admin/new-admin:
     action: "create a new administrator"
     type: post
     body:
-      type: string
+      type: AdminType
       phoneNumber: string
       password: string
       email: string
+
   /admin/update-settings:
     action: "update system settings"
     type: post
     body: OTPSettingsData || DeliverySettingsData
+
   /user/all:
     action: get all users in the platform
     type: get
@@ -142,6 +166,7 @@ admin-manager:
     response:
       nextPageToken: string
       results: userData[]
+
   /delivery/all:
     action: get all deliveries in the platform
     type: get
@@ -155,6 +180,7 @@ admin-manager:
     response:
       nextPageToken: string
       results: deliveryData[]
+
   /delivery/analytics:
     action: get the count of deliveries per status within a period
     type: get
@@ -169,6 +195,7 @@ admin-manager:
         ongoing: number
         terminated: number
         total: number
+
   /sponsor/create:
     action: create a new sponsor
     type: post
@@ -178,6 +205,7 @@ admin-manager:
       name: string
     response:
       created: boolean
+
   /sponsor/ranking:
     action: provide the list of sponsors sorted by number of mentored users
     type: get
@@ -189,6 +217,7 @@ admin-manager:
     response:
       nextPageToken: string
       results: sponsorData[]
+
   /sponsor/enrolled:
     action: provide the list of users mentored by a sponsor
     type: get
@@ -201,6 +230,7 @@ admin-manager:
     response:
       nextPageToken: string
       results: shortUserData[]
+
   /bundle/new-bundle:
     action: "create new bundle"
     type: post
@@ -208,6 +238,7 @@ admin-manager:
       bonus: doudle
       point: double
       unitPrice: double
+
   /bundle/infos:
     action: "get bundle infos"
     type: get
@@ -220,6 +251,7 @@ admin-manager:
       unitPrice: double
       price: double
       gain: double
+
   /bundle/:
     action: "get all bundles"
     type: get
@@ -232,6 +264,7 @@ admin-manager:
         unitPrice: double
         price: double
         gain: double
+
   /bundle/update:
     action: "update bundle"
     type: post
@@ -242,6 +275,7 @@ admin-manager:
       unitPrice: double
     response:
       message: string
+
   /bundle/delete:
     action: "delete bundle"
     type: post

@@ -10,6 +10,8 @@ const {
     Payment,
     Registration,
     Room,
+    Sponsor,
+    Sponsorship,
     Transaction,
     User,
     UserRoom,
@@ -17,43 +19,50 @@ const {
     otpRequest
 } = require("../models");
 
-function createTable(connection, model) {
-    return connection.getQueryInterface().createTable(
-        model.getTableName(),
-        model.getAttributes()
-    );
+const interface = connection.getQueryInterface();
+
+async function createTable(model) {
+    const tableName = model.getTableName();
+    const exists = await interface.tableExists(tableName);
+    if (exists) {
+        await model.sync({alter: true});
+    } else {
+        await interface.createTable(tableName, model.getAttributes());
+    }
 }
 
 async function up() {
-    await createTable(connection, otpRequest);
-    await User.sync({alter: true});
-    await createTable(connection, Delivery);
-    await createTable(connection, Room);
-    await createTable(connection, Message);
-    await createTable(connection, UserRoom);
-    await createTable(connection, DeliveryConflict);
-    await createTable(connection, Registration);
-    await createTable(connection, Blacklist);
-    await createTable(connection, Bundle);
-    await createTable(connection, Payment);
-    await createTable(connection, Transaction);
+    await createTable(otpRequest);
+    await createTable(User);
+    await createTable(Delivery);
+    await createTable(Room);
+    await createTable(Message);
+    await createTable(UserRoom);
+    await createTable(DeliveryConflict);
+    await createTable(Registration);
+    await createTable(Blacklist);
+    await createTable(Bundle);
+    await createTable(Payment);
+    await createTable(Transaction);
+    await createTable(Sponsor);
+    await createTable(Sponsorship);
 }
 
 async function down() {
-    await connection.getQueryInterface().dropTable(otpRequest.getTableName());
-    await connection.getQueryInterface().dropTable(User.getTableName());
-    await connection.getQueryInterface().dropTable(Delivery.getTableName());
-    await connection.getQueryInterface().dropTable(Room.getTableName());
-    await connection.getQueryInterface().dropTable(UserRoom.getTableName());
-    await connection.getQueryInterface().dropTable(Registration.getTableName());
-    await connection.getQueryInterface().dropTable(Message.getTableName());
-    await connection.getQueryInterface().dropTable(
-        DeliveryConflict.getTableName()
-    );
-    await connection.getQueryInterface().dropTable(Blacklist.getTableName());
-    await connection.getQueryInterface().dropTable(Bundle.getTableName());
-    await connection.getQueryInterface().dropTable(Payment.getTableName());
-    await connection.getQueryInterface().dropTable(Transaction.getTableName());
+    await interface.dropTable(otpRequest.getTableName());
+    await interface.dropTable(User.getTableName());
+    await interface.dropTable(Delivery.getTableName());
+    await interface.dropTable(Room.getTableName());
+    await interface.dropTable(UserRoom.getTableName());
+    await interface.dropTable(Registration.getTableName());
+    await interface.dropTable(Message.getTableName());
+    await interface.dropTable(DeliveryConflict.getTableName());
+    await interface.dropTable(Blacklist.getTableName());
+    await interface.dropTable(Bundle.getTableName());
+    await interface.dropTable(Payment.getTableName());
+    await interface.dropTable(Transaction.getTableName());
+    await interface.dropTable(Sponsor.getTableName());
+    await interface.dropTable(Sponsorship.getTableName());
 }
 
 module.exports = Object.freeze({down, up});
