@@ -86,8 +86,10 @@ const errors = {
         status: 404
     },
     emptyWallet: {
-        en: "An empty wallet cannot be debited!",
-        fr: "Un portefeuille vide ne peut être débité!",
+        message: {
+            en: "An empty wallet cannot be debited!",
+            fr: "Un portefeuille vide ne peut être débité!"
+        },
         status: 424
     },
     existingUser: {
