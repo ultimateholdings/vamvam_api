@@ -10,13 +10,9 @@ const Trans = require("./transaction.js")(connection);
 const Payment = require("./payment.js")(connection);
 const Registration = require("./driver-registration.js")(connection, User);
 const roomModels = require("./room.model.js")(connection, User, delivery);
-const Blacklist = require("./blacklist.js")(connection);
+const Blacklist = require("./blacklist.js")(connection, User);
 const Settings = require("./settings.js")(connection);
-const {Sponsor, Sponsorship} = require("./sponsor.js")({
-    connection,
-    model: User,
-    name: "user"
-});
+const {Sponsor, Sponsorship} = require("./sponsor.js")(connection, User);
 const order = [["createdAt", "DESC"]];
 
 Bundle.hasOne(Payment, {

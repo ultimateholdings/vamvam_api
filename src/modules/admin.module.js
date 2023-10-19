@@ -1,14 +1,8 @@
-/*jslint
-node
-*/
+/*jslint node*/
 "use strict";
-const {Blacklist, Settings, Sponsor, User} = require("../models");
+const {Settings, User} = require("../models");
 const {errors} = require("../utils/system-messages");
-const {
-    apiSettings,
-    availableRoles,
-    userStatuses
-} = require("../utils/config");
+const {apiSettings, userStatuses} = require("../utils/config");
 const {
     propertiesPicker,
     ressourcePaginator,
@@ -16,15 +10,9 @@ const {
 } = require("../utils/helpers");
 
 function getAdminModule({associatedModels}) {
-    const associations = associatedModels || {Blacklist, Settings, Sponsor, User};
-    const adminTypeMap = {
-        registration: availableRoles.registrationManager,
-        conflict: availableRoles.conflictManager
-    };
-    const sponsorProps = ["phone", "name", "code"];
-    const adminCreationProps = ["phone", "password", "email"];
-    const rankingPagination = ressourcePaginator(Sponsor.getRanking);
-    const mentoringPagination = ressourcePaginator(Sponsor.getEnrolled);
+    const associations = associatedModels || {Settings, User};
+    const rankingPagination = ressourcePaginator(User.getRanking);
+    const mentoringPagination = ressourcePaginator(User.getEnrolled);
 
     function ensureValidSetting(req, res, next) {
         let setting = {};
@@ -46,53 +34,13 @@ function getAdminModule({associatedModels}) {
         next();
     }
 
-    async function sponsorCodeValid(code) {
-        let codeExists = await Sponsor.findOne({where: {code}});
-        return Object.freeze({exists: codeExists !== null});
-    }
-
-    async function ensureUserExists(req, res, next) {
-        const {id} = req.body;
-        let user;
-        if (typeof id !== "string" || id === "") {
-            return sendResponse(res, errors.invalidValues);
-        }
-        user = await associations.User.findOne({where: {id}});
-        if (user === null) {
-            return sendResponse(res, errors.notFound);
-        }
-        req.requestedUser = user;
-        next();
-    }
-    
-    function validateAdminCreation(req, res, next) {
-        let data;
-        req.body.phone = req.body.phoneNumber;
-        data = propertiesPicker(req.body)(adminCreationProps);
-        if (adminTypeMap[req.body.type] === undefined) {
-            return sendResponse(res, errors.unsupportedType);
-        }
-        if (Object.keys(data).length !== adminCreationProps.length) {
-            return sendResponse(res, errors.invalidValues);
-        }
-        data.role = adminTypeMap[req.body.type];
-        req.data = data;
-        next();
-    }
-
-    function validateSponsorCreation(req, res, next) {
-        let data = propertiesPicker(req.body)(sponsorProps);
-        if (Object.keys(data).length !== sponsorProps.length) {
-            return sendResponse(res, errors.invalidValues);
-        }
-        req.data = data;
-        next();
-    }
-
     async function invalidateUser(req, res) {
         const {requestedUser} = req;
         const newDate = new Date();
-        await associations.Blacklist.invalidateUser(
+        if (requestedUser === undefined) {
+            return sendResponse(res, errors.nonexistingUser);
+        }
+        await associations.User.invalidate(
             requestedUser.id,
             newDate
         );
@@ -107,22 +55,22 @@ function getAdminModule({associatedModels}) {
     async function logoutUser(req, res) {
         const {id} = req.user.token;
         const newDate = new Date();
-        await associations.Blacklist.invalidateUser(
-            id,
-            newDate
-        );
+        await associations.User.invalidate(id, newDate);
         res.status(200).json();
     }
 
     async function activateUser(req, res) {
         const {requestedUser} = req;
+        if (requestedUser === undefined) {
+            return sendResponse(res, errors.nonexistingUser);
+        }
         requestedUser.status = userStatuses.activated;
         await requestedUser.save();
         res.status(200).json({activated: true});
     }
 
     async function invalidateEveryOne(_, res) {
-        await associations.Blacklist.invalidateAll();
+        await associations.User.invalidateAll();
         res.status(200).json({invalidated: true});
     }
 
@@ -154,11 +102,7 @@ function getAdminModule({associatedModels}) {
 
     async function createSponsor(req, res) {
         const {data} = req;
-        const code = await sponsorCodeValid(data.code);
-        if (code.exists) {
-            return sendResponse(res, errors.sponsorCodeExisting);
-        }
-        await Sponsor.create(data);
+        await associations.User.createSponsor(data);
         res.status(200).json({created: true});
     }
 
@@ -193,7 +137,6 @@ function getAdminModule({associatedModels}) {
         activateUser,
         createNewAdmin,
         createSponsor,
-        ensureUserExists,
         ensureValidSetting,
         getMentoredUsers,
         getSettings,
@@ -201,12 +144,8 @@ function getAdminModule({associatedModels}) {
         invalidateEveryOne,
         invalidateUser,
         logoutUser,
-        sponsorCodeValid,
-        updateSettings,
-        validateAdminCreation,
-        validateSponsorCreation
+        updateSettings
     });
 }
 
 module.exports = Object.freeze(getAdminModule);
-

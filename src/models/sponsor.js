@@ -5,7 +5,7 @@ const {constraints, join, paginationQuery} = require("./helper");
 const {required, uuidType} = require("../utils/db-connector");
 
 
-function defineSponsorModel({connection, model, name}) {
+function defineSponsorModel(connection, userModel) {
     const emitter = new CustomEmitter("Sponsor Emitter");
     const schema = {
         code: required(DataTypes.STRING).with({unique: true}),
@@ -16,7 +16,7 @@ function defineSponsorModel({connection, model, name}) {
     const sponsorshipSchema = {id: uuidType()};
     const Sponsor = connection.define("sponsor", schema);
     const Sponsorship = connection.define("sponsorship", sponsorshipSchema);
-    const foreignKey = name + "Id";
+    const foreignKey = "userId";
     emitter.decorate(Sponsor);
     Sponsor.prototype.toResponse = function () {
         return this.dataValues;
@@ -26,10 +26,10 @@ function defineSponsorModel({connection, model, name}) {
         constraints("sponsorId", "sponsor").with({primaryKey: true})
     );
     Sponsorship.belongsTo(
-        model,
-        constraints(foreignKey, name).with({primaryKey: true})
+        userModel,
+        constraints(foreignKey, "user").with({primaryKey: true})
     );
-    model.handleSponsoringRequest = async function (memberId, code = null) {
+    userModel.handleSponsoringRequest = async function (memberId, code = null) {
         let where = {};
         let sponsor;
         let sponsoring;
@@ -44,14 +44,14 @@ function defineSponsorModel({connection, model, name}) {
             await Sponsorship.create(where);
         }
     };
-    model.prototype.getSponsorCode = async function () {
+    userModel.prototype.getSponsorCode = async function () {
         let result;
         const {phone} = this.dataValues;
         const where = {phone};
         result = await Sponsor.findOne({where});
         return result?.code ?? null;
-    }
-    Sponsor.getRanking = async function ({maxSize, offset}) {
+    };
+    userModel.getRanking = async function ({maxSize, offset}) {
         let formerLastId;
         let results;
         const query = paginationQuery(offset, maxSize);
@@ -70,7 +70,7 @@ function defineSponsorModel({connection, model, name}) {
         results = results.map(function (sponsorship) {
             let {sponsor, totalUsers} = sponsorship.dataValues;
             const result = {sponsored: totalUsers};
-            result.sponsor = sponsor.toResponse();
+            result.sponsor = sponsor.toJSON();
             return result;
         });
         return {
@@ -79,7 +79,7 @@ function defineSponsorModel({connection, model, name}) {
             values: results
         };
     };
-    Sponsor.getEnrolled = async function ({
+    userModel.getEnrolled = async function ({
         id = null,
         maxSize,
         offset
@@ -89,7 +89,7 @@ function defineSponsorModel({connection, model, name}) {
         const query = paginationQuery(offset, maxSize);
         query.include = [
             join(Sponsor, "sponsor").with({where: {id}}),
-            join(model, name)
+            join(userModel, "user")
         ];
         query.order = [["createdAt", "DESC"]];
         results = await Sponsorship.findAll(query);
@@ -98,7 +98,7 @@ function defineSponsorModel({connection, model, name}) {
             formerLastId = formerLastId?.id;
         }
         results = results.map(function (sponsorship) {
-            const result = sponsorship[name];
+            const result = sponsorship.user;
             return result.toShortResponse();
         });
         return {
@@ -107,6 +107,11 @@ function defineSponsorModel({connection, model, name}) {
             values: results
         };
     };
+    userModel.sponsorExists = async function (code) {
+        const result = await Sponsor.findOne({where: {code}});
+        return result !== null;
+    };
+    userModel.createSponsor = (datas) => Sponsor.create(datas);
     return Object.freeze({Sponsor, Sponsorship});
 }
 

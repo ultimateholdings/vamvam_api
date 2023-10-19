@@ -1,6 +1,6 @@
 const {DataTypes, Transaction} = require("sequelize");
 
-function defineBlackListModel(connection) {
+function defineBlackListModel(connection, userModel) {
     const globalId = "__global__identifier";
     const schema = {
         minimumIat: DataTypes.DATE,
@@ -12,18 +12,18 @@ function defineBlackListModel(connection) {
     };
     const blacklist = connection.define("blacklist", schema);
 
-    blacklist.invalidateUser = function (userId, minimumIat) {
-        return this.upsert({minimumIat, userId}, {
+    userModel.invalidate = function (userId, minimumIat) {
+        return blacklist.upsert({minimumIat, userId}, {
             fields: ["minimumIat"]
         });
     };
-    blacklist.invalidateAll = async function () {
+    userModel.invalidateAll = async function () {
         const transaction = new Transaction(connection, {
             isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE
         });
         try {
-            await this.truncate({transaction});
-            await this.upsert({
+            await blacklist.truncate({transaction});
+            await blacklist.upsert({
                 minimumIat: new Date(),
                 userId: globalId
             }, {
@@ -38,11 +38,11 @@ function defineBlackListModel(connection) {
         }
     };
     blacklist.getGlobalIat = async function () {
-        let reccord = await this.findOne({where: {userId: globalId}});
+        let reccord = await blacklist.findOne({where: {userId: globalId}});
         return reccord?.minimumIat;
     };
     blacklist.getUserIat = async function (userId) {
-        let reccord = await this.findOne({where: {userId}});
+        let reccord = await blacklist.findOne({where: {userId}});
         return reccord?.minimumIat;
     };
     return blacklist;

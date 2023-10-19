@@ -9,12 +9,14 @@ const {availableRoles: roles} = require("../utils/config");
 const {
     allowRoles,
     parsePaginationHeaders,
-    protectRoute
-} = require("../utils/middlewares");
+    protectRoute,
+    user
+} = require("../middlewares");
 
 function getAdminRouter(module) {
     const adminModule = module || getAdminModule({});
     const router = new express.Router();
+    const idGetter = (body) => Object.freeze({id: body.id ?? null});
 
     router.get(
         "/sponsor/ranking",
@@ -44,35 +46,34 @@ function getAdminRouter(module) {
         "/sponsor/create",
         protectRoute,
         allowRoles([roles.adminRole]),
-        adminModule.validateSponsorCreation,
+        user.validateSponsorCreation,
         errorHandler(adminModule.createSponsor)
     );
     router.post(
         "/admin/revoke-all",
         protectRoute,
         allowRoles([roles.adminRole]),
-        adminModule.ensureUserExists,
         errorHandler(adminModule.invalidateEveryOne)
     );
     router.post(
         "/admin/block-user",
         protectRoute,
         allowRoles([roles.adminRole]),
-        adminModule.ensureUserExists,
+        user.lookupUser(idGetter, "requestedUser"),
         errorHandler(adminModule.invalidateUser)
     );
     router.post(
         "/admin/activate-user",
         protectRoute,
         allowRoles([roles.adminRole]),
-        adminModule.ensureUserExists,
+        user.lookupUser(idGetter, "requestedUser"),
         errorHandler(adminModule.activateUser)
     );
     router.post(
         "/admin/new-admin",
         protectRoute,
         allowRoles([roles.adminRole]),
-        adminModule.validateAdminCreation,
+        user.validateAdminCreation,
         errorHandler(adminModule.createNewAdmin)
     );
     router.post(
