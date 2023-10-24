@@ -69,40 +69,40 @@ function getBundleModule({model}) {
   }
   async function getAllBundle(req, res) {
     let data;
-      let bunchs;
-      let query;
-      query = {
-        attributes: [
-          "bonus",
-          "id",
-          "point",
-          "unitPrice"
-        ],
-        order: [
-          ['point', 'ASC']
-        ],
-        where: {
-          status: bundleStatuses.activated
-        }
+    let bunchs;
+    let query;
+    query = {
+      attributes: [
+        "bonus",
+        "id",
+        "point",
+        "unitPrice"
+      ],
+      order: [
+        ['point', 'ASC']
+      ],
+      where: {
+        status: bundleStatuses.activated
       }
-      bunchs = await BundleModel.findAll(query);
-      data = bunchs.map(function(bunch){
-        const {
-          id,
-          bonus,
-          point,
-          unitPrice
-        } = bunch;
-        return {
-          id,
-          bonus: bonus * minDeliveryPrice,
-          point,
-          unitPrice,
-          price: point * unitPrice,
-          gainMin: point * minDeliveryPrice
-        }
-      });
-      res.status(200).json({ data });
+    }
+    bunchs = await BundleModel.findAll(query);
+    data = bunchs.map(function(bunch){
+      const {
+        id,
+        bonus,
+        point,
+        unitPrice
+      } = bunch;
+      return {
+        id,
+        bonus: bonus * minDeliveryPrice,
+        point,
+        unitPrice,
+        price: point * unitPrice,
+        gainMin: point * minDeliveryPrice
+      }
+    });
+    res.status(200).json({ data });
   }
   async function updateBunch(req, res) {
     let { id } = req.body;

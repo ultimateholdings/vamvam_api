@@ -13,7 +13,7 @@
     "server",
     "tdd"
   ],
-  "author": "ndimah & tchuigansoft",
+  "author": "ndimah & tchuigang",
   "license": "ISC",
   "devDependencies": {
     "chai": "^4.3.7",
