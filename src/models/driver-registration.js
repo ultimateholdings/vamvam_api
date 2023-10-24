@@ -120,6 +120,7 @@ function defineDriverRegistration(connection, user) {
         };
     };
     registration.addDriver = async function (registrationData) {
+        registrationData.role = availableRoles.driverRole;
         const driver = await user.create(registrationData);
         return {
             requestSponsoring: () => user.handleSponsoringRequest(
