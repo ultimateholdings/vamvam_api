@@ -76,7 +76,7 @@ The model here represent the data used by the API to exchange informations with 
 
 | Property | dataType | role |
 | -------- | -------- | ---- |
-| sponsor | <table> <thead><tr> <th> </th> Property <th> dataType </th></tr></thead> <tbody> <tr> <td> id </td> <td> `String` </td></tr> <tr> <td> code </td> <td> `String` </td></tr> <tr> <td> name </td> <td> `String` </td></tr> <tr> <td> phone </td> <td> `String` </td></tr> </tbody></table> | informations about a sponsor |
+| sponsor | <table> <thead><tr> <th> Property </th> <th> dataType </th></tr></thead> <tbody> <tr> <td> id </td> <td> `String` </td></tr> <tr> <td> code </td> <td> `String` </td></tr> <tr> <td> name </td> <td> `String` </td></tr> <tr> <td> phone </td> <td> `String` </td></tr> </tbody></table> | informations about a sponsor |
 | sponsored | `Number` | number of users registered by this sponsor |
 
 </details>
@@ -113,9 +113,11 @@ This model has every Property found in [shortUserData](#userdata-short) plus the
 <details id="deliverydata">
 <summary> deliveryData </ summary>
 
+This model holds informations about a deliveryData
+
 > Note: only the `note` and `end` properties are optional for this model
 
-|Property | dataType | role |
+| Property | dataType | role |
 | ------- | -------- | ---- |
 | begin | `Date` | begining date of the delivery |
 | departure | [locationData](#locationdata) | location of the delivery's departure |
@@ -131,9 +133,11 @@ This model has every Property found in [shortUserData](#userdata-short) plus the
 <details id="confilctdata">
 <summary> confilctData </ summary>
 
+This object holds informations about a raised conflict
+
 > Note: only the `cancelationDate` property is optional for this model
 
-|Property | dataType | role |
+| Property | dataType | role |
 | ------- | -------- | ---- |
 | cancelationDate | `Date` | cancelation date of the delivery |
 | lastLocation | [locationData](#locationdata) | location of the driver while reporting the conflict |
@@ -240,32 +244,41 @@ The `type` property is always a **string** and the `value` is always and **Objec
 The purpose of this API is to grant users access to the platform so the following actions are available
 It is also important to note that all the actions of this API are invocked through `POST` requests
 
-### Register a new driver
+#### Register a new driver
 **Endpoint** `/driver/register`
+
 **Body Params** [registrationData](#registrationdata)
+
 **Response**
 - registered: `Boolean`
 - message: [errorData](#errordata)
 
 
-### Log in as an administrator
+#### Log in as an administrator
 **Endpoint** `/auth/admin/login`
+
 **Body Params** [loginBody](#logindata)
+
 **Response** [loginResponse](#logindata)
 
-### Log in as a client
+#### Log in as a client
 **Endpoint** `/auth/client/login`
+
 **Body Params** [loginBody](#logindata)
+
 **Response** [loginResponse](#logindata)
 
 
-### Log in as a driver
+#### Log in as a driver
 **Endpoint** `/auth/driver/login`
+
 **Body Params** [loginBody](#logindata)
+
 **Response** [loginResponse](#logindata)
 
-### Request For a One Time Password to create a client user
+#### Request For a One Time Password to create a client user
 **Endpoint** `/auth/send-otp`
+
 **Body Params**
 
 |Property | dataType | role |
@@ -281,11 +294,12 @@ It is also important to note that all the actions of this API are invocked throu
 | ttl | `String` | the delay(in seconds) after which the received message will be invalid |
 
 
-### Verify a sent One Time Password
+#### Verify a sent One Time Password
 
 > Note: this action has as effect the creation of a new client user in the platform
 
 **Endpoint** `/auth/verify-otp`
+
 **Body Params**
 
 |Property | dataType | role |
@@ -302,22 +316,25 @@ It is also important to note that all the actions of this API are invocked throu
 | token | `String` | the access token to be used by the newly created user |
 
 
-### Request a One Time Password for resetting an account's password
+#### Request a One Time Password for resetting an account's password
 
 **Endpoint** `/auth/send-reset-otp`
 
 **Body Params**
+
 Same as [Request a One Time Password to create a client user](#request-a-one-time-password-to-create-a-client-user)
 
 **Response**
+
 Same as [Request a One Time Password to create a client user](#request-a-one-time-password-to-create-a-client-user)
 
 
-### Verify the One Time Password for resetting an account's password
+#### Verify the One Time Password for resetting an account's password
 
 **Endpoint** `/auth/verify-reset`
 
 **Body Params**
+
 Same as [Verify a sent One Time Password](#verify-a-sent-one-time-password)
 
 **Response**
@@ -328,7 +345,7 @@ Same as [Verify a sent One Time Password](#verify-a-sent-one-time-password)
 | resetToken | `String` | the access token to be used by when resetting the password |
 
 
-### Reset an account password
+#### Reset an account password
 
 **Endpoint** `/auth/reset-password`
 
@@ -345,6 +362,299 @@ Same as [Verify a sent One Time Password](#verify-a-sent-one-time-password)
 | ------- | -------- | ---- |
 | message | [errorData](#errordata) | error message sent |
 | updated | `Boolean` | a flag to tell if the password has been updated |
+
+
+## Restricted actions in the platform
+
+Some actions can only be made if the user has valid credentials
+
+The valid credentials should be provided to through headers in the query and must have the entry `"authorization": "Bearer [the access token]"`
+
+The following APIs are restricted
+
+### User API
+
+#### Log out to an account
+**Endpoint** `/user/logout`
+
+**Request Type** `POST`
+
+#### Gather informations about your account
+**Endpoint** `/user/infos`
+
+**Request Type**  `GET`
+
+**Response**
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| message   | [errorData](#errordata)  |
+| data   | [userData](#userdata)   |
+
+### Update informations about your account
+**Endpoint**  `/user/update-profile`
+
+**Body Params**
+
+These are the allowed properties for the request body and every disallowed properties will be ignored
+
+> Note all properties here are optional
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| age   | `String`   |
+| avatar   | `File`   |
+| carInfos   | `File`   |
+| deviceToken   | `String`   |
+| firstName   | `String`   |
+| lastName   | `String`   |
+| lang   | `String`   |
+| gender   | [genderData](#enumerations)   |
+| email   | `String`   |
+
+**Response **
+
+The value of the updated informations
+
+#### Delete an acount's avatar
+**Endpoint**  `/user/delete-avatar`
+
+**Request Type** `POST`
+
+#### Update a driver availability
+**Endpoint** `/user/update-availability`
+
+**Request Type** `POST`
+
+**Body Params**
+
+- available: `Boolean`
+
+#### Update an account password
+**Endpoint**  `/auth/change-password`
+
+**Request Type**  `POST`
+
+**Body Params**
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| oldPassword   | `String`   |
+| newPassword   | `String`   |
+
+### Delivery API
+#### Request a new delivery
+**Endpoint**  `/delivery/request`
+
+**Request Type**  `POST`
+
+**Body Params**
+
+| Property   | dataType   |
+|--------------- | --------------- |
+| departure   | [locationData](#locationdata)   |
+| destination   | [locationData](#locationdata)   |
+| recipientInfos   | [recipientDatas](#recipientdata)   |
+
+**Response**
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| code    | `String`    | the verification code to be presented by the receiver    |
+| id    | `String`    | the delivery indentifier   |
+| price    | `Number`    | the delivery cost   |
+
+#### Verify the package code of a delivery
+**Endpoint**    `/delivery/verify-code`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| id   |  `String`  | the delivery's indentifier |
+| code | `String` | the code of the package |
+
+
+#### Relaunch a delivery request
+**Endpoint**  `/delivery/relaunch`
+
+**Request Type**  `POST`
+
+**Body Params**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| id    | `String`    | the delivery's indentifier    |
+
+#### Gather a delivery's informations
+**Endpoint**  `/delivery/infos`
+
+**Request Type**  `GET`
+
+**Body Params**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| id    | `String`    | the delivery's indentifier    |
+
+**Response**    [deliveryData](#deliverydata)
+
+#### Gather the started deliveries informations
+**Endpoint**    `/delivery/started`
+
+**Request Type**    `GET`
+
+**Response**    [deliveryData](#deliverydata)
+
+#### Gather the ended deliveries informations
+**Endpoint**  `/delivery/terminated`
+
+**Request Type**    `GET`
+
+**Query Params**
+
+| Property    | dataType    | role    | optional |
+|---------------- | --------------- | --------------- | ------- |
+| maxPageSize    | `Number`    | the maximum number of item needed for the request    | if not provided will default to 10 |
+| skip    | `Number`    | the number of item to skip from all the available items    | True |
+
+**Headers**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| page-token    | `String`    | the token to indicate the number of items already read (if not provided or if expired it will fallback to the first items)   |
+
+**Response**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| results    | [deliveryData](#deliverydata)[]    | the deliveries gathered    |
+| nextPageToken    | `String`    | the token to provide for the next request (used for pagination purpose)    |
+| refreshed | `Boolean` | flag to tell if a pagination request has been refreshed |
+
+#### Get the cost of a delivery
+**Endpoint**    `/delivery/price`
+
+**Request Type**    `GET`
+
+**Body Params**
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| departure   | [locationData](#locationdata)   |
+| destination   | [locationData](#locationdata)   |
+
+**Response**
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| price   |  `Number`  |
+
+#### Accept a delivery
+**Endpoint**    `/delivery/accept`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| id   |  `String`  | the delivery's indentifier |
+
+#### Cancel a delivery
+**Endpoint**    `/delivery/cancel`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| id   |  `String`  | the delivery's indentifier |
+
+#### Signal a to the platform that your on site to take the package (Driver)
+**Endpoint**    `/delivery/signal-on-site`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| id   |  `String`  | the delivery's indentifier |
+
+
+#### Confirm the delivery's package deposit (Client)
+**Endpoint**    `/delivery/confirm-deposit`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| id   |  `String`  | the delivery's indentifier |
+
+> Note: this action has as effect to mark the delivery as started
+
+#### Rate a delivery
+**Endpoint**    `/delivery/rate`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| id   |  `String`  | the delivery's indentifier |
+| note   |  `Number`  | the delivery's note (between 0 and 5) |
+
+#### report a conflict in a delivery
+**Endpoint**    `/delivery/conflict/report`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| id   |  `String`  | the delivery's indentifier |
+| lastPosition   |  [locationData](#locationdata)  | the position of the driver when reporting a conflict |
+| conflictType | `String` | the type of conflict reported |
+
+#### Verify the package code of a conflicting delivery
+**Endpoint**    `/delivery/conflict/verify-code`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| id   |  `String`  | the delivery's indentifier |
+| code | `String` | the code of the package |
+
+
+### Chat API
+
+#### Send a new message
+**Endpoint**    `/discussion/new-message`
+
+**Request Type**    `POST`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | --------- |
+| roomId   |  `String`  | the chat's indentifier |
+| content | `String` | the content of the message |
+
+**Response**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| id    | `String`    | the message's indentifier    |
 
 
 
