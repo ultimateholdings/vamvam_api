@@ -1,6 +1,13 @@
 # Vamvam API documentation
 The Vamvam API enables user to order deliveries in realtime so in order to use it there some specificity to understand
 
+This API is composed of sub-APIs such as:
+
+- [The User API](#user-api)
+- [The Authentication API](#authentication-api)
+- [The Delivery API](#delivery-api)
+- [The Payment API](#payment-api)
+
 ## Data Model
 
 The model here represent the data used by the API to exchange informations with the components and users
@@ -70,9 +77,8 @@ The model here represent the data used by the API to exchange informations with 
 </details>
 
 <details id="sponsordata">
-<summary> sponsorData </ summary>
+<summary> sponsorData </summary>
 
-**Properties**
 
 | Property | dataType | role |
 | -------- | -------- | ---- |
@@ -111,7 +117,7 @@ This model has every Property found in [shortUserData](#userdata-short) plus the
 </details>
 
 <details id="deliverydata">
-<summary> deliveryData </ summary>
+<summary> deliveryData </summary>
 
 This model holds informations about a deliveryData
 
@@ -131,7 +137,7 @@ This model holds informations about a deliveryData
 </details>
 
 <details id="confilctdata">
-<summary> confilctData </ summary>
+<summary> confilctData </summary>
 
 This object holds informations about a raised conflict
 
@@ -168,7 +174,7 @@ This object holds informations about a raised conflict
 | Property | dataType | role |
 | -------: | -------- | ---- |
 | count | `Number` | total of unread messages |
-| messages | [messageData[]](#messagedata) | unread messages |
+| messages | [messageData](#messagedata)[] | unread messages |
 | roomId | `String` | chat's indentifier|
 | roomName | `String` | chat's name|
 </details>
@@ -180,7 +186,7 @@ This object holds informations about a raised conflict
 | -------: | -------- | ---- |
 | id | `String` | the chat's indentifier |
 | lastMessage | [messageData](#messagedata) | the last message sent in the chat |
-| members | [shortUserData[]](#userdata-short) | list of the chat's members |
+| members | [shortUserData](#userdata-short)[] | list of the chat's members |
 | name | `String` | the chat's name |
 | delivery | an object having the following schema ```js { id: string, name: string } ``` | informations about the corresponding delivery of the chat |
 </details>
@@ -216,8 +222,8 @@ The `type` property is always a **string** and the `value` is always and **Objec
 | -------: | -------- | ---- |
 | search_radius | `Number` | the radius to search a driver in second |
 | ttl | `Number` | the delay within which a driver can accept a delivery |
-| conflict_types | [conflictTypeData[]](#conflicttype) | the type of conflicts supported by the platform |
-| package_types | [conflictTypeData[]](#conflicttype) | the type of packages supported by the platform |
+| conflict_types | [conflictTypeData](#conflicttype)[] | the type of conflicts supported by the platform |
+| package_types | [conflictTypeData](#conflicttype)[] | the type of packages supported by the platform |
 
 </details>
 
@@ -237,6 +243,32 @@ The `type` property is always a **string** and the `value` is always and **Objec
 | ------- | -------- | ---- |
 | message | [errorData](#errordata) | message sent by the server on unsuccessfull login attempt |
 | token | `String` | the user access token in the platform |
+
+</details>
+
+<details id="bundledata">
+<summary> bundleData </summary>
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| id    | `String`    | the bundle's indentifier   |
+| bonus    | `Number`    | the amount provided as gift  |
+| unitPrice   | `Number`   | the amount charged for to make one delivery   |
+| price   | `Number`   | the cost of the bundle   |
+| gainMin   | `Number`   | the minimal amount to gain by using the bundle   |
+| point  | `Number` |   the points provided by the bundle |
+
+</details>
+
+<details id="transactiondata">
+<summary> transactionData </summary>
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| amount    | `Number`    | the amount (added to or removed from) the main sum   |
+| bonus    | `Number`    | the amount (added to or removed from) the bonus sum    |
+| date   | `String`   | the transaction's date   |
+| point   | `Number`   | the total of added or removed points   |
 
 </details>
 
@@ -507,7 +539,7 @@ The value of the updated informations
 
 **Response**    [deliveryData](#deliverydata)
 
-#### Gather the ended deliveries informations
+#### Gather the terminated deliveries informations
 **Endpoint**  `/delivery/terminated`
 
 **Request Type**    `GET`
@@ -529,9 +561,9 @@ The value of the updated informations
 
 | Property    | dataType    | role    |
 |---------------- | --------------- | --------------- |
-| results    | [deliveryData](#deliverydata)[]    | the deliveries gathered    |
+| results    | [deliveryData](#deliverydata)[]    | the items (in this case deliveries) gathered    |
 | nextPageToken    | `String`    | the token to provide for the next request (used for pagination purpose)    |
-| refreshed | `Boolean` | flag to tell if a pagination request has been refreshed |
+| refreshed | `Boolean` | flag to tell if a pagination request has been refreshed(this can be due to either a token invalidated or an update occured) |
 
 #### Get the cost of a delivery
 **Endpoint**    `/delivery/price`
@@ -656,5 +688,109 @@ The value of the updated informations
 |---------------- | --------------- | --------------- |
 | id    | `String`    | the message's indentifier    |
 
+#### Gather a chat messages
+
+**Endpoint**    `/discussion/messages`
+
+**Request Type**    `GET`
+
+**Body Params**
+
+| Property   | dataType    | role |
+|--------------- | --------------- | ---------- |
+| roomId   | `Number`  | the chat's indentifier |
+
+
+**Query Params**    see [Gather the terminated deliveries informations](#gather-the-terminated-deliveries-informations)
+
+**Headers**    see [Gather the terminated deliveries informations](#gather-the-terminated-deliveries-informations)
+
+**Response**    see [Gather the terminated deliveries informations](#gather-the-terminated-deliveries-informations)
+
+#### Gather your chats
+
+**Endpoint**    `/discussion/all`
+
+**Request Type**    `GET`
+
+**Response**
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| rooms   | [roomData](#roomdata)[]  |
+
+### Payment API
+
+#### Gather available subscription Bundles
+
+> Note: this feature is only available for the platform's drivers
+
+**Endpoint**    `/bundle`
+
+**Request Type**    `GET`
+
+**Response**
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| data   | [bundleData](#bundledata)[]   |
+
+#### Initiate a payment
+
+ **Endpoint**   `/transaction/init-transaction`
+
+ **Request Type**   `POST`
+
+ **Body Params**
+
+ | Property    | dataType    | role    |
+ |---------------- | --------------- | --------------- |
+ | packId    | `String`    | the indentifier of the subscription bundle to pay    |
+ | phoneNumber    | `String`    | the phone number in which the transaction should be initiated    |
+
+#### Gather a driver's transactions
+
+> Note: Here the pagination is delegated to the user so there may have some data inaccuracies in case of addition of some transactions
+**apologies for that**. It will be fixed in a near future
+
+**Endpoint**   `/transaction/history`
+
+**Request Type**    `GET`
+
+**Query Params**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| page    | `Number`    | the page we wish to gather assuming we every page should have at most `limit` items    |
+| limit    | `Number`    | the number of items to have per page    |
+
+**Body Params**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| type    | `String`    | the type of transaction to show    |
+
+**Response**
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| total   | `Number`   |
+| data   | [transactionData](#transactiondata)[]   |
+
+#### Gather wallet informations
+
+> Note: this is a driver feature
+
+**Endpoint**    `/transaction/wallet-infos`
+
+**Request Type**    `GET`
+
+**Response**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| solde   | `Number`    | the wallet's balance    |
+| bonus   | `Number`    | the wallet remaining bonuses    |
+| point   | `Number`    | the wallet remaining points   |
 
 
