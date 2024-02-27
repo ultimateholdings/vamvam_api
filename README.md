@@ -8,6 +8,8 @@ This API is composed of sub-APIs such as:
 - [The Delivery API](#delivery-api)
 - [The Payment API](#payment-api)
 
+> Note: This documentation is for client and driver interactions with the platform to find out admins interactions check out `[The Vamvam admin API documentation](./Admin-doc.md)`
+
 ## Data Model
 
 The model here represent the data used by the API to exchange informations with the components and users
@@ -22,7 +24,6 @@ The model here represent the data used by the API to exchange informations with 
 | ageData | 18-24, 25-34, 35-44, 45-54, 55-64, 64+ |
 | languageData | "en", "fr" |
 | genderData | "F", "M" |
-| AdminType | "registration", "conflict" |
 | userRole |  "driver", "client", "admin", "conflict-manager", "registration-manager" |
 </details>
 
@@ -76,17 +77,6 @@ The model here represent the data used by the API to exchange informations with 
 | phoneNumber | `String` | False | driver's phone number |
 </details>
 
-<details id="sponsordata">
-<summary> sponsorData </summary>
-
-
-| Property | dataType | role |
-| -------- | -------- | ---- |
-| sponsor | <table> <thead><tr> <th> Property </th> <th> dataType </th></tr></thead> <tbody> <tr> <td> id </td> <td> `String` </td></tr> <tr> <td> code </td> <td> `String` </td></tr> <tr> <td> name </td> <td> `String` </td></tr> <tr> <td> phone </td> <td> `String` </td></tr> </tbody></table> | informations about a sponsor |
-| sponsored | `Number` | number of users registered by this sponsor |
-
-</details>
-
 <details id="userdata-short">
 <summary> shortUserData </summary>
 
@@ -136,26 +126,6 @@ This model holds informations about a deliveryData
 
 </details>
 
-<details id="confilctdata">
-<summary> confilctData </summary>
-
-This object holds informations about a raised conflict
-
-> Note: only the `cancelationDate` property is optional for this model
-
-| Property | dataType | role |
-| ------- | -------- | ---- |
-| cancelationDate | `Date` | cancelation date of the delivery |
-| lastLocation | [locationData](#locationdata) | location of the driver while reporting the conflict |
-| delivery | [deliveryData](#deliverydata) | informations about the conflicting delivery |
-| date | `Date` | date when the conflict was reported |
-| id | `String` | the conflict indentifier |
-| status | `String` | the status of the conflict |
-| type | `String` | the type of conflict |
-| reporter | [UserData](#userdata) | informations about the conflict's reporter |
-
-</details>
-
 <details id="messagedata">
 <summary> messageData </summary>
 
@@ -190,43 +160,6 @@ This object holds informations about a raised conflict
 | name | `String` | the chat's name |
 | delivery | an object having the following schema ```js { id: string, name: string } ``` | informations about the corresponding delivery of the chat |
 </details>
-
-<details id="conflicttype">
-<summary> conflictTypeData </summary>
-
-| Property | dataType | role |
-| -------: | -------- | ---- |
-| code | `String` | conflict's code in the platform |
-| en | `String` | conflict name in english |
-| fr | `String` | conflict name in french |
-
-</details>
-
-<details id="settings">
-<summary> SettingsData </summary>
-
-A SettingsData is an object having two properties `type` and `value` representing respectively the type and the value of a setting.
-
-The `type` property is always a **string** and the `value` is always and **Object** and the available settings are:
-
-#### OTPSettingsData
-
-- type: "otp"
-- value: an object having the schema `{ ttl: number }` with ttl the time-to-leave of the OTP authentication
-
-#### DeliverySettingsData
-- type: "delivery"
-- value: an object described bellow
-
-| Property | dataType | role |
-| -------: | -------- | ---- |
-| search_radius | `Number` | the radius to search a driver in second |
-| ttl | `Number` | the delay within which a driver can accept a delivery |
-| conflict_types | [conflictTypeData](#conflicttype)[] | the type of conflicts supported by the platform |
-| package_types | [conflictTypeData](#conflicttype)[] | the type of packages supported by the platform |
-
-</details>
-
 <details id="logindata">
 <summary> LoginData </summary>
 
@@ -723,7 +656,7 @@ The value of the updated informations
 
 #### Gather available subscription Bundles
 
-> Note: this feature is only available for the platform's drivers
+> Note: this feature is only available for the platform's drivers and admin
 
 **Endpoint**    `/bundle`
 
