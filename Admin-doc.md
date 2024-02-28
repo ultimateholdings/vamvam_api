@@ -7,7 +7,7 @@ The valid credentials should be provided to through headers in the query and mus
 The actions are splitted per administratror role and the available roles are
 
 | Role   | duties    |
-|--------------- | --------------- |
+| --------------- | --------------- |
 | Registration manager   | Manage every actions related to driver registration    |
 | Conflict manager   | Manage every actions related to delivery conflicts   |
 | Admin manager   | manage every actions related to administratrors management, platform settings and some special actions which the other admins cannot perform (There's only one of this kind in the platform)  |
@@ -18,7 +18,7 @@ The actions are splitted per administratror role and the available roles are
 <summary> Enumerations </summary>
 
 | Property   | values    |
-|--------------- | --------------- |
+| --------------- | --------------- |
 | adminType   | `conflict`, `registration`   |
 | deliveryStatuses | `archived`, `cancelled`, `conflicting`, `ongoing`, `terminated` |
 

@@ -8,7 +8,7 @@ This API is composed of sub-APIs such as:
 - [The Delivery API](#delivery-api)
 - [The Payment API](#payment-api)
 
-> Note: This documentation is for client and driver interactions with the platform to find out admins interactions check out `[The Vamvam admin API documentation](./Admin-doc.md)`
+> Note: This documentation is for client and driver interactions with the platform to find out admins interactions check out `[The Vamvam admin API documentation](./Admin-doc.md#vamvam-admin-api-documentation)`
 
 ## Data Model
 

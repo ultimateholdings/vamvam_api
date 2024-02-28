@@ -1,68 +1,84 @@
 /*jslint
 node
 */
-const {
-    Blacklist,
-    Bundle,
-    Delivery,
-    DeliveryConflict,
-    Message,
-    Payment,
-    Registration,
-    Room,
-    Sponsor,
-    Sponsorship,
-    Transaction,
-    User,
-    UserRoom,
-    connection,
-    otpRequest
-} = require("../models");
+const models = require("../models");
+const {availableRoles} = require("../utils/config");
+const {hashPassword} = require("../utils/helpers");
 
-const interface = connection.getQueryInterface();
+const {
+    admin_name = "",
+    admin_email: email,
+    admin_password: password,
+    admin_phone: phone
+} = process.env;
+const queryInterface = models.connection.getQueryInterface();
+const forbiddenProps = ["connection", "Settings"];
+const tables = Object.entries(models).filter(
+    (entry) => forbiddenProps.includes(entry[0])
+).map((entry) => entry[1]);
+const users = {};
+users[availableRoles.clientRole] = {
+    firstName: "guest",
+    lastName: "client",
+    phone: "+237677777777"
+};
+users[availableRoles.driverRole] = {
+    firstName: "guest",
+    lastName: "driver",
+    phone: "+237699999999"
+};
+users[availableRoles.adminRole] = {email, phone};
 
 async function createTable(model) {
     const tableName = model.getTableName();
-    const exists = await interface.tableExists(tableName);
-    if (exists) {
-        await model.sync({alter: true});
-    } else {
-        await interface.createTable(tableName, model.getAttributes());
-    }
+    await queryInterface.createTable(tableName, model.getAttributes());
+}
+async function createTables() {
+    await createTable(models.otpRequest);
+    await createTable(models.User);
+    await createTable(models.Delivery);
+    await createTable(models.Room);
+    await createTable(models.Message);
+    await createTable(models.UserRoom);
+    await createTable(models.DeliveryConflict);
+    await createTable(models.Registration);
+    await createTable(models.Blacklist);
+    await createTable(models.Bundle);
+    await createTable(models.Payment);
+    await createTable(models.Transaction);
+    await createTable(models.Sponsor);
+    await createTable(models.Sponsorship);
 }
 
+function dropTables(models) {
+    return Promise.all(models.map(async function tableDropping(model) {
+        await queryInterface.dropTable(model.getTableName());
+    }));
+}
+async function createDefaultUsers() {
+    const [firstName, lastName] = admin_name.split(" ");
+    const guestPassword = await hashPassword("store1234567");
+    users[availableRoles.adminRole].firstName = firstName;
+    users[availableRoles.adminRole].lastName = lastName;
+    users[availableRoles.adminRole].password = await hashPassword(password);
+    users[availableRoles.clientRole].password = guestPassword;
+    users[availableRoles.driverRole].password = guestPassword;
+    await models.User.bulkCreate(Object.entries(users).map(
+        function ([key, value]) {
+            value.role = key;
+            return value;
+        }
+    ));
+}
+
+
 async function up() {
-    await createTable(otpRequest);
-    await createTable(User);
-    await createTable(Delivery);
-    await createTable(Room);
-    await createTable(Message);
-    await createTable(UserRoom);
-    await createTable(DeliveryConflict);
-    await createTable(Registration);
-    await createTable(Blacklist);
-    await createTable(Bundle);
-    await createTable(Payment);
-    await createTable(Transaction);
-    await createTable(Sponsor);
-    await createTable(Sponsorship);
+    await createTables(tables);
+    await createDefaultUsers();
 }
 
 async function down() {
-    await interface.dropTable(otpRequest.getTableName());
-    await interface.dropTable(User.getTableName());
-    await interface.dropTable(Delivery.getTableName());
-    await interface.dropTable(Room.getTableName());
-    await interface.dropTable(UserRoom.getTableName());
-    await interface.dropTable(Registration.getTableName());
-    await interface.dropTable(Message.getTableName());
-    await interface.dropTable(DeliveryConflict.getTableName());
-    await interface.dropTable(Blacklist.getTableName());
-    await interface.dropTable(Bundle.getTableName());
-    await interface.dropTable(Payment.getTableName());
-    await interface.dropTable(Transaction.getTableName());
-    await interface.dropTable(Sponsor.getTableName());
-    await interface.dropTable(Sponsorship.getTableName());
+    await dropTables(tables);
 }
 
 module.exports = Object.freeze({down, up});
