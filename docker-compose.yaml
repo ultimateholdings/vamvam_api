@@ -1,0 +1,40 @@
+version: "3"
+services:
+    api:
+      build:
+        context: .
+      depends_on:
+        db:
+          condition: service_healthy
+          restart: true
+      env_file: ./app_secret.txt
+      environment:
+        - NODE_ENV=development
+      volumes:
+        - api-fs:/usr/src/app/node_modules
+        - .:/usr/src/app
+      networks:
+        - botnet
+      ports:
+        - 3900:4000
+    db:
+      image: mariadb:lts
+      env_file: ./db_secret.txt
+      expose:
+        - "3306"
+      volumes:
+        - db-fs:/var/lib/mysql
+      networks:
+          - botnet
+      restart: unless-stopped
+      healthcheck:
+        interval: 5s
+        retries: 3
+        test: ["CMD", "healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized"]
+        timeout: 10s
+volumes:
+  api-fs:
+  db-fs:
+networks:
+  botnet:
+    driver: bridge
