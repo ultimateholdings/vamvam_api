@@ -6,7 +6,7 @@ const {availableRoles} = require("../utils/config");
 
 function getUserMiddleware(model) {
     const defaultGetter = function (body) {
-        return {phone: body.phoneNumber};
+        return {phone: body.phoneNumber ?? null};
     };
     const adminTypeMap = {
         registration: availableRoles.registrationManager,
