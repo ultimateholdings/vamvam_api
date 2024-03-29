@@ -459,7 +459,6 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
                 results = await handleInvalidToken({getParams, maxPageSize});
             }
         } catch (err) {
-            console.error(err);
             results = await handleInvalidToken({getParams, maxPageSize});
         }
         return results;
