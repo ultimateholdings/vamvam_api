@@ -238,7 +238,7 @@ function errorHandler(func) {
         try {
             await func(req, res, next);
         } catch (error) {
-            console.dir(error);
+            console.log(error);
             if (ValidationError.prototype.isPrototypeOf(error)) {
                 err = errors.invalidValues;
                 content = error.errors.map(function ({message}) {

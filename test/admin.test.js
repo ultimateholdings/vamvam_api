@@ -133,6 +133,9 @@ describe("admin features tests", function () {
             url: "/admin/update-settings"
         });
         assert.equal(response.body.updated, true);
+        response = await Settings.findOne({where: {type: "delivery-settings"}});
+        console.log(response.dataValues.value);
+        assert.equal(response.dataValues.value.delivery_ttl, 5500);
     });
 });
 

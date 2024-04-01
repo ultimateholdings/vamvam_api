@@ -27,7 +27,7 @@ function parseArrayObject(arr) {
             ...(arr.map(jsonObjectMapper).filter((e) => e !== null))
         );
     }
-    return null;
+    return arr;
 }
 
 function defineSettingsModel(connection) {
@@ -75,11 +75,10 @@ function defineSettingsModel(connection) {
     settings.updateSettings = function ({type, value}) {
         const args = Object.entries(value).reduce(
             function (acc, [key, val]) {
-                let value;
-                if (Array.isArray(val)) {
-                    value = parseArrayObject(val);
-                }
-                return acc.concat(["$." + key, value]);
+                return acc.concat([
+                    "$." + key,
+                    parseArrayObject(val)
+                ]);
             },
             []
         );
