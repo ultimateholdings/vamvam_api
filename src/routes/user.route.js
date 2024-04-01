@@ -48,7 +48,13 @@ function getUserRouter(userModule) {
         allowRoles([roles.adminRole]),
         parsePaginationHeaders,
         errorHandler(routerModule.getAllUsers)
-    )
+    );
+    router.get(
+        "/analytics",
+        protectRoute,
+        allowRoles([roles.adminRole]),
+        errorHandler(routerModule.getCountByRole)
+    );
 
     router.post(
         "/delete-avatar",

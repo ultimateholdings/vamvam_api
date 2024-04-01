@@ -207,6 +207,21 @@ function defineUserModel(connection) {
         const role = types.buildClause(Op.in, roles);
         return user.findAll({where: {role}});
     };
+    user.getRolesCount = async function countGetter({from, to}) {
+        let result = await user.count({
+            attributes: ["role"],
+            group: ["role"],
+            where: types.buildPeriodQuery(from, to)
+        });
+        result = result.reduce(function (acc, {role, count}) {
+            if (role !== "admin") {
+                acc[role] = count;
+            }
+            acc.total += count;
+            return acc;
+        }, {total: 0});
+        return result;
+    };
     user.genericProps = genericProps;
     user.statuses = userStatuses;
     user.getClientByPhones = function (phoneList) {

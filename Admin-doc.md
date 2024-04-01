@@ -376,6 +376,35 @@ The response Object only has one property **results** which is an object describ
 | terminated   | `Number`   |
 | total   | `Number`   |
 
+#### Gather the users count per roles within a period
+
+**Endpoint**    `/user/analytics`
+
+**Request Type**    `GET`
+
+**Query Params**
+
+| Property    | dataType    | role    | optional |
+|---------------- | --------------- | --------------- | ------- |
+| from    | `String` (a date string in the `YYYY-MM-DD` format)    | the date after which the user has joined the platform   | True |
+| to    | `String` (a date string in the `YYYY-MM-DD` format)   | the date before which the user has joined the platform | True |
+
+**Headers**     Same as [Gather new driver registrations](#gather-new-driver-registrations)
+
+**Response**
+
+The response Object only has one property **results** which is an object described by the following table:
+
+| Property   | dataType    |
+|--------------- | --------------- |
+| client   | `Number`   |
+| driver   | `Number`   |
+| conflict-manager   | `Number`   |
+| registration-manager   | `Number`   |
+| total   | `Number`   |
+
+
+
 #### Create a new sponsor
 
 **Endpoint**    `/sponsor/create`
