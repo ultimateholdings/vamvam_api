@@ -337,6 +337,26 @@ The valid credentials should be provided to through headers in the query and mus
 
 The following APIs are restricted
 
+### Setting API
+
+#### Gather the platform settings
+
+**Endpoint** `/system/settings`
+
+**Request Type** `GET`
+
+**Query Params**(optional)
+
+| Property    | dataType    | Possible values    |
+|---------------- | --------------- | --------------- |
+| type    | `String`    | ["delivery", "otp"]    |
+
+**Response**
+
+| Property    | dataType    | role    |
+|---------------- | --------------- | --------------- |
+| settings    | [settingData](./Admin-doc.md#settings)[]    | The available settings for the given type otherwise all settings    |
+
 ### User API
 
 #### Log out to an account

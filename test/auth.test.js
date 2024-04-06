@@ -42,10 +42,10 @@ describe("authentication tests", function () {
     });
 
     beforeEach(async function () {
-        
-        subscriber.phone = subscriber.phoneNumber;
         await connection.sync({force: true});
-        await User.create(subscriber);
+        await User.create(
+            Object.assign(subscriber, {phone: subscriber.phoneNumber})
+        );
         await otpRequest.bulkCreate([
             {phone: users.firstDriver.phone, pinId: pinIds[0]},
             {phone: users.goodUser.phone, pinId: pinIds[1]}

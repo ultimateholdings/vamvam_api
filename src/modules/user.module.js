@@ -167,10 +167,16 @@ function getUserModule({
         }
     }
 
+    async function getCountByRole(req, res) {
+        let result = await userModel.getRolesCount(req.query ?? {});
+        res.json(result);
+    }
+
     return Object.freeze({
         deleteAccount,
         deleteAvatar,
         getAllUsers,
+        getCountByRole,
         getInformations,
         getNearByDrivers,
         updateAvailabilty,

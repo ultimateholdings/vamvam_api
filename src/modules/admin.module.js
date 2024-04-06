@@ -22,14 +22,16 @@ function getAdminModule({associatedModels}) {
             return sendResponse(res, errors.unsupportedType);
         }
         setting.type = apiSettings[type].value;
-        setting.value = {};
         parsedValues = propertiesPicker(value)(Object.keys(apiSettings[type].options));
         if (parsedValues === undefined) {
             return sendResponse(res, errors.invalidValues);
         }
-        Object.entries(parsedValues).forEach(function ([key, val]) {
-            setting.value[apiSettings[type].options[key]] = val;
-        });
+        setting.value =  Object.entries(parsedValues).reduce(
+            function (acc, [key, val]) {
+                acc[apiSettings[type].options[key]] = val;
+                return acc;
+            },
+            {});
         req.setting = setting;
         next();
     }

@@ -238,7 +238,7 @@ function errorHandler(func) {
         try {
             await func(req, res, next);
         } catch (error) {
-            console.dir(error);
+            console.log(error);
             if (ValidationError.prototype.isPrototypeOf(error)) {
                 err = errors.invalidValues;
                 content = error.errors.map(function ({message}) {
@@ -459,7 +459,6 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
                 results = await handleInvalidToken({getParams, maxPageSize});
             }
         } catch (err) {
-            console.error(err);
             results = await handleInvalidToken({getParams, maxPageSize});
         }
         return results;

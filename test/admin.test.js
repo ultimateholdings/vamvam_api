@@ -133,6 +133,23 @@ describe("admin features tests", function () {
             url: "/admin/update-settings"
         });
         assert.equal(response.body.updated, true);
+        response = await Settings.findOne({where: {type: "delivery-settings"}});
+        assert.equal(response.dataValues.value.delivery_ttl, 5500);
+    });
+    it("should provide the users count analytics", async function () {
+        const expected = {
+            client: 2,
+            driver: 2,
+            "conflict-manager": 1,
+            "registration-manager": 1,
+            total: 7
+        };
+        let response = await getDatas({
+            app,
+            token: dbUsers.admin.token,
+            url: "/user/analytics"
+        });
+        assert.deepEqual(response.body, expected);
     });
 });
 

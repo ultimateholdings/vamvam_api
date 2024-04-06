@@ -18,7 +18,7 @@ function defineBlackListModel(connection, userModel) {
         });
     };
     userModel.invalidateAll = async function () {
-        const transaction = new Transaction(connection, {
+        const transaction = await connection.transaction({
             isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE
         });
         try {
@@ -33,6 +33,7 @@ function defineBlackListModel(connection, userModel) {
             await transaction.commit();
             return {success: true};
         } catch (error) {
+            console.log(error);
             await transaction.rollback();
             return {error, success: false};
         }

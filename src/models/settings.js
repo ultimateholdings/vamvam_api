@@ -10,6 +10,26 @@ const {
 const {dbSettings} = require("../utils/config");
 const {CustomEmitter} = require("../utils/helpers");
 
+function jsonObjectMapper(obj) {
+    if (typeof obj === "object" && obj !== null) {
+        return fn("JSON_OBJECT", ...(Object.entries(obj).reduce(
+            function (acc, [key, val]) {
+                return acc.concat([key, val]);
+            }
+        )));
+    }
+    return null;
+}
+function parseArrayObject(arr) {
+    if (Array.isArray(arr)) {
+        return fn(
+            "JSON_ARRAY",
+            ...(arr.map(jsonObjectMapper).filter((e) => e !== null))
+        );
+    }
+    return arr;
+}
+
 function defineSettingsModel(connection) {
     const emitter = new CustomEmitter("Settings Emitter");
     const schema = {
@@ -23,8 +43,8 @@ function defineSettingsModel(connection) {
             type: DataTypes.JSON
         }
     };
-    const allowedSettings = Object.keys(dbSettings);
     const settings = connection.define("setting", schema);
+    const allowedSettings = Object.keys(dbSettings);
 /*jslint-disable*/
     settings.getAll = async function fetchSettings(type) {
         let results;
@@ -55,14 +75,17 @@ function defineSettingsModel(connection) {
     settings.updateSettings = function ({type, value}) {
         const args = Object.entries(value).reduce(
             function (acc, [key, val]) {
-                return acc.concat("$." + key, val);
+                return acc.concat([
+                    "$." + key,
+                    parseArrayObject(val)
+                ]);
             },
             []
-        )
+        );
         return settings.update({
             value: fn("JSON_SET", col("value"), ...args)
         }, {where: {type}});
-    }
+    };
     emitter.decorate(settings);
     return settings;
 }
