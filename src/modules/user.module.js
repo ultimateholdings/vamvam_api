@@ -5,6 +5,7 @@ const {User} = require("../models");
 const {
     generateCode,
     isValidLocation,
+    parseParam,
     propertiesPicker,
     ressourcePaginator,
     sendResponse,
@@ -73,7 +74,12 @@ function getUserModule({
         let {maxPageSize, name, role, skip} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
-            params.role = apiRoles[role];
+            const roles = parseParam(role, (val) => apiRoles[val]).filter(
+                (val) => val !== undefined
+            );
+            if (roles.length > 0) {
+                params.role = roles;
+            }
             params.name = name;
             return params;
         };
