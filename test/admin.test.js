@@ -21,7 +21,10 @@ const {
 } = require("../src/models");
 const {apiSettings, deliveryStatuses} = require("../src/utils/config");
 const {toDbPoint} = require("../src/utils/helpers");
-const {generateDBDeliveries} = require("./fixtures/deliveries.data");
+const {
+    deliveries,
+    generateDBDeliveries
+} = require("./fixtures/deliveries.data");
 const {
     generateToken,
     getDatas,
@@ -95,31 +98,38 @@ describe("admin features tests", function () {
         assert.equal(response.status, 200);
     });
     it("should provide the list of user", async function () {
+        const roles = ["client", "driver"];
+        const expected = Object.values(dbUsers).reduce(
+            (acc, val) => acc + (
+                roles.includes(val.role)
+                ? 1
+                : 0
+            ),
+            0
+        );
         let response = await getDatas({
             app,
             token: dbUsers.admin.token,
-            url: "/user/all?maxPageSize=3"
+            url: "/user/all?role=client,driver"
         });
-        response = await getDatas({
-            app,
-            token: dbUsers.admin.token,
-            url: "/user/all?maxPageSize=3"
-        });
-        assert.deepEqual(response.body.results.length, 3);
+        assert.isTrue(response.body.results.every(
+            (val) => roles.includes(val.role)
+        ) && response.body.results.length === expected);
     });
     it("should provide the list of ongoing deliveries", async function () {
-        let response;
-        let deliveries = [
-            ...deliveryGenerator(deliveryStatuses.cancelled),
-            ...deliveryGenerator(deliveryStatuses.started)
-        ];
-        await Delivery.bulkCreate(deliveries);
-        response = await getDatas({
+        let res;
+        let fakeDatas = deliveryGenerator(deliveryStatuses.started).concat(
+            deliveryGenerator(deliveryStatuses.terminated).concat(
+                deliveryGenerator(deliveryStatuses.inConflict)
+            )
+        );
+        await Delivery.bulkCreate(fakeDatas);
+        res = await getDatas({
             app,
             token: dbUsers.admin.token,
-            url: "/delivery/all"
+            url: "/delivery/all?status=ongoing,terminated"
         });
-        assert.equal(response.status, 200);
+        assert.equal(res.body.results.length, 2 * deliveries.length);
     });
     it("should update a setting", async function () {
         let data = {
@@ -139,8 +149,8 @@ describe("admin features tests", function () {
     it("should provide the users count analytics", async function () {
         const expected = {
             client: 2,
-            driver: 2,
             "conflict-manager": 1,
+            driver: 2,
             "registration-manager": 1,
             total: 7
         };

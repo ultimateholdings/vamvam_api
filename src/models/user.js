@@ -176,10 +176,11 @@ function defineUserModel(connection) {
         let results;
         let formerLastId;
         query.where = types.buildClause(Op.and, []);
-        query.where[Op.and].push(types.buildClause("role",(
-            typeof role === "string"
-            ? role
-            : types.buildClause(Op.notIn, [availableRoles.adminRole])
+        query.where[Op.and].push(types.buildClause("role", types.buildClause(
+            Op.in,
+            (role ?? Object.values(availableRoles)).filter(
+                (val) => val !== availableRoles.adminRole
+            )
         )));
         if (typeof name === "string") {
             query.where[Op.and].push(where(

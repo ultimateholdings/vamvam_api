@@ -1,4 +1,4 @@
-/*jslint
+/*jslintparams
 node
 */
 const {Delivery, DeliveryConflict, User} = require("../models");
@@ -14,6 +14,7 @@ const {
     formatDbPoint,
     generateCode,
     isValidLocation,
+    parseParam,
     ressourcePaginator,
     sendCloudMessage,
     sendResponse,
@@ -444,8 +445,13 @@ function getDeliveryModule({model}) {
         let {from, maxPageSize, skip, status, to} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
-            if (apiDeliveryStatus[status] !== undefined) {
-                params.status = apiDeliveryStatus[status];
+            const statuses = parseParam(
+                status,
+                (val) => apiDeliveryStatus[val]
+            ).filter((val) => val !== undefined);
+
+            if (statuses.length > 0) {
+                params.status = statuses;
             }
             params.to = to;
             params.from = from;
