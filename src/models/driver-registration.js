@@ -59,7 +59,7 @@ function defineDriverRegistration(connection, user) {
         const data = this.dataValues;
         let result = Object.create(null);
         Object.assign(result, data);
-        let props = requiredProps.concat("status", "id");
+        let props = requiredProps.concat(optionalProps.concat("contributorId"));
         result = propertiesPicker(result)(props);
         result.registrationDate = data.createdAt.toISOString();
         result.carInfos = pathToURL(result.carInfos);
@@ -70,7 +70,7 @@ function defineDriverRegistration(connection, user) {
     registration.prototype.toUserData = function () {
         let result = this.dataValues;
         result = propertiesPicker(result)(
-            requiredProps.concat("sponsorCode", "lang")
+            requiredProps.concat("sponsorCode", "lang", "gender")
         );
         result.phone = result.phoneNumber;
         delete result.phoneNumber;
@@ -90,14 +90,15 @@ function defineDriverRegistration(connection, user) {
         let results;
         const clause = {};
         const query = paginationQuery(offset, maxSize);
+        const settled = () =>  buildClause(
+            "contributorId",
+            buildClause(Op.eq, contributorId ?? "")
+        );
+
         query.order = order;
         query.where = {};
         query.where[Op.and] = [
             buildPeriodQuery(from, to, "updatedAt"),
-            buildClause(
-                "contributorId",
-                buildClause(Op.eq, contributorId ?? null)
-            )
         ];
         if (typeof name === "string" && name.length > 0) {
             clause[Op.like] = "%" + name + "%";
@@ -105,8 +106,17 @@ function defineDriverRegistration(connection, user) {
                 where(fn("CONCAT", col("firstName"), col("lastName")), clause)
             );
         }
-        if (typeof status === "string") {
-            query.where[Op.and].push({status: buildClause(Op.eq, status)});
+        if (Array.isArray(status) && status.length > 0) {
+            query.where[Op.and].push({status: buildClause(Op.in, status)});
+            query.where[Op.and].push(settled());
+        } else {
+            query.where[Op.or] = [
+                buildClause("contributorId", buildClause(Op.eq, null)),
+                buildClause(Op.and, [settled(), buildClause(
+                    "status",
+                    buildClause(Op.eq, userStatuses.pendingValidation)
+                )])
+            ];
         }
         results = await registration.findAll(query);
         if (offset > 0) {

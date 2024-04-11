@@ -200,24 +200,32 @@ with the date serialization to avoid false negative*/
     });
     it("should provide the list of registration demands", async function () {
         let response;
-        await Registration.bulkCreate(generateSubscribers(6));
+        await Registration.bulkCreate(generateSubscribers(6).concat(
+        generateSubscribers(3, function (registration) {
+            let result = Object.assign({}, registration);
+            result.contributorId = dbUsers.registrationManager.id;
+            return result;
+        })));
         response = await getDatas({
             app,
             token: managerToken,
             url: "/driver/registrations?name=Nkang"
         });
-        assert.equal(response.body?.results?.length, 6);
+        assert.equal(response.body?.results?.length, 9);
     });
-    it("should provide the list of validated registration", async function () {
+    it("should provide the list of settled registration", async function () {
         let response;
         const settle = (status) => function (registration) {
-            registration.contributorId = dbUsers.registrationManager.id;
-            registration.status = status;
-            return registration;
+            let result = Object.assign({}, registration);
+            result.contributorId = dbUsers.registrationManager.id;
+            result.status = status;
+            return result;
         }
         await Registration.bulkCreate(
             generateSubscribers(6, settle(userStatuses.activated)).concat(
-                generateSubscribers(2, settle(userStatuses.rejected))
+                generateSubscribers(2, settle(userStatuses.rejected)).concat(
+                    generateSubscribers(4, settle(undefined))
+                )
             )
         );
         response = await getDatas({

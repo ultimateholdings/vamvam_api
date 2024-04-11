@@ -3,6 +3,7 @@ node
 */
 const {
     fileExists,
+    parseParam,
     pathToURL,
     propertiesPicker,
     ressourcePaginator,
@@ -117,11 +118,14 @@ function getRegistrationModule({model}) {
     }
 
     async function getNewRegistrations(req, res) {
+        const {id} = req.user.token;
         const {maxPageSize, name, skip} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
-            params.name = name;
-            return params;
+            let result = Object.assign({}, params);
+            result.contributorId = id;
+            result.name = name;
+            return result;
         };
         const registrations = await paginateRegistrations({
             getParams,
@@ -131,17 +135,26 @@ function getRegistrationModule({model}) {
         });
         res.status(200).json(registrations);
     }
-    
+
     async function getSettled(req, res) {
         const {id} = req.user.token;
         const {from, maxPageSize, name, skip, status, to} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
+            const statuses = parseParam(
+                status,
+                (val) => apiStatuses[val]
+            ).filter((val) => val !== undefined);
+
             params.name = name;
             params.from = from;
             params.to = to;
             params.contributorId = id;
-            params.status = apiStatuses[status];
+            params.status = (
+                statuses.length > 0
+                ? statuses
+                : Object.values(apiStatuses)
+            );
             return params;
         };
         const registrations = await paginateRegistrations({
