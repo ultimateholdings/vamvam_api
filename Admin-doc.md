@@ -203,7 +203,7 @@ The `type` property is always a **string** and the `value` is always and **Objec
 
 | Property    | dataType    | role    |
 |---------------- | --------------- | --------------- |
-| id    | `String`    | the registration's identifier (should be unhandled otherwise will respond with error)   |
+| id    | `String`    | the registration's identifier  |
 
 #### Gather new driver registrations
 
@@ -248,7 +248,7 @@ The `type` property is always a **string** and the `value` is always and **Objec
 | from    | `String` (a date string in the `YYYY-MM-DD` format)    | the date after which the (validation or rejection) has been done   | True |
 | to    | `String` (a date string in the `YYYY-MM-DD` format)   | the date before which the (validation or rejection) has been done | True |
 | name    | `String`    | the driver's full name to match    | True |
-| status    | `String`    | the registration status to match (`validated` or `pending`)   | if not provided will default to `pending` |
+| status    | `String`    | the registration status to match (`validated` or `rejected`)   | if not provided will default to `validated` and `rejected` |
 
 **Headers**     Same as [Gather new driver registrations](#gather-new-driver-registrations)
 

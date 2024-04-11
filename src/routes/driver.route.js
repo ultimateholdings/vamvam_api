@@ -76,7 +76,7 @@ function buildRegistrationRoutes(module) {
         errorHandler(routeModule.validateRegistration)
     );
     router.post(
-        "/reject-validation",
+        "/reject-registration",
         protectRoute,
         allowRoles([roles.registrationManager]),
         middleware.ensureRegistrationExists,

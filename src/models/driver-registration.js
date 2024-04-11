@@ -36,7 +36,7 @@ const schema = {
     sponsorCode: DataTypes.STRING,
     status: types.enumType(userStatuses, userStatuses.pendingValidation)
 };
-const optionalProps = ["id", "sponsorCode", "lang", "status", "gender"];
+const optionalProps = ["id", "status"];
 const requiredProps = Object.keys(schema).filter(
     (key) => !optionalProps.includes(key)
 );
@@ -69,9 +69,7 @@ function defineDriverRegistration(connection, user) {
 
     registration.prototype.toUserData = function () {
         let result = this.dataValues;
-        result = propertiesPicker(result)(
-            requiredProps.concat("sponsorCode", "lang", "gender")
-        );
+        result = propertiesPicker(result)(requiredProps);
         result.phone = result.phoneNumber;
         delete result.phoneNumber;
         return result;
