@@ -40,6 +40,14 @@ const optionalProps = ["id", "status"];
 const requiredProps = Object.keys(schema).filter(
     (key) => !optionalProps.includes(key)
 );
+const statusEntries = [
+    [userStatuses.rejected, "rejectionDate"],
+    [userStatuses.activated, "validationDate"]
+];
+const statusMap = statusEntries.reduce(function (acc, [key, val]) {
+    acc[key] = val;
+    return acc;
+}, {});
 function defineDriverRegistration(connection, user) {
     const emitter = new CustomEmitter("Registration emitter");
     const registration = connection.define("driver_registration", schema, {
@@ -63,6 +71,9 @@ function defineDriverRegistration(connection, user) {
         result = propertiesPicker(result)(props);
         result.registrationDate = data.createdAt.toISOString();
         result.carInfos = pathToURL(result.carInfos);
+        if (statusMap[result.status] !== undefined) {
+            result[statusMap[result.status]] = data.updatedAt.toISOString();
+        }
         delete result.password;
         return result;
     };

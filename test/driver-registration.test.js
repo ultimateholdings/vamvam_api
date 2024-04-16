@@ -233,7 +233,7 @@ with the date serialization to avoid false negative*/
             token: managerToken,
             url: "/driver/all-settled"
         });
-        assert.equal(response.body?.results?.length, 8);
+        assert.equal(response.body.results.length, 8);
     });
     it("should allow a manager to handle a registration", async function () {
         let response;
