@@ -185,9 +185,8 @@ describe("sponsoring tests", function () {
     beforeEach(async function () {
         await connection.sync();
         sponsors = await Sponsor.bulkCreate(sponsors.map(function (user) {
-            const result = {};
+            const result = Object.assign({}, user);
             const code = String(Math.floor(10000 * Math.random()));
-            Object.assign(result, user);
             result.code = code;
             result.name = result.firstName + " " + result.lastName;
             result.phone = user.phone + "-" + code;
@@ -202,9 +201,6 @@ describe("sponsoring tests", function () {
             result.email = result.email.replace("@bar", id + "@bar");
             return result;
         });
-        admin = await User.create(users.admin);
-        admin.token = generateToken(admin);
-        allUsers = await User.bulkCreate(allUsers);
         Sponsorship.bulkCreate(allUsers.map(function (user, index) {
             let sponsorId;
             if (index % 3 === 0) {
@@ -214,6 +210,9 @@ describe("sponsoring tests", function () {
             }
             return {sponsorId, userId: user.id};
         }));
+        admin = await User.create(users.admin);
+        admin.token = generateToken(admin);
+        allUsers = await User.bulkCreate(allUsers);
     });
     afterEach(async function () {
         await connection.drop();
@@ -233,6 +232,7 @@ describe("sponsoring tests", function () {
             token: admin.token,
             url: "/sponsor/ranking"
         });
+        assert.equal(response.body.results.length, 2);
         assert.equal(response.body.results[0].sponsored, 6);
     });
     it("should list all users sponsored by a sponsor", async function () {
