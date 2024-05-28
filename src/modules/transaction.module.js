@@ -10,6 +10,7 @@ const {
   sendResponse,
   getPaymentService,
   paymentManager,
+  ressourcePaginator,
 } = require("../utils/helpers");
 
 function getTransactionModule({associatedModels, model, paymentHandling}) {
@@ -19,6 +20,7 @@ function getTransactionModule({associatedModels, model, paymentHandling}) {
     paymentHandling || paymentManager(getPaymentService(associations.Payment));
 
     associations.Delivery.addEventListener("point-withdrawal-requested", withdrawal);
+  const transactionPagination = ressourcePaginator(transactionModel.getAll);
 
   async function verifyPaymentData(req, res, next) {
     let pack;
@@ -163,32 +165,47 @@ function getTransactionModule({associatedModels, model, paymentHandling}) {
   }
 
   async function incentiveBonus(req, res){
+    let walletSummer;
+    let currentBonus;
     const {bonus, driverId, type} = req.body;
     try {
-      await transactionModel.create({
-        bonus,
-        driverId,
-        point: staticPaymentProps.recharge_point,
-        type: type,
-        unitPrice: staticPaymentProps.debit_amount
-    });
-    res.status(200).json({});
-    if( type === "recharge"){
-      associations.Delivery.emitEvent("incentive-bonus", {
-        payload: {
-          amount: bonus * staticPaymentProps.debit_amount,
-          bonus
-        },
-        userId: driverId
-      });
-    } else {
-      associations.Delivery.emitEvent("bonus-withdrawal", {
-        payload: {
-          amount: bonus * staticPaymentProps.debit_amount,
-          bonus
-        },
-        userId: driverId
-      });
+      if (type === "recharge") {
+        await transactionModel.create({
+          bonus,
+          driverId,
+          point: staticPaymentProps.recharge_point,
+          type: type,
+          unitPrice: staticPaymentProps.debit_amount
+        });
+        res.status(200).json({});
+        associations.Delivery.emitEvent("incentive-bonus", {
+          payload: {
+            amount: bonus * staticPaymentProps.debit_amount,
+            bonus
+          },
+          userId: driverId
+        });
+      } else {
+        walletSummer = await transactionModel.getDriverBalance(driverId);
+        currentBonus = walletSummer.bonus;
+        if (bonus > currentBonus) {
+          sendResponse(res, errors.invalidRemove);
+        } else {
+          await transactionModel.create({
+            bonus,
+            driverId,
+            point: staticPaymentProps.recharge_point,
+            type: type,
+            unitPrice: staticPaymentProps.debit_amount
+          });
+          associations.Delivery.emitEvent("bonus-withdrawal", {
+            payload: {
+              amount: bonus * staticPaymentProps.debit_amount,
+              bonus
+            },
+            userId: driverId
+          });
+        }
     }
     } catch (error) {
       return sendResponse(res, errors.internalError);
@@ -218,30 +235,45 @@ function getTransactionModule({associatedModels, model, paymentHandling}) {
       wallet: data
     });
   }
-
+  // async function rechargeHistory(req, res) {
+  //   const page = parseInt(req.query.page) || 1;
+  //   const limit = parseInt(req.query.limit) || 8;
+  //   const offset = (page - 1) * limit;
+  //   const { type } = req.query;
+  //   let query;
+  //   query = {
+  //     limit: limit,
+  //     offset: offset,
+  //   }
+  //   try {
+  //     if (type !== null && typeof type !== "undefined") {
+  //       query.type = type
+  //     }
+  //     const { rows, count } = await transactionModel.getAllByTime(query);
+  //     res.status(200).json({
+  //       data: rows,
+  //       total: count,
+  //     });
+  //   } catch (error) {
+  //     sendResponse(res, errors.internalError);
+  //   }
+  // }
   async function rechargeHistory(req, res) {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 8;
-    const offset = (page - 1) * limit;
-    try {
-      const { startDate, endDate, type } = req.body;
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      const { rows, count } = await transactionModel.getAllByTime({
-        limit,
-        offset,
-        start,
-        end,
-        type,
-      });
-      res.status(200).json({
-        data: rows,
-        total: count,
-      });
-    } catch (error) {
-      sendResponse(res, errors.internalError);
-    }
+    let {maxPageSize, type, skip} = req.query;
+    const pageToken = req.headers["page-token"];
+    const getParams = function (params) {
+      if (typeof type === "string" && type.length > 0) {
+        params.type = type;
+      }
+      return params;
+    };
+    results = await transactionPagination({
+      getParams,
+      maxPageSize,
+      pageToken,
+      skip
+    });
+    res.status(200).json(results);
   }
 
   async function creditSumInfos(req, res) {
