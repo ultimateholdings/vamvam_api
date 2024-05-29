@@ -197,7 +197,11 @@ function defineDeliveryModel(connection, userModel) {
             join(userModel, "Client"),
             join(userModel, "Driver", false)
         ];
-        query.where = buildClause(Op.and, buildPeriodQuery(from, to));
+        query.where = buildClause(Op.and, buildPeriodQuery(
+            from,
+            to,
+            "delivery.CreatedAt"
+        ));
         query.order = order;
         if (Array.isArray(status)) {
             query.where.status = buildClause(Op.in, status);
