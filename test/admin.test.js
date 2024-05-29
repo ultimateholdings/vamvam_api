@@ -21,7 +21,10 @@ const {
 } = require("../src/models");
 const {apiSettings, deliveryStatuses} = require("../src/utils/config");
 const {toDbPoint} = require("../src/utils/helpers");
-const {generateDBDeliveries} = require("./fixtures/deliveries.data");
+const {
+    deliveries,
+    generateDBDeliveries
+} = require("./fixtures/deliveries.data");
 const {
     generateToken,
     getDatas,
@@ -95,31 +98,38 @@ describe("admin features tests", function () {
         assert.equal(response.status, 200);
     });
     it("should provide the list of user", async function () {
+        const roles = ["client", "driver"];
+        const expected = Object.values(dbUsers).reduce(
+            (acc, val) => acc + (
+                roles.includes(val.role)
+                ? 1
+                : 0
+            ),
+            0
+        );
         let response = await getDatas({
             app,
             token: dbUsers.admin.token,
-            url: "/user/all?maxPageSize=3"
+            url: "/user/all?role=client,driver"
         });
-        response = await getDatas({
-            app,
-            token: dbUsers.admin.token,
-            url: "/user/all?maxPageSize=3"
-        });
-        assert.deepEqual(response.body.results.length, 3);
+        assert.isTrue(response.body.results.every(
+            (val) => roles.includes(val.role)
+        ) && response.body.results.length === expected);
     });
     it("should provide the list of ongoing deliveries", async function () {
-        let response;
-        let deliveries = [
-            ...deliveryGenerator(deliveryStatuses.cancelled),
-            ...deliveryGenerator(deliveryStatuses.started)
-        ];
-        await Delivery.bulkCreate(deliveries);
-        response = await getDatas({
+        let res;
+        let fakeDatas = deliveryGenerator(deliveryStatuses.started).concat(
+            deliveryGenerator(deliveryStatuses.terminated).concat(
+                deliveryGenerator(deliveryStatuses.inConflict)
+            )
+        );
+        await Delivery.bulkCreate(fakeDatas);
+        res = await getDatas({
             app,
             token: dbUsers.admin.token,
-            url: "/delivery/all"
+            url: "/delivery/all?status=ongoing,terminated"
         });
-        assert.equal(response.status, 200);
+        assert.equal(res.body.results.length, 2 * deliveries.length);
     });
     it("should update a setting", async function () {
         let data = {
@@ -139,8 +149,8 @@ describe("admin features tests", function () {
     it("should provide the users count analytics", async function () {
         const expected = {
             client: 2,
-            driver: 2,
             "conflict-manager": 1,
+            driver: 2,
             "registration-manager": 1,
             total: 7
         };
@@ -175,9 +185,8 @@ describe("sponsoring tests", function () {
     beforeEach(async function () {
         await connection.sync();
         sponsors = await Sponsor.bulkCreate(sponsors.map(function (user) {
-            const result = {};
+            const result = Object.assign({}, user);
             const code = String(Math.floor(10000 * Math.random()));
-            Object.assign(result, user);
             result.code = code;
             result.name = result.firstName + " " + result.lastName;
             result.phone = user.phone + "-" + code;
@@ -192,9 +201,6 @@ describe("sponsoring tests", function () {
             result.email = result.email.replace("@bar", id + "@bar");
             return result;
         });
-        admin = await User.create(users.admin);
-        admin.token = generateToken(admin);
-        allUsers = await User.bulkCreate(allUsers);
         Sponsorship.bulkCreate(allUsers.map(function (user, index) {
             let sponsorId;
             if (index % 3 === 0) {
@@ -204,6 +210,9 @@ describe("sponsoring tests", function () {
             }
             return {sponsorId, userId: user.id};
         }));
+        admin = await User.create(users.admin);
+        admin.token = generateToken(admin);
+        allUsers = await User.bulkCreate(allUsers);
     });
     afterEach(async function () {
         await connection.drop();
@@ -223,6 +232,7 @@ describe("sponsoring tests", function () {
             token: admin.token,
             url: "/sponsor/ranking"
         });
+        assert.equal(response.body.results.length, 2);
         assert.equal(response.body.results[0].sponsored, 6);
     });
     it("should list all users sponsored by a sponsor", async function () {

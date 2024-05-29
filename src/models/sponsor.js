@@ -54,24 +54,25 @@ function defineSponsorModel(connection, userModel) {
     userModel.getRanking = async function ({maxSize, offset}) {
         let formerLastId;
         let results;
-        const query = paginationQuery(offset, maxSize);
-        query.attributes = [
-            "sponsorId",
-            [fn("COUNT", col("sponsorId")), "totalUsers"]
-        ];
-        query.include = join(Sponsor, "sponsor");
-        query.group = ["sponsorId"];
-        query.order = [["totalUsers", "DESC"]];
-        results = await Sponsorship.findAll(query);
+        let raw = `select count(\`sponsorId\`) as \`sponsored\`,
+            ${Object.keys(schema).map((val) => `sponsors.\`${val}\``).join(",")}
+            , sponsors.\`createdAt\`
+            from sponsors left join sponsorships
+            on sponsors.\`id\` = sponsorships.\`sponsorId\`
+            group by \`sponsors\`.\`id\`
+            order by \`sponsored\` desc limit ${offset}, ${maxSize};
+        `;
+        results = await connection.query(raw, {
+            type: connection.QueryTypes.SELECT
+        });
         if (offset > 0) {
             formerLastId = results.shift();
             formerLastId = formerLastId?.dataValues?.sponsor?.id;
         }
-        results = results.map(function (sponsorship) {
-            let {sponsor, totalUsers} = sponsorship.dataValues;
-            const result = {sponsored: totalUsers};
-            result.sponsor = sponsor.toJSON();
-            return result;
+        results = results.map(function (row) {
+            const sponsor = Object.assign({}, row);
+            delete sponsor.sponsored;
+            return {sponsor, sponsored: row.sponsored};
         });
         return {
             formerLastId,

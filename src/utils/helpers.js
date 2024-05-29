@@ -458,7 +458,7 @@ function ressourcePaginator(getRessources, expiration = 3600000) {
             } else {
                 results = await handleInvalidToken({getParams, maxPageSize});
             }
-        } catch (err) {
+        } catch (ignore) {
             results = await handleInvalidToken({getParams, maxPageSize});
         }
         return results;
@@ -604,15 +604,23 @@ function distanceBetween(point1) {
             long2 = point2.longitude.toRadians();
             deltaLat = lat2 - lat1;
             deltaLong = long2 - long1;
-            haversine = Math.pow(Math.sin(deltaLat / 2), 2) +
-                Math.cos(lat1) * Math.cos(lat2) * Math.pow(
-                    Math.sin(deltaLong / 2),
-                    2
+            haversine = (
+                Math.pow(Math.sin(deltaLat / 2), 2) +
+                Math.cos(lat1) * Math.cos(lat2) *
+                Math.pow(Math.sin(deltaLong / 2), 2)
             );
             result = 2 * radius * Math.asin(Math.sqrt(haversine));
             return result;
         }
     };
+}
+function parseParam(param, fn) {
+    let result = param ?? "";
+    result = result.split(",");
+    if (typeof fn === "function") {
+        result = result.map(fn);
+    }
+    return result;
 }
 
 module.exports = Object.freeze({
@@ -632,6 +640,7 @@ module.exports = Object.freeze({
     isValidLocation,
     jwtWrapper,
     mergableObject,
+    parseParam,
     pathToURL,
     paymentManager,
     propertiesPicker,

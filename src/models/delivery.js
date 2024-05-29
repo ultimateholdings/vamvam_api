@@ -199,8 +199,8 @@ function defineDeliveryModel(connection, userModel) {
         ];
         query.where = buildClause(Op.and, buildPeriodQuery(from, to));
         query.order = order;
-        if (typeof status === "string") {
-            query.where.status = status;
+        if (Array.isArray(status)) {
+            query.where.status = buildClause(Op.in, status);
         }
         results = await delivery.findAll(query);
         if ((offset ?? 0) > 0) {

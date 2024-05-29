@@ -1,5 +1,5 @@
 /*jslint node this*/
-const {Op} = require("sequelize");
+const {Op, col, fn, where} = require("sequelize");
 const {mergableObject} = require("../utils/helpers");
 
 
@@ -43,18 +43,22 @@ function constraints(foreignKey, name, rigid = false) {
     return result.with({as, constraints: rigid, foreignKey});
 }
 
+function isoDay(timestamp) {
+    return new Date(timestamp).toISOString().split("T")[0];
+}
+
 function buildPeriodQuery(from, to, key = "createdAt") {
     let result = [];
     const begin = Date.parse(from);
     const end = Date.parse(to);
     if (Number.isFinite(begin)) {
         result = result.concat(
-            buildClause(key, buildClause(Op.gte, new Date(begin)))
+            where(fn("DATEDIFF", col(key), isoDay(begin)), Op.gte, 0)
         );
     }
-    if (Number.isFinite(Date.parse(to))) {
+    if (Number.isFinite(end)) {
         result = result.concat(
-            buildClause(key, buildClause(Op.lte, new Date(end)))
+            where(fn("DATEDIFF", col(key), isoDay(end)), Op.lte, 0)
         );
     }
     return result;

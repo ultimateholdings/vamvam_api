@@ -36,10 +36,18 @@ const schema = {
     sponsorCode: DataTypes.STRING,
     status: types.enumType(userStatuses, userStatuses.pendingValidation)
 };
-const optionalProps = ["id", "sponsorCode", "lang", "status", "gender"];
+const optionalProps = ["id", "status"];
 const requiredProps = Object.keys(schema).filter(
     (key) => !optionalProps.includes(key)
 );
+const statusEntries = [
+    [userStatuses.rejected, "rejectionDate"],
+    [userStatuses.activated, "validationDate"]
+];
+const statusMap = statusEntries.reduce(function (acc, [key, val]) {
+    acc[key] = val;
+    return acc;
+}, {});
 function defineDriverRegistration(connection, user) {
     const emitter = new CustomEmitter("Registration emitter");
     const registration = connection.define("driver_registration", schema, {
@@ -59,19 +67,20 @@ function defineDriverRegistration(connection, user) {
         const data = this.dataValues;
         let result = Object.create(null);
         Object.assign(result, data);
-        let props = requiredProps.concat("status", "id");
+        let props = requiredProps.concat(optionalProps.concat("contributorId"));
         result = propertiesPicker(result)(props);
         result.registrationDate = data.createdAt.toISOString();
         result.carInfos = pathToURL(result.carInfos);
+        if (statusMap[result.status] !== undefined) {
+            result[statusMap[result.status]] = data.updatedAt.toISOString();
+        }
         delete result.password;
         return result;
     };
 
     registration.prototype.toUserData = function () {
         let result = this.dataValues;
-        result = propertiesPicker(result)(
-            requiredProps.concat("sponsorCode", "lang")
-        );
+        result = propertiesPicker(result)(requiredProps);
         result.phone = result.phoneNumber;
         delete result.phoneNumber;
         return result;
@@ -90,14 +99,15 @@ function defineDriverRegistration(connection, user) {
         let results;
         const clause = {};
         const query = paginationQuery(offset, maxSize);
+        const settled = () =>  buildClause(
+            "contributorId",
+            buildClause(Op.eq, contributorId ?? "")
+        );
+
         query.order = order;
         query.where = {};
         query.where[Op.and] = [
             buildPeriodQuery(from, to, "updatedAt"),
-            buildClause(
-                "contributorId",
-                buildClause(Op.eq, contributorId ?? null)
-            )
         ];
         if (typeof name === "string" && name.length > 0) {
             clause[Op.like] = "%" + name + "%";
@@ -105,8 +115,17 @@ function defineDriverRegistration(connection, user) {
                 where(fn("CONCAT", col("firstName"), col("lastName")), clause)
             );
         }
-        if (typeof status === "string") {
-            query.where[Op.and].push({status: buildClause(Op.eq, status)});
+        if (Array.isArray(status) && status.length > 0) {
+            query.where[Op.and].push({status: buildClause(Op.in, status)});
+            query.where[Op.and].push(settled());
+        } else {
+            query.where[Op.or] = [
+                buildClause("contributorId", buildClause(Op.eq, null)),
+                buildClause(Op.and, [settled(), buildClause(
+                    "status",
+                    buildClause(Op.eq, userStatuses.pendingValidation)
+                )])
+            ];
         }
         results = await registration.findAll(query);
         if (offset > 0) {
