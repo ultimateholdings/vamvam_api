@@ -9,9 +9,11 @@ const {
     propertiesPicker
 } = require("../utils/helpers");
 const {
+    apiDeliveryStatus,
     apiSettings,
     conflictStatuses,
     dbSettings,
+    dbStatusMap,
     deliveryStatuses
 } = require("../utils/config");
 const {
@@ -142,14 +144,16 @@ function defineDeliveryModel(connection, userModel) {
         return propertiesPicker(result)(conflictProps);
     };
     delivery.getOngoing = function (driverId) {
-        return delivery.findAll({where: {
-            driverId,
-            status: buildClause(Op.in, [
-                deliveryStatuses.started,
-                deliveryStatuses.pendingReception,
-                deliveryStatuses.toBeConfirmed
-            ])
-        }});
+        return delivery.findAll({
+            where: {
+                driverId,
+                status: buildClause(Op.in, [
+                    deliveryStatuses.started,
+                    deliveryStatuses.pendingReception,
+                    deliveryStatuses.toBeConfirmed
+                ])
+            }
+        });
     };
     delivery.prototype.getRecipientPhones = function () {
         let {main, others} = this.dataValues.recipientInfos;
@@ -181,14 +185,30 @@ function defineDeliveryModel(connection, userModel) {
         }
         return result;
     };
-    delivery.getAllStats = function ({from, to}) {
+    delivery.getAnalytics = async function analyticsGetter({from, to}) {
         let query = {
             attributes: ["status"],
             group: ["status"],
             where: buildClause(Op.and, buildPeriodQuery(from, to))
         };
-        return delivery.count(query);
+        let results = await delivery.count(query);
+        const initialResult = Object.keys(apiDeliveryStatus).reduce(
+            function (acc, key) {
+                acc[key] = 0;
+                return acc;
+            },
+            {total: 0}
+        );
+        results = results.reduce(function (acc, entry) {
+            if (dbStatusMap[entry.status] !== undefined) {
+                acc[dbStatusMap[entry.status]] = entry.count;
+                acc.total += entry.count;
+            }
+            return acc;
+        }, initialResult);
+        return results;
     };
+
     delivery.getAll = async function ({from, maxSize, offset, status, to}) {
         let results;
         let formerLastId;
@@ -284,7 +304,10 @@ function defineDeliveryModel(connection, userModel) {
     delivery.updateUser = function (id) {
         return {
             with: async function (datas) {
-                const [updated] = await userModel.update(datas, {where: {id}});
+                const [updated] = await userModel.update(
+                    datas,
+                    {where: {id}}
+                );
                 return updated > 0;
             }
         };
@@ -328,6 +351,8 @@ function defineDeliveryModel(connection, userModel) {
         const deliveries = await getDeliveries({clause: {id}});
         return deliveries[0];
     };
+
+    userModel.getDeliveriesAnalytics = delivery.getAnalytics;
     userModel.hasOngoingDelivery = async function (driverId) {
         const result = await delivery.getOngoing(driverId);
         return result.length > 0;

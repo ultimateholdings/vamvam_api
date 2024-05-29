@@ -1,7 +1,7 @@
-/*jslintparams
+/*jslint
 node
 */
-const {Delivery, DeliveryConflict, User} = require("../models");
+const {Delivery} = require("../models");
 const {errors, eventMessages} = require("../utils/system-messages");
 const mailer = require("../utils/email-handler")();
 const {
@@ -22,13 +22,6 @@ const {
     toDbPoint
 } = require("../utils/helpers");
 
-const dbStatusMap = Object.entries(apiDeliveryStatus).reduce(
-    function (acc, [key, value]) {
-        acc[value] = key;
-        return acc;
-    },
-    Object.create(null)
-);
 
 function calculatePrice(distanceInKm) {
     let price;
@@ -467,22 +460,7 @@ function getDeliveryModule({model}) {
     }
 
     async function getAnalytics(req, res) {
-        const {from, to} = req.query;
-        let results = await deliveryModel.getAllStats({from, to});
-        const initialResult = Object.keys(apiDeliveryStatus).reduce(
-            function (acc, key) {
-                acc[key] = 0;
-                return acc;
-            },
-            {total: 0}
-        );
-        results = results.reduce(function (acc, entry) {
-            if (dbStatusMap[entry.status] !== undefined) {
-                acc[dbStatusMap[entry.status]] = entry.count;
-                acc.total += entry.count;
-            }
-            return acc;
-        }, initialResult);
+        let results = await deliveryModel.getAnalytics(req.query);
         res.status(200).json({results});
     }
 

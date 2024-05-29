@@ -93,6 +93,13 @@ const apiDeliveryStatus = Object.freeze({
     ongoing: deliveryStatuses.started,
     terminated: deliveryStatuses.terminated
 });
+const dbStatusMap = Object.entries(apiDeliveryStatus).reduce(
+    function (acc, [key, value]) {
+        acc[value] = key;
+        return acc;
+    },
+    Object.create(null)
+);
 const userStatuses = {
     activated: "active",
     inactive: "desactivated",
@@ -115,7 +122,7 @@ const staticPaymentProps = {
     debit_amount: 300,
     debit_type: "withdrawal",
     recharge_point: 0,
-    
+
 };
 const config = Object.freeze({
     ages,
@@ -129,6 +136,7 @@ const config = Object.freeze({
         settingReducer,
         Object.create(null)
     )),
+    dbStatusMap,
     deliveryStatuses,
     getFirebaseConfig() {
         const {
