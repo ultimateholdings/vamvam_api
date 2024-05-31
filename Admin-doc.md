@@ -130,6 +130,15 @@ The `type` property is always a **string** and the `value` is always and **Objec
 
 **Response**    [userData](./README.md#userdata)[]
 
+#### Gather all unsettled conflicts
+
+**Endpoint**    `/delivery/conflict/all-new`
+
+**Request Type**    `GET`
+
+**Response**    [conflictData](#conflictdata)
+
+
 #### Assign an internal driver to a conflicting delivery
 
 **Endpoint**    `/delivery/conflict/assign-driver`

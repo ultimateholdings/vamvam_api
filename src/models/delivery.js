@@ -202,8 +202,8 @@ function defineDeliveryModel(connection, userModel) {
         results = results.reduce(function (acc, entry) {
             if (dbStatusMap[entry.status] !== undefined) {
                 acc[dbStatusMap[entry.status]] = entry.count;
-                acc.total += entry.count;
             }
+            acc.total += entry.count;
             return acc;
         }, initialResult);
         return results;

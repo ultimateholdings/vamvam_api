@@ -145,6 +145,11 @@ Trans.getAllByTime = async function ({limit, offset, type}) {
 async function transactionSummary({fieldMap, from, id, to}) {
     let query;
     let results;
+    const defautResult = {};
+    defautResult[fieldMap.point ?? "point"] = 0;
+    defautResult[fieldMap.solde ?? "solde"] = 0;
+    defautResult[fieldMap.bonus ?? "bonus"] = 0;
+
     query = {
         attributes: [
             [fn("SUM", fn(
@@ -173,7 +178,7 @@ async function transactionSummary({fieldMap, from, id, to}) {
         query.where.driverId = id;
     }
     results = await Trans.findAll(query);
-    return results[0].dataValues;
+    return results[0]?.dataValues ?? defautResult;
 }
 
 User.getTransactionCount = (from, to) => transactionSummary({
