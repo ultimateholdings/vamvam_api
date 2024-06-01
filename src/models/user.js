@@ -106,8 +106,7 @@ function defineUserModel(connection) {
     });
     user.prototype.toResponse = function () {
         let data = this.dataValues;
-        let result = {};
-        Object.assign(result, data);
+        let result = Object.assign({}, data);
         result.position = formatDbPoint(result.position);
         if (result.avatar !== null && result.avatar !== undefined) {
             result.avatar = pathToURL(result.avatar);
@@ -165,40 +164,6 @@ function defineUserModel(connection) {
             });
         }
         return result ?? [];
-    };
-    user.getAll = async function ({
-        maxSize = 10,
-        offset = 0,
-        name,
-        role
-    }) {
-        let query = types.paginationQuery(offset, maxSize);
-        let results;
-        let formerLastId;
-        query.where = types.buildClause(Op.and, []);
-        query.where[Op.and].push(types.buildClause("role", types.buildClause(
-            Op.in,
-            (role ?? Object.values(availableRoles)).filter(
-                (val) => val !== availableRoles.adminRole
-            )
-        )));
-        if (typeof name === "string") {
-            query.where[Op.and].push(where(
-                fn("CONCAT", col("firstName"), " ", col("lastName")),
-                types.buildClause(Op.like, "%" + name + "%")
-            ))
-        }
-        query.paranoid = false;
-        results = await user.findAll(query);
-        if (offset > 0) {
-            formerLastId = results.shift();
-            formerLastId = formerLastId?.id;
-        }
-        return {
-            formerLastId,
-            lastId: results.at(-1)?.id,
-            values: results.map((user) => user.toResponse())
-        };
     };
     user.prototype.setAvailability = function available(isAvailable) {
         this.available = isAvailable;
