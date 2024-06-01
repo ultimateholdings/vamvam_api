@@ -1,11 +1,10 @@
 /*jslint node*/
-// const {Op} = require("sequelize");
-const {col, fn, literal} = require("sequelize");
+const {Op, col, fn, literal} = require("sequelize");
 const {sequelizeConnection} = require("../utils/db-connector.js");
 const connection = sequelizeConnection();
 const User = require("./user.js")(connection);
 const otpRequest = require("./otp_request.js")(connection);
-const {delivery, conflict} = require("./delivery.js")(connection, User);
+const {conflict, delivery} = require("./delivery.js")(connection, User);
 const Bundle = require("./bundle.js")(connection);
 const Trans = require("./transaction.js")(connection);
 const Payment = require("./payment.js")(connection);
@@ -14,22 +13,19 @@ const roomModels = require("./room.model.js")(connection, User, delivery);
 const Blacklist = require("./blacklist.js")(connection, User);
 const Settings = require("./settings.js")(connection);
 const {Sponsor, Sponsorship} = require("./sponsor.js")(connection, User);
-const types = require("./helper");
+const {buildClause, buildPeriodQuery, paginationQuery} = require("./helper");
 const order = [["createdAt", "DESC"]];
-const {
-    apiDeliveryStatus,
-} = require("../utils/config");
 
 Bundle.hasOne(Payment, {
     as: "Pack",
     constraints: false,
     foreignKey: "packId"
-})
+});
 User.hasOne(Payment, {
     as: "Driver",
     constraints: false,
     foreignKey: "driverId"
-})
+});
 Trans.belongsTo(User, {
     as: "Driver",
     constraints: false,
@@ -37,7 +33,7 @@ Trans.belongsTo(User, {
 });
 
 Settings.addEventListener("settings-update", function (data) {
-    if(data.type === "delivery") {
+    if (data.type === "delivery") {
         delivery.setSettings(data.value);
     }
     if (data.type === "otp") {
@@ -47,38 +43,19 @@ Settings.addEventListener("settings-update", function (data) {
 Settings.forward("user-revocation-requested").to(delivery);
 Registration.forward("new-registration").to(delivery);
 
-delivery.getAnalytics = async function getAnalytics({from, to}) {
-    let results = await delivery.getAllStats({from, to});
-    const initialResult = Object.keys(apiDeliveryStatus).reduce(
-        function (acc, key) {
-            acc[key] = 0;
-            return acc;
-        },
-        {total: 0}
-    );
-    results = results.reduce(function (acc, entry) {
-        if (dbStatusMap[entry.status] !== undefined) {
-            acc[dbStatusMap[entry.status]] = entry.count;
-            acc.total += entry.count;
-        }
-        return acc;
-    }, initialResult);
-    return results;
-}
-
 Trans.getAll = async function ({
     maxSize = 10,
     offset = 0,
     type
 }) {
-    let query = types.paginationQuery(offset, maxSize);
+    let query = paginationQuery(offset, maxSize);
     let results;
     let formerLastId;
     if (typeof type === "string") {
-        query.where = {type: type};
+        query.where = {type};
     }
     query.paranoid = false;
-    query.include =  [
+    query.include = [
         {
             as: "Driver",
             attributes: ["id", "firstName", "lastName", "avatar"],
@@ -98,15 +75,15 @@ Trans.getAll = async function ({
             avatar,
             firstName,
             lastName
-        } = row.Driver
+        } = row.Driver;
         return Object.freeze({
             amount: point * unitPrice,
+            avatar,
             bonus,
             date,
-            point,
-            avatar,
             firstName,
-            lastName
+            lastName,
+            point
         });
     });
     if (offset > 0) {
@@ -119,7 +96,7 @@ Trans.getAll = async function ({
         values: results.rows
     };
 };
-Trans.getAllByTime= async function ({limit, offset, type}) {
+Trans.getAllByTime = async function ({limit, offset, type}) {
     let result;
     let query;
     query = {
@@ -133,12 +110,12 @@ Trans.getAllByTime= async function ({limit, offset, type}) {
         ],
         limit,
         offset,
-        order,
+        order
+    };
+    if (type !== null && type !== undefined) {
+        query.where = {type};
     }
-    if (type !== null && typeof type !== "undefined") {
-        query.where = {type: type};
-    }
-    
+
     result = await Trans.findAndCountAll(query);
     result.rows = result.rows.map(function (row) {
         const {
@@ -151,60 +128,79 @@ Trans.getAllByTime= async function ({limit, offset, type}) {
             avatar,
             firstName,
             lastName
-        } = row.Driver
+        } = row.Driver;
         return Object.freeze({
             amount: point * unitPrice,
+            avatar,
             bonus,
             date,
-            point,
-            avatar,
             firstName,
-            lastName
+            lastName,
+            point
         });
     });
     return result;
 };
-Trans.getAllCount = async function countGetter({from, to}) {
+
+async function transactionSummary({fieldMap, from, id, to}) {
     let query;
+    let results;
+    const defautResult = {};
+    defautResult[fieldMap.point ?? "point"] = 0;
+    defautResult[fieldMap.solde ?? "solde"] = 0;
+    defautResult[fieldMap.bonus ?? "bonus"] = 0;
+
     query = {
         attributes: [
-            "type",
-            [fn("SUM", col("point")), "totalPoint"],
-            [fn("SUM", literal("`point` * `unitPrice`" )), "totalAmount"],
-            [fn("SUM", col("bonus")), "totalBonus"],
+            [fn("SUM", fn(
+                "IF",
+                literal("`type`='recharge'"),
+                col("point"),
+                literal("-1 * `point`")
+            )), fieldMap.point ?? "point"],
+            [fn("SUM", fn(
+                "IF",
+                literal("`type`='recharge'"),
+                literal("`point` * `unitPrice`"),
+                literal("-1 * `point` * `unitPrice`")
+            )), fieldMap.solde ?? "solde"],
+            [fn("SUM", fn(
+                "IF",
+                literal("`type`='recharge'"),
+                col("bonus"),
+                literal("-1 * `bonus`")
+            )), fieldMap.bonus ?? "bonus"]
         ],
         group: ["type"],
-        where: types.buildPeriodQuery(from, to)
+        where: buildClause(Op.and, buildPeriodQuery(from, to))
+    };
+    if (id !== null && id !== undefined) {
+        query.where.driverId = id;
     }
-    result = await Trans.findAll(query);
-    result = result.reduce(function (acc, entry) {
-        let factor;
-        const {type, totalPoint, totalAmount, totalBonus} = entry.dataValues;
-        factor = (type === "recharge" ? 1 : -1);
-        acc.bonus += factor * totalBonus;
-        acc.point += factor * totalPoint;
-        acc.total += factor * totalAmount;
-        return acc;
-    }, { bonus: 0, point: 0, total: 0});
-    return result;
-};
-User.getTransactionCount = Trans.getAllCount;
-delivery.getDriverBalance = Trans.getDriverBalance;
-User.getDeliveriesAnalytics = delivery.getAnalytics;
+    results = await Trans.findAll(query);
+    return results[0]?.dataValues ?? defautResult;
+}
+
+User.getTransactionCount = (from, to) => transactionSummary({
+    fieldMap: {solde: "total"},
+    from,
+    to
+});
+delivery.getDriverBalance = (id) => transactionSummary({id});
 module.exports = Object.freeze({
     Blacklist,
     Bundle,
     Delivery: delivery,
     DeliveryConflict: conflict,
     Message: roomModels.message,
+    Payment,
     Registration,
     Room: roomModels.room,
-    User,
-    Transaction: Trans,
-    Payment,
     Settings,
     Sponsor,
     Sponsorship,
+    Transaction: Trans,
+    User,
     UserRoom: roomModels.userJoin,
     connection,
     otpRequest
