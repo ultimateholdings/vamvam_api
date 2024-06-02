@@ -183,7 +183,7 @@ const config = Object.freeze({
     getPaymentConfig(transactionId) {
         let verify_url;
         const result = Object.create(null);
-        verify_url = process.env.flw_verify_url;
+        verify_url = process.env.flw_verify_url ?? "";
         verify_url = verify_url.replace("transactionId", transactionId);
         result.expect_currency = process.env.currency;
         result.flw_key = process.env.FLW_SECRET_KEY;

@@ -43,6 +43,8 @@ function getRegistrationMidleware(model) {
         if (Object.keys(body).length !== requiredDatas.length || !hasFile) {
             sendResponse(res, errors.invalidValues);
         } else {
+            body.lang = req.body.lang;
+            body.sponsorCode = req.body.sponsorCode;
             req.body = body;
             next();
         }
