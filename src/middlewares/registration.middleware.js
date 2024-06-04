@@ -3,7 +3,6 @@ const {userStatuses} = require("../utils/config");
 const {errors} = require("../utils/system-messages");
 const {
     fileExists,
-    propertiesPicker,
     sendResponse
 } = require("../utils/helpers");
 
@@ -45,6 +44,7 @@ function getRegistrationMidleware(model) {
         } else {
             body.lang = req.body.lang;
             body.sponsorCode = req.body.sponsorCode;
+            body.gender = req.body.gender;
             req.body = body;
             next();
         }

@@ -205,9 +205,9 @@ User.getAll = async function ({
         "sum(if(`type`='recharge', `point`*`unitPrice`, " +
             "-1*`point`*`unitPrice`)) as solde"
     ]);
-    query.clauses.push(`\`role\` in (${query.roles.map(
-        (role) => `'${role}'`
-    ).filter((v) => v !== availableRoles.adminRole).join(",")})`);
+    query.clauses.push(`\`role\` in (${query.roles.filter(
+        (v) => v !== availableRoles.adminRole
+    ).map((role) => `'${role}'`).join(",")})`);
     if (typeof name === "string") {
         query.clauses.push(
             `concat(\`firstName\`, ' ', \`lastName\`) like '%${name}%' `

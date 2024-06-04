@@ -38,7 +38,9 @@ const schema = {
 };
 const optionalProps = ["id", "status"];
 const requiredProps = Object.keys(schema).filter(
-    (key) => !optionalProps.concat(["lang", "sponsorCode"]).includes(key)
+    (key) => !optionalProps.concat(
+        ["gender", "lang", "sponsorCode"]
+    ).includes(key)
 );
 const statusEntries = [
     [userStatuses.rejected, "rejectionDate"],
@@ -67,7 +69,7 @@ function defineDriverRegistration(connection, user) {
         const data = this.dataValues;
         let result = Object.assign(Object.create(null), data);
         let props = requiredProps.concat(optionalProps).concat(
-            ["contributorId"]
+            ["contributorId", "lang", "sponsorCode", "gender"]
         );
         result = propertiesPicker(result)(props);
         result.registrationDate = data.createdAt.toISOString();
@@ -82,7 +84,7 @@ function defineDriverRegistration(connection, user) {
     registration.prototype.toUserData = function () {
         let result = this.dataValues;
         result = propertiesPicker(result)(requiredProps.concat(
-            ["lang", "sponsorCode"]
+            ["lang", "sponsorCode", "gender"]
         ));
         result.phone = result.phoneNumber;
         delete result.phoneNumber;
