@@ -173,7 +173,7 @@ with the date serialization to avoid false negative*/
                 where: {phone: registration.phoneNumber}
             });
             assert.isNotNull(response);
-            response = await app.post("/driver/reject-validation").send({
+            response = await app.post("/driver/reject-registration").send({
                 id: registration.id
             }).set("authorization", "Bearer " + managerToken);
             assert.equal(response.status, errors.cannotPerformAction.status);

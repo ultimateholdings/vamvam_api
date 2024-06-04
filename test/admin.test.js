@@ -159,7 +159,7 @@ describe("admin features tests", function () {
             token: dbUsers.admin.token,
             url: "/user/analytics"
         });
-        assert.deepEqual(response.body, expected);
+        assert.deepEqual(response.body.users, expected);
     });
 });
 
@@ -201,6 +201,7 @@ describe("sponsoring tests", function () {
             result.email = result.email.replace("@bar", id + "@bar");
             return result;
         });
+        allUsers = await User.bulkCreate(allUsers);
         Sponsorship.bulkCreate(allUsers.map(function (user, index) {
             let sponsorId;
             if (index % 3 === 0) {
@@ -212,7 +213,6 @@ describe("sponsoring tests", function () {
         }));
         admin = await User.create(users.admin);
         admin.token = generateToken(admin);
-        allUsers = await User.bulkCreate(allUsers);
     });
     afterEach(async function () {
         await connection.drop();

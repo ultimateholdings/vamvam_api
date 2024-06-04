@@ -3,7 +3,6 @@ const {userStatuses} = require("../utils/config");
 const {errors} = require("../utils/system-messages");
 const {
     fileExists,
-    propertiesPicker,
     sendResponse
 } = require("../utils/helpers");
 
@@ -43,6 +42,9 @@ function getRegistrationMidleware(model) {
         if (Object.keys(body).length !== requiredDatas.length || !hasFile) {
             sendResponse(res, errors.invalidValues);
         } else {
+            body.lang = req.body.lang;
+            body.sponsorCode = req.body.sponsorCode;
+            body.gender = req.body.gender;
             req.body = body;
             next();
         }

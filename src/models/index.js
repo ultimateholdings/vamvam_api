@@ -1,6 +1,8 @@
 /*jslint node*/
-const {Op, col, fn, literal} = require("sequelize");
+const {Op, col, fn, literal, where} = require("sequelize");
 const {sequelizeConnection} = require("../utils/db-connector.js");
+const {availableRoles} = require("../utils/config.js");
+const {formatDbPoint, pathToURL} = require("../utils/helpers.js");
 const connection = sequelizeConnection();
 const User = require("./user.js")(connection);
 const otpRequest = require("./otp_request.js")(connection);
@@ -180,6 +182,86 @@ async function transactionSummary({fieldMap, from, id, to}) {
     results = await Trans.findAll(query);
     return results[0]?.dataValues ?? defautResult;
 }
+
+User.getAll = async function ({
+    maxSize = 10,
+    name,
+    offset = 0,
+    role
+}) {
+    let query = paginationQuery(offset, maxSize);
+    let results;
+    let formerLastId;
+    const forbiden = ["deviceToken", "password", "id", "createdAt", "updatedAt"];
+    query.clauses = [];
+    query.roles = role ?? Object.values(availableRoles);
+    query.props = Object.keys(User.getAttributes()).filter(
+        (key) => !forbiden.includes(key)
+    ).concat([
+        `${User.getTableName()}.id`,
+        `${User.getTableName()}.createdAt as createdAt`,
+        "sum(if(`type`='recharge', `point`, -1*`point`)) as point",
+        "sum(if(`type`='recharge', `bonus`, -1*`bonus`)) as bonus",
+        "sum(if(`type`='recharge', `point`*`unitPrice`, " +
+            "-1*`point`*`unitPrice`)) as solde"
+    ]);
+    query.clauses.push(`\`role\` in (${query.roles.filter(
+        (v) => v !== availableRoles.adminRole
+    ).map((role) => `'${role}'`).join(",")})`);
+    if (typeof name === "string") {
+        query.clauses.push(
+            `concat(\`firstName\`, ' ', \`lastName\`) like '%${name}%' `
+        );
+    }
+    query.sql = `select ${query.props.join(", ")}
+        from ${User.getTableName()} left join ${Trans.getTableName()}
+        on ${User.getTableName()}.id = ${Trans.getTableName()}.driverId
+        where (${query.clauses.join(" and ")})
+        group by ${User.getTableName()}.id
+        limit ${query.offset}, ${query.limit}
+    `;
+
+    results = await connection.query(query.sql, {
+        type: connection.QueryTypes.SELECT
+    });
+    results = results.map(function (result) {
+        const clone = Object.assign({}, result);
+        clone.position = formatDbPoint(clone.position);
+        if (clone.avatar !== null && clone.avatar !== undefined) {
+            clone.avatar = pathToURL(clone.avatar);
+        }
+        if (clone.carInfos !== null && clone.carInfos !== undefined) {
+            clone.carInfos = pathToURL(clone.carInfos);
+        }
+        if (clone.deletedAt !== null) {
+            clone.deleted = true;
+        }
+
+        if (clone.role === availableRoles.driverRole) {
+            clone.bonus = result.bonus ?? 0;
+            clone.point = result.point ?? 0;
+            clone.solde = result.solde ?? 0;
+        } else {
+            delete clone.carInfos;
+            delete clone.position;
+            delete clone.available;
+            delete clone.bonus;
+            delete clone.point;
+            delete clone.solde;
+        }
+
+        return clone;
+    });
+    if (offset > 0) {
+        formerLastId = results.shift();
+        formerLastId = formerLastId?.id;
+    }
+    return {
+        formerLastId,
+        lastId: results.at(-1)?.id,
+        values: results
+    };
+};
 
 User.getTransactionCount = (from, to) => transactionSummary({
     fieldMap: {solde: "total"},

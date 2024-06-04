@@ -121,7 +121,7 @@ function getAdminModule({associatedModels}) {
         const {id, maxPageSize, skip} = req.query;
         const pageToken = req.headers["page-token"];
         const getParams = function (params) {
-            if (typeof id === "string" && id.length > 0) {
+            if (typeof id === "string" && id.trim().length > 0) {
                 params.id = id.trim();
             }
             return params;
